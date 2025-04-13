@@ -76,3 +76,9 @@ struct GeneralView: View {
         }
     }
 }
+
+#Preview("General Settings") {
+    GeneralView()
+        .frame(width: 512)
+        .padding()
+}
