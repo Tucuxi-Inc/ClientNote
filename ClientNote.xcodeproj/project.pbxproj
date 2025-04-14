@@ -55,6 +55,7 @@
 		0AFC5AA92C66A20C00A148A2 /* CodeBlockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AFC5AA82C66A20C00A148A2 /* CodeBlockView.swift */; };
 		175D318C2C64ADF9009B58E0 /* DefaultFontSizeField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 175D318B2C64ADF9009B58E0 /* DefaultFontSizeField.swift */; };
 		4A4A8EBE2D5047590065A5EC /* String+ReplaceAndTrim.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A4A8EBD2D5047590065A5EC /* String+ReplaceAndTrim.swift */; };
+		8807AC192DACBBC600C3D195 /* EasyNoteSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8807AC182DACBBC600C3D195 /* EasyNoteSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -100,6 +101,7 @@
 		0AFC5AA82C66A20C00A148A2 /* CodeBlockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeBlockView.swift; sourceTree = "<group>"; };
 		175D318B2C64ADF9009B58E0 /* DefaultFontSizeField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultFontSizeField.swift; sourceTree = "<group>"; };
 		4A4A8EBD2D5047590065A5EC /* String+ReplaceAndTrim.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+ReplaceAndTrim.swift"; sourceTree = "<group>"; };
+		8807AC182DACBBC600C3D195 /* EasyNoteSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EasyNoteSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -242,6 +244,7 @@
 				0AF5662D2C6431FB00D6E01A /* CircleButton.swift */,
 				0AF566312C65582300D6E01A /* MessageButton.swift */,
 				0ADB95EC2C5D42E200EB0C60 /* UserMessageView.swift */,
+				8807AC182DACBBC600C3D195 /* EasyNoteSheet.swift */,
 			);
 			path = Subviews;
 			sourceTree = "<group>";
@@ -426,6 +429,7 @@
 				0ADB95E42C5D34B200EB0C60 /* SidebarListItemView.swift in Sources */,
 				0A4D35992AF5425900846890 /* AppView.swift in Sources */,
 				0A6E852E2C5EAA750030A4AA /* ChatPreferencesFooterView.swift in Sources */,
+				8807AC192DACBBC600C3D195 /* EasyNoteSheet.swift in Sources */,
 				0ADB95E82C5D3BE900EB0C60 /* SidebarContextMenu.swift in Sources */,
 				0AFC5AA52C6694F400A148A2 /* ExperimentalView.swift in Sources */,
 				0AB3629F2C398C3300DE3F31 /* AppUpdater.swift in Sources */,

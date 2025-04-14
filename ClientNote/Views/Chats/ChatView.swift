@@ -1,6 +1,6 @@
 //
 //  ChatView.swift
-//  Ollamac
+//  ClientNote
 //
 //  Created by Kevin Hermawan on 8/2/24.
 //
@@ -24,6 +24,7 @@ struct ChatView: View {
     @State private var prompt: String = ""
     @State private var scrollProxy: ScrollViewProxy? = nil
     @State private var isPreferencesPresented: Bool = false
+    @State private var isEasyNotePresented: Bool = false
     @FocusState private var isFocused: Bool
 
     init() {
@@ -62,38 +63,16 @@ struct ChatView: View {
                 }
                 
                 VStack {
-                    ChatField("Write your message here", text: $prompt) {
-                        if messageViewModel.loading != .generate {
-                            generateAction()
-                        }
-                    } trailingAccessory: {
-                        CircleButton(systemImage: messageViewModel.loading == .generate ? "stop.fill" : "arrow.up", action: generateAction)
-                            .disabled(prompt.isEmpty && messageViewModel.loading != .generate)
-                    } footer: {
-                        if chatViewModel.loading != nil {
-                            ProgressView()
-                                .controlSize(.small)
-                        } else if case .fetchModels(let message) = chatViewModel.error {
-                            HStack {
-                                Text(message)
-                                    .foregroundStyle(.red)
-                                
-                                Button("Try Again", action: onActiveChatChanged)
-                                    .buttonStyle(.plain)
-                                    .foregroundStyle(.blue)
-                            }
-                            .font(.callout)
-                        } else if messageViewModel.messages.isEmpty == false {
-                            ChatFieldFooterView("\u{2318}+R to regenerate the response")
-                                .foregroundColor(.secondary)
-                        } else {
-                            ChatFieldFooterView("AI can make mistakes. Please double-check responses.")
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    .chatFieldStyle(.capsule)
-                    .focused($isFocused)
-                    .font(Font.system(size: fontSize))
+                    ChatFieldView(
+                        prompt: $prompt,
+                        isEasyNotePresented: $isEasyNotePresented,
+                        messageViewModel: messageViewModel,
+                        chatViewModel: chatViewModel,
+                        fontSize: fontSize,
+                        isFocused: _isFocused,
+                        generateAction: generateAction,
+                        onActiveChatChanged: onActiveChatChanged
+                    )
                 }
                 .padding(.top, 8)
                 .padding(.bottom, 12)
@@ -133,6 +112,11 @@ struct ChatView: View {
         .inspector(isPresented: $isPreferencesPresented) {
             ChatPreferencesView(ollamaKit: $ollamaKit)
                 .inspectorColumnWidth(min: 320, ideal: 320)
+        }
+        .sheet(isPresented: $isEasyNotePresented) {
+            NavigationView {
+                EasyNoteSheet(prompt: $prompt, generateAction: generateAction)
+            }
         }
     }
     
@@ -199,6 +183,86 @@ struct ChatView: View {
         
         DispatchQueue.main.async {
             proxy.scrollTo(lastMessage, anchor: .bottom)
+        }
+    }
+}
+
+struct ChatFieldView: View {
+    @Binding var prompt: String
+    @Binding var isEasyNotePresented: Bool
+    let messageViewModel: MessageViewModel
+    let chatViewModel: ChatViewModel
+    let fontSize: Double
+    @FocusState var isFocused: Bool
+    let generateAction: () -> Void
+    let onActiveChatChanged: () -> Void
+    
+    var body: some View {
+        VStack {
+            HStack {
+                // Easy Note Button
+                Button(action: { isEasyNotePresented = true }) {
+                    Image(systemName: "note.text.badge.plus")
+                        .foregroundStyle(.foreground)
+                        .fontWeight(.bold)
+                        .padding(8)
+                }
+                .background(.background)
+                .buttonStyle(.borderless)
+                .clipShape(.circle)
+                .colorInvert()
+                
+                // Chat Field
+                TextField("Write your message here", text: $prompt)
+                    .textFieldStyle(.roundedBorder)
+                    .focused($isFocused)
+                    .font(Font.system(size: fontSize))
+                    .onSubmit {
+                        if messageViewModel.loading != .generate {
+                            generateAction()
+                        }
+                    }
+                
+                // Send Button
+                Button(action: generateAction) {
+                    Image(systemName: messageViewModel.loading == .generate ? "stop.fill" : "arrow.up")
+                        .foregroundStyle(.foreground)
+                        .fontWeight(.bold)
+                        .padding(8)
+                }
+                .background(.background)
+                .buttonStyle(.borderless)
+                .clipShape(.circle)
+                .colorInvert()
+                .disabled(prompt.isEmpty && messageViewModel.loading != .generate)
+            }
+            .padding(8)
+            .background(Color(.textBackgroundColor))
+            .clipShape(Capsule())
+            
+            // Footer
+            if chatViewModel.loading != nil {
+                ProgressView()
+                    .controlSize(.small)
+            } else if case .fetchModels(let message) = chatViewModel.error {
+                HStack {
+                    Text(message)
+                        .foregroundStyle(.red)
+                    
+                    Button("Try Again", action: onActiveChatChanged)
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.blue)
+                }
+                .font(.callout)
+            } else if messageViewModel.messages.isEmpty == false {
+                Text("\u{2318}+R to regenerate the response")
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+            } else {
+                Text("AI can make mistakes. Please double-check responses.")
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+            }
         }
     }
 }
