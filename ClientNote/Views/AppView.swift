@@ -1,8 +1,8 @@
 //
 //  AppView.swift
-//  Ollamac
+//  ClientNote
 //
-//  Created by Kevin Hermawan on 03/11/23.
+//  Created by Kevin Keller on 04/13/25.
 //
 
 import SwiftUI
