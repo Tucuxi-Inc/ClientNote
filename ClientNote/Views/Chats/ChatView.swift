@@ -121,7 +121,7 @@ struct ChatView: View {
                 codeHighlighter.enabled = experimentalCodeHighlighting
             }
         }
-        .navigationTitle(chatViewModel.activeChat?.name ?? "Ollamac")
+        .navigationTitle(chatViewModel.activeChat?.name ?? "ClientNote")
         .navigationSubtitle(chatViewModel.activeChat?.model ?? "")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {

@@ -1,6 +1,6 @@
 //
-//  OllamacApp.swift
-//  Ollamac
+//  ClientNoteApp.swift
+//  ClientNote
 //
 //  Created by Kevin Hermawan on 03/11/23.
 //
@@ -12,7 +12,7 @@ import SwiftUI
 import SwiftData
 
 @main
-struct OllamacApp: App {
+struct ClientNoteApp: App {
     @State private var appUpdater: AppUpdater
     private var updater: SPUUpdater
     
@@ -82,7 +82,7 @@ struct OllamacApp: App {
             
             CommandGroup(replacing: .help) {
                 if let helpURL = AppInfo.value(for: "HELP_URL"), let url = URL(string: helpURL) {
-                    Link("Ollamac Help", destination: url)
+                    Link("ClientNote Help", destination: url)
                 }
             }
 

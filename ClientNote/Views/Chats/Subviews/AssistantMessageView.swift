@@ -1,6 +1,6 @@
 //
 //  AssistantMessageView.swift
-//  Ollamac
+//  ClientNote
 //
 //  Created by Kevin Hermawan on 8/2/24.
 //
@@ -50,7 +50,7 @@ struct AssistantMessageView: View {
                         FontSize(CGFloat(fontSize))
                         FontFamily(.system(.monospaced))
                     }
-                    .markdownTheme(.ollamac)
+                    .markdownTheme(Theme.clientNote)
                     .markdownCodeSyntaxHighlighter(experimentalCodeHighlighting ? codeHighlighter : .plainText)
                     .id(codeHighlighter.stateHashValue)
 

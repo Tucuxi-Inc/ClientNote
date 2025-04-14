@@ -1,61 +1,61 @@
 {
   "images" : [
     {
-      "filename" : "AppIcon_16x16.png",
+      "filename" : "ClientNote App Icon 16.png",
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "16x16"
     },
     {
-      "filename" : "AppIcon_32x32.png",
+      "filename" : "ClientNote App Icon 33.png",
       "idiom" : "mac",
       "scale" : "2x",
       "size" : "16x16"
     },
     {
-      "filename" : "AppIcon_32x32 1.png",
+      "filename" : "ClientNote App Icon 32.png",
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "32x32"
     },
     {
-      "filename" : "AppIcon_64x64.png",
+      "filename" : "ClientNote App Icon 64.png",
       "idiom" : "mac",
       "scale" : "2x",
       "size" : "32x32"
     },
     {
-      "filename" : "AppIcon_128x128.png",
+      "filename" : "ClientNote App Icon 128.png",
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "128x128"
     },
     {
-      "filename" : "AppIcon_256x256.png",
+      "filename" : "ClientNote App Icon 256.png",
       "idiom" : "mac",
       "scale" : "2x",
       "size" : "128x128"
     },
     {
-      "filename" : "AppIcon_256x256 1.png",
+      "filename" : "ClientNote App Icon 258.png",
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "256x256"
     },
     {
-      "filename" : "AppIcon_512x512 1.png",
+      "filename" : "ClientNote App Icon 512.png",
       "idiom" : "mac",
       "scale" : "2x",
       "size" : "256x256"
     },
     {
-      "filename" : "AppIcon_512x512.png",
+      "filename" : "ClientNote App Icon 513.png",
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "512x512"
     },
     {
-      "filename" : "AppIcon_1024x1024.png",
+      "filename" : "ClientNote App Icon.png",
       "idiom" : "mac",
       "scale" : "2x",
       "size" : "512x512"
