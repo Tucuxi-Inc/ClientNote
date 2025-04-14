@@ -24,5 +24,9 @@
     <string>https://raw.githubusercontent.com/kevinkeller/ClientNote/main/appcast.xml</string>
     <key>SUPublicEDKey</key>
     <string>YOUR_PUBLIC_ED_KEY</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>We need access to your microphone to enable voice input for therapy notes.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>We need speech recognition to convert your voice input into text for therapy notes.</string>
 </dict>
 </plist> 

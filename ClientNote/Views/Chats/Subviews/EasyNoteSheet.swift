@@ -1,4 +1,6 @@
 import SwiftUI
+import Speech
+import AVFoundation
 
 struct EasyNoteSheet: View {
     @Binding var prompt: String
@@ -22,6 +24,17 @@ struct EasyNoteSheet: View {
     @State private var customClinicalFocus = ""
     @State private var treatmentGoals = "Reduce anxiety symptoms"
     @State private var customTreatmentGoals = ""
+    
+    // Additional Notes
+    @State private var additionalNotes = ""
+    @State private var isRecording = false
+    @State private var speechRecognizer: SFSpeechRecognizer?
+    @State private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+    @State private var recognitionTask: SFSpeechRecognitionTask?
+    @State private var audioEngine = AVAudioEngine()
+    @State private var showingPermissionAlert = false
+    @State private var showingNetworkAlert = false
+    @State private var networkErrorMessage = ""
     
     private let noteFormats = ["BIRP", "PIRP", "SOAP", "DAP", "Other"]
     private let approaches = ["CBT", "DBT", "ACT", "Psychodynamic", "Person-Centered", "EMDR", "IFS"]
@@ -47,95 +60,139 @@ struct EasyNoteSheet: View {
     
     var body: some View {
         NavigationView {
-            Form {
-                Section("Note Format") {
-                    Picker("Format", selection: $selectedNoteFormat) {
-                        ForEach(noteFormats, id: \.self) { format in
-                            Text(format).tag(format)
+            HSplitView {
+                // Left column - Form fields
+                Form {
+                    Section("Note Format") {
+                        Picker("Format", selection: $selectedNoteFormat) {
+                            ForEach(noteFormats, id: \.self) { format in
+                                Text(format).tag(format)
+                            }
                         }
-                    }
-                    .pickerStyle(.segmented)
-                    
-                    if selectedNoteFormat == "Other" {
-                        TextField("Custom Format", text: $customNoteFormat)
-                    }
-                }
-                
-                Section("Therapeutic Approach") {
-                    Picker("Approach", selection: $selectedApproach) {
-                        ForEach(approaches, id: \.self) { approach in
-                            Text(approach).tag(approach)
+                        .pickerStyle(.segmented)
+                        
+                        if selectedNoteFormat == "Other" {
+                            TextField("Custom Format", text: $customNoteFormat)
                         }
                     }
                     
-                    if let approachInterventions = interventions[selectedApproach] {
-                        ForEach(approachInterventions, id: \.self) { intervention in
-                            Toggle(intervention, isOn: Binding(
-                                get: { selectedInterventions.contains(intervention) },
-                                set: { isSelected in
-                                    if isSelected {
-                                        selectedInterventions.insert(intervention)
-                                    } else {
-                                        selectedInterventions.remove(intervention)
+                    Section("Therapeutic Approach") {
+                        Picker("Approach", selection: $selectedApproach) {
+                            ForEach(approaches, id: \.self) { approach in
+                                Text(approach).tag(approach)
+                            }
+                        }
+                        
+                        if let approachInterventions = interventions[selectedApproach] {
+                            ForEach(approachInterventions, id: \.self) { intervention in
+                                Toggle(intervention, isOn: Binding(
+                                    get: { selectedInterventions.contains(intervention) },
+                                    set: { isSelected in
+                                        if isSelected {
+                                            selectedInterventions.insert(intervention)
+                                        } else {
+                                            selectedInterventions.remove(intervention)
+                                        }
                                     }
-                                }
-                            ))
-                        }
-                    }
-                }
-                
-                Section("Presenting Issue") {
-                    Picker("Issue", selection: $presentingIssue) {
-                        ForEach(presentingIssues, id: \.self) { issue in
-                            Text(issue).tag(issue)
+                                ))
+                            }
                         }
                     }
                     
-                    if presentingIssue == "Other" {
-                        TextField("Custom Issue", text: $customPresentingIssue)
-                    }
-                }
-                
-                Section("Client Response") {
-                    Picker("Response", selection: $clientResponse) {
-                        ForEach(clientResponses, id: \.self) { response in
-                            Text(response).tag(response)
+                    Section("Presenting Issue") {
+                        Picker("Issue", selection: $presentingIssue) {
+                            ForEach(presentingIssues, id: \.self) { issue in
+                                Text(issue).tag(issue)
+                            }
+                        }
+                        
+                        if presentingIssue == "Other" {
+                            TextField("Custom Issue", text: $customPresentingIssue)
                         }
                     }
                     
-                    if clientResponse == "Other" {
-                        TextField("Custom Response", text: $customClientResponse)
-                    }
-                }
-                
-                Section("Clinical Focus") {
-                    Picker("Focus", selection: $clinicalFocus) {
-                        ForEach(clinicalFocuses, id: \.self) { focus in
-                            Text(focus).tag(focus)
+                    Section("Client Response") {
+                        Picker("Response", selection: $clientResponse) {
+                            ForEach(clientResponses, id: \.self) { response in
+                                Text(response).tag(response)
+                            }
+                        }
+                        
+                        if clientResponse == "Other" {
+                            TextField("Custom Response", text: $customClientResponse)
                         }
                     }
                     
-                    if clinicalFocus == "Other" {
-                        TextField("Custom Focus", text: $customClinicalFocus)
-                    }
-                }
-                
-                Section("Treatment Goals") {
-                    Picker("Goals", selection: $treatmentGoals) {
-                        ForEach(treatmentGoalsList, id: \.self) { goal in
-                            Text(goal).tag(goal)
+                    Section("Clinical Focus") {
+                        Picker("Focus", selection: $clinicalFocus) {
+                            ForEach(clinicalFocuses, id: \.self) { focus in
+                                Text(focus).tag(focus)
+                            }
+                        }
+                        
+                        if clinicalFocus == "Other" {
+                            TextField("Custom Focus", text: $customClinicalFocus)
                         }
                     }
                     
-                    if treatmentGoals == "Other" {
-                        TextField("Custom Goals", text: $customTreatmentGoals)
+                    Section("Treatment Goals") {
+                        Picker("Goals", selection: $treatmentGoals) {
+                            ForEach(treatmentGoalsList, id: \.self) { goal in
+                                Text(goal).tag(goal)
+                            }
+                        }
+                        
+                        if treatmentGoals == "Other" {
+                            TextField("Custom Goals", text: $customTreatmentGoals)
+                        }
                     }
                 }
+                .frame(minWidth: 300, maxWidth: 400)
+                
+                // Right column - Additional Notes
+                VStack {
+                    Text("Additional Notes")
+                        .font(.headline)
+                        .padding(.top)
+                    
+                    TextEditor(text: $additionalNotes)
+                        .font(.body)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .padding(8)
+                        .background(Color(.textBackgroundColor))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .padding()
+                    
+                    HStack {
+                        Button(action: {
+                            if isRecording {
+                                stopRecording()
+                            } else {
+                                startRecording()
+                            }
+                        }) {
+                            Label(isRecording ? "Stop Recording" : "Start Recording", 
+                                  systemImage: isRecording ? "stop.circle.fill" : "mic.circle.fill")
+                                .foregroundColor(isRecording ? .red : .blue)
+                        }
+                        .buttonStyle(.bordered)
+                        .padding(.bottom)
+                        
+                        if isRecording {
+                            Text("Recording...")
+                                .foregroundColor(.red)
+                                .padding(.bottom)
+                        }
+                    }
+                }
+                .frame(minWidth: 300, maxWidth: .infinity)
+                .padding()
             }
             .navigationTitle("Easy Note")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
+                        cleanupResources()
                         dismiss()
                     }
                 }
@@ -143,12 +200,251 @@ struct EasyNoteSheet: View {
                     Button("Generate Note") {
                         generatePrompt()
                         generateAction()
+                        cleanupResources()
                         dismiss()
                     }
                 }
             }
+            .alert("Microphone Access Required", isPresented: $showingPermissionAlert) {
+                Button("Open Settings") {
+                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")!)
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Please enable microphone access in System Settings to use voice input.")
+            }
+            .alert("Speech Recognition Error", isPresented: $showingNetworkAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(networkErrorMessage)
+            }
         }
-        .frame(minWidth: 500, minHeight: 600)
+        .frame(minWidth: 800, minHeight: 600)
+        .onAppear {
+            resetState()
+            requestSpeechRecognitionPermission()
+        }
+        .onDisappear {
+            cleanupResources()
+        }
+    }
+    
+    private func resetState() {
+        // Reset all state variables to their initial values
+        selectedNoteFormat = "BIRP"
+        customNoteFormat = ""
+        selectedApproach = "CBT"
+        selectedInterventions = []
+        presentingIssue = "Anxiety"
+        customPresentingIssue = ""
+        clientResponse = "Engaged and cooperative"
+        customClientResponse = ""
+        clinicalFocus = "Cognitive distortions"
+        customClinicalFocus = ""
+        treatmentGoals = "Reduce anxiety symptoms"
+        customTreatmentGoals = ""
+        additionalNotes = ""
+        isRecording = false
+        showingPermissionAlert = false
+        showingNetworkAlert = false
+        networkErrorMessage = ""
+    }
+    
+    private func cleanupResources() {
+        // Stop recording if active
+        if isRecording {
+            stopRecording()
+        }
+        
+        // Clean up speech recognition resources
+        recognitionTask?.cancel()
+        recognitionTask = nil
+        recognitionRequest?.endAudio()
+        recognitionRequest = nil
+        
+        // Reset audio engine
+        if audioEngine.isRunning {
+            audioEngine.stop()
+            audioEngine.inputNode.removeTap(onBus: 0)
+        }
+        
+        // Reset speech recognizer
+        speechRecognizer = nil
+    }
+    
+    private func requestSpeechRecognitionPermission() {
+        SFSpeechRecognizer.requestAuthorization { status in
+            DispatchQueue.main.async {
+                switch status {
+                case .authorized:
+                    print("Speech recognition authorized")
+                    // Initialize speech recognizer after authorization
+                    self.speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+                    if let recognizer = self.speechRecognizer {
+                        if recognizer.isAvailable {
+                            print("Speech recognition is available")
+                        } else {
+                            print("Speech recognition is not available on this device")
+                            self.showingPermissionAlert = true
+                        }
+                    } else {
+                        print("Failed to initialize speech recognizer")
+                        self.showingPermissionAlert = true
+                    }
+                case .denied:
+                    print("Speech recognition permission denied")
+                    self.showingPermissionAlert = true
+                case .restricted:
+                    print("Speech recognition is restricted on this device")
+                    self.showingPermissionAlert = true
+                case .notDetermined:
+                    print("Speech recognition authorization not determined")
+                    self.showingPermissionAlert = true
+                @unknown default:
+                    print("Unknown authorization status")
+                    self.showingPermissionAlert = true
+                }
+            }
+        }
+    }
+    
+    private func startRecording() {
+        guard let recognizer = speechRecognizer else {
+            print("Speech recognizer not initialized")
+            return
+        }
+        
+        guard recognizer.isAvailable else {
+            print("Speech recognition is not available")
+            networkErrorMessage = "Speech recognition is not available on this device."
+            showingNetworkAlert = true
+            return
+        }
+        
+        do {
+            if audioEngine.isRunning {
+                audioEngine.stop()
+                recognitionRequest?.endAudio()
+                isRecording = false
+                return
+            }
+            
+            // Reset any existing task
+            recognitionTask?.cancel()
+            recognitionTask = nil
+            
+            let inputNode = audioEngine.inputNode
+            recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
+            
+            guard let recognitionRequest = recognitionRequest else {
+                print("Unable to create recognition request")
+                networkErrorMessage = "Unable to create recognition request. Please try again."
+                showingNetworkAlert = true
+                return
+            }
+            
+            recognitionRequest.shouldReportPartialResults = true
+            
+            recognitionTask = recognizer.recognitionTask(with: recognitionRequest) { [self] result, error in
+                if let error = error {
+                    print("Recognition error: \(error.localizedDescription)")
+                    if let error = error as NSError? {
+                        print("Error domain: \(error.domain)")
+                        print("Error code: \(error.code)")
+                        
+                        // Handle specific error cases
+                        switch (error.domain, error.code) {
+                        case ("kLSRErrorDomain", 301):
+                            // This is a normal cancellation when stopping recording
+                            print("Recognition request canceled (normal)")
+                            return
+                        case ("kAFAssistantErrorDomain", 1101):
+                            // Local speech recognition error
+                            print("Local speech recognition error: \(error.localizedDescription)")
+                            return
+                        case (_, 1110):
+                            // Only show "No speech detected" error if we're still recording
+                            // and haven't received any results yet
+                            if isRecording && additionalNotes.isEmpty {
+                                networkErrorMessage = "No speech detected. Please try speaking again."
+                                showingNetworkAlert = true
+                            }
+                        default:
+                            // Only show error alert for unexpected errors
+                            if !isRecording {
+                                // Don't show errors if we're stopping recording
+                                return
+                            }
+                            networkErrorMessage = "Speech recognition error: \(error.localizedDescription)"
+                            showingNetworkAlert = true
+                        }
+                    }
+                    self.stopRecording()
+                    return
+                }
+                
+                guard let result = result else {
+                    print("No recognition result available")
+                    return
+                }
+                
+                print("Received recognition result: \(result.bestTranscription.formattedString)")
+                
+                DispatchQueue.main.async {
+                    // Only update if we have content to avoid clearing the field
+                    if !result.bestTranscription.formattedString.isEmpty {
+                        self.additionalNotes = result.bestTranscription.formattedString
+                    }
+                }
+                
+                if result.isFinal {
+                    print("Recognition completed with final result")
+                    // Don't stop recording here, let the user control it
+                }
+            }
+            
+            guard recognitionTask != nil else {
+                print("Failed to create recognition task")
+                networkErrorMessage = "Failed to create recognition task. Please try again."
+                showingNetworkAlert = true
+                return
+            }
+            
+            let recordingFormat = inputNode.outputFormat(forBus: 0)
+            inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
+                recognitionRequest.append(buffer)
+            }
+            
+            audioEngine.prepare()
+            try audioEngine.start()
+            isRecording = true
+            print("Recording started successfully")
+            
+        } catch {
+            print("Error starting recording: \(error.localizedDescription)")
+            if let error = error as NSError? {
+                print("Error domain: \(error.domain)")
+                print("Error code: \(error.code)")
+                networkErrorMessage = "Error starting recording: \(error.localizedDescription)"
+                showingNetworkAlert = true
+            }
+            stopRecording()
+        }
+    }
+    
+    private func stopRecording() {
+        print("Stopping recording...")
+        
+        // Cancel the recognition task first to prevent error messages
+        recognitionTask?.cancel()
+        recognitionTask = nil
+        
+        audioEngine.stop()
+        audioEngine.inputNode.removeTap(onBus: 0)
+        recognitionRequest?.endAudio()
+        recognitionRequest = nil
+        isRecording = false
+        print("Recording stopped")
     }
     
     private func generatePrompt() {
@@ -162,7 +458,7 @@ struct EasyNoteSheet: View {
             "No specific interventions selected" : 
             selectedInterventions.joined(separator: ", ")
         
-        prompt = """
+        var promptText = """
         You are a clinical documentation assistant helping a therapist generate an insurance-ready psychotherapy progress note using the \(noteFormat) format.
 
         Guidelines:
@@ -181,9 +477,15 @@ struct EasyNoteSheet: View {
         Client response: \(clientResponseText)  
         Clinical focus: \(clinicalFocusText)  
         Treatment goal(s): \(treatmentGoalsText)
-
-        Now generate the note.
         """
+        
+        if !additionalNotes.isEmpty {
+            promptText += "\n\nAdditional Notes:\n\(additionalNotes)"
+        }
+        
+        promptText += "\n\nNow generate the note."
+        
+        prompt = promptText
     }
 }
 
