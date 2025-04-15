@@ -42,7 +42,8 @@ final class MessageViewModel {
         }
     }
     
-    func generate(_ ollamaKit: OllamaKit, activeChat: Chat, prompt: String) {
+    func generate(_ ollamaKit: OllamaKit, activeChat: Chat, prompt: String, modelPrompt: String? = nil) {
+        // Create a message with the display prompt (without PIRP instructions)
         let message = Message(prompt: prompt)
         message.chat = activeChat
         messages.append(message)
@@ -55,7 +56,8 @@ final class MessageViewModel {
             defer { self.loading = nil }
             
             do {
-                let data = message.toOKChatRequestData(messages: self.messages)
+                // Use the modelPrompt if provided, otherwise use the display prompt
+                let data = message.toOKChatRequestData(messages: self.messages, modelPrompt: modelPrompt)
                 
                 for try await chunk in ollamaKit.chat(data: data) {
                     if Task.isCancelled { break }

@@ -28,6 +28,12 @@ final class Message: Identifiable {
         self.chat?.model ?? ""
     }
 
+    @Transient var displayPrompt: String {
+        // Split the prompt at the PIRP instructions marker
+        let components = prompt.components(separatedBy: "\n\nFor your reference, here is how to structure PIRP Clinical Note Language.")
+        return components[0]  // Return just the visible part
+    }
+
     var responseText: String {
         var response = self.response ?? ""
 
@@ -44,14 +50,20 @@ final class Message: Identifiable {
 }
 
 extension Message {
-    func toOKChatRequestData(messages: [Message]) -> OKChatRequestData {
+    func toOKChatRequestData(messages: [Message], modelPrompt: String? = nil) -> OKChatRequestData {
         var requestMessages = [OKChatRequestData.Message]()
         
         for message in messages {
-            let userMessage = OKChatRequestData.Message(role: .user, content: message.prompt)
-            let assistantMessage = OKChatRequestData.Message(role: .assistant, content: message.response ?? "")
+            // For the current message, use the modelPrompt if provided
+            if message.id == self.id, let modelPrompt = modelPrompt {
+                let userMessage = OKChatRequestData.Message(role: .user, content: modelPrompt)
+                requestMessages.append(userMessage)
+            } else {
+                let userMessage = OKChatRequestData.Message(role: .user, content: message.prompt)
+                requestMessages.append(userMessage)
+            }
             
-            requestMessages.append(userMessage)
+            let assistantMessage = OKChatRequestData.Message(role: .assistant, content: message.response ?? "")
             requestMessages.append(assistantMessage)
         }
         
