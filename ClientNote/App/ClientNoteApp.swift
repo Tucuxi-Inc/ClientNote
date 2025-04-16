@@ -7,14 +7,12 @@
 
 import Defaults
 import AppInfo
-import Sparkle
 import SwiftUI
 import SwiftData
 
 @main
 struct ClientNoteApp: App {
     @State private var appUpdater: AppUpdater
-    private var updater: SPUUpdater
     
     @State private var chatViewModel: ChatViewModel
     @State private var messageViewModel: MessageViewModel
@@ -34,10 +32,8 @@ struct ClientNoteApp: App {
     init() {
         let modelContext = sharedModelContainer.mainContext
         
-        let updaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
-        self.updater = updaterController.updater
-        
-        let appUpdater = AppUpdater(updater)
+        // Initialize AppUpdater without Sparkle
+        let appUpdater = AppUpdater()
         self._appUpdater = State(initialValue: appUpdater)
         
         let chatViewModel = ChatViewModel(modelContext: modelContext)
@@ -74,10 +70,12 @@ struct ClientNoteApp: App {
             }
             
             CommandGroup(after: .appInfo) {
+                // For Mac App Store, updates are handled automatically
+                // This button is kept as a placeholder but will be disabled
                 Button("Check for Updates...") {
-                    updater.checkForUpdates()
+                    // No action needed for Mac App Store
                 }
-                .disabled(appUpdater.canCheckForUpdates == false)
+                .disabled(true)
             }
             
             CommandGroup(replacing: .help) {
@@ -98,14 +96,19 @@ struct ClientNoteApp: App {
         
         Settings {
             SettingsView()
+                .environment(chatViewModel)
+                .environment(messageViewModel)
+                .environment(codeHighlighter)
         }
     }
-
-    func increaseFontSize() {
+    
+    private func increaseFontSize() {
         Defaults[.fontSize] += 1
+        codeHighlighter.fontSize = Defaults[.fontSize]
     }
-
-    func decreaseFontSize() {
-        Defaults[.fontSize] = max(Defaults[.fontSize] - 1, 8)
+    
+    private func decreaseFontSize() {
+        Defaults[.fontSize] -= 1
+        codeHighlighter.fontSize = Defaults[.fontSize]
     }
 }

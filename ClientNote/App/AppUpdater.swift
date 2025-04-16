@@ -5,17 +5,15 @@
 //  Created by Kevin Hermawan on 06/07/24.
 //
 
-import Combine
 import Foundation
-import Sparkle
 
 @Observable
 final class AppUpdater {
-    private var cancellable: AnyCancellable?
+    // For Mac App Store distribution, updates are handled automatically
+    // This class is kept as a placeholder for compatibility
     var canCheckForUpdates = false
     
-    init(_ updater: SPUUpdater) {
-        cancellable = updater.publisher(for: \.canCheckForUpdates)
-            .assign(to: \.canCheckForUpdates, on: self)
+    init() {
+        // No initialization needed for Mac App Store
     }
 }
