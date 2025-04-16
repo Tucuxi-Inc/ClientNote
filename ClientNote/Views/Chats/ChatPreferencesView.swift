@@ -17,6 +17,7 @@ struct ChatPreferencesView: View {
     
     @State private var isUpdateOllamaHostPresented: Bool = false
     @State private var isUpdateSystemPromptPresented: Bool = false
+    @State private var showAdvancedSettings: Bool = false
     
     @Default(.defaultModel) private var model: String
     @State private var host: String
@@ -45,7 +46,7 @@ struct ChatPreferencesView: View {
                 }
             } header: {
                 HStack {
-                    Text("Model")
+                    Text("Pick Model")
                     
                     Spacer()
                     
@@ -67,90 +68,122 @@ struct ChatPreferencesView: View {
             }
             
             Section {
-                Text(host)
-                    .help(host)
-                    .lineLimit(1)
-            } header: {
-                HStack {
-                    Text("Host")
-                    
-                    Spacer()
-                    
-                    Button("Change", action: { isUpdateOllamaHostPresented = true })
-                        .buttonStyle(.accessoryBar)
-                        .foregroundColor(.accent)
-                }
+                // Empty section for spacing
             }
-            .onChange(of: host) { _, newValue in
-                self.chatViewModel.activeChat?.host = newValue
+            
+            Section {
+                // Empty section for additional spacing
+            }
+            
+            Section {
+                Button(action: {
+                    withAnimation {
+                        showAdvancedSettings.toggle()
+                    }
+                }) {
+                    HStack {
+                        Text("Advanced Settings")
+                        Spacer()
+                        Image(systemName: showAdvancedSettings ? "chevron.up" : "chevron.down")
+                            .font(.caption)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+            
+            if showAdvancedSettings {
+                Section {
+                    Text(host)
+                        .help(host)
+                        .lineLimit(1)
+                } header: {
+                    HStack {
+                        Text("Host")
+                        
+                        Spacer()
+                        
+                        Button("Change", action: { isUpdateOllamaHostPresented = true })
+                            .buttonStyle(.accessoryBar)
+                            .foregroundColor(.accent)
+                    }
+                }
+                .onChange(of: host) { _, newValue in
+                    self.chatViewModel.activeChat?.host = newValue
+                    
+                    if let baseURL = URL(string: newValue) {
+                        self.ollamaKit = OllamaKit(baseURL: baseURL)
+                    }
+                }
                 
-                if let baseURL = URL(string: newValue) {
-                    self.ollamaKit = OllamaKit(baseURL: baseURL)
+                Section {
+                    Text(systemPrompt)
+                        .help(systemPrompt)
+                        .lineLimit(3)
+                } header: {
+                    HStack {
+                        Text("System Prompt")
+                        
+                        Spacer()
+                        
+                        Button("Change", action: { isUpdateSystemPromptPresented = true })
+                            .buttonStyle(.accessoryBar)
+                            .foregroundColor(.accent)
+                    }
+                } footer: {
+                    Button("Restore Default System Prompt") {
+                        systemPrompt = "You're ClientNote.  You are a clinical documentation assistant helping a therapist generate an insurance-ready psychotherapy progress note. Guidelines: Use clear, objective, and concise clinical language, Maintain gender-neutral pronouns, Do not make up quotes - only use exact quotes if and when provided by the user. Focus on observable behaviors, reported thoughts and feelings, therapist interventions, and clinical goals, Apply relevant approaches and techniques, including typical interventions and session themes, Use documentation language suitable for EHRs and insurance billing, If schemas, distortions, or core beliefs are addressed, name them using standard psychological terms, Conclude with a brief, action-oriented treatment planYou are playing the role of a psychotherapist writing a note after a session with a client. You will use the information provided to you here to write a psychotherapy progress note using (unless otherwise instructed by the user) the BIRP format (Behavior, Intervention, Response, Plan). The note must: Use insurance-ready language, Be written in concise, objective, and professional tone, Maintain gender-neutral pronouns, Emphasize observable behaviors, reported thoughts and emotions, and therapist interventions, Include identification of maladaptive schemas or cognitive distortions as appropriate, Follow best practices for documentation, avoiding vague or interpretive language, Now write the note using the context provided to you by the user prompt."
+                    }
+                    .buttonStyle(.link)
+                    .font(.caption)
                 }
-            }
-            
-            Section {
-                Text(systemPrompt)
-                    .help(systemPrompt)
-                    .lineLimit(3)
-            } header: {
-                HStack {
-                    Text("System Prompt")
-                    
-                    Spacer()
-                    
-                    Button("Change", action: { isUpdateSystemPromptPresented = true })
-                        .buttonStyle(.accessoryBar)
-                        .foregroundColor(.accent)
+                .onChange(of: systemPrompt) { _, newValue in
+                    self.chatViewModel.activeChat?.systemPrompt = newValue
                 }
-            }
-            .onChange(of: systemPrompt) { _, newValue in
-                self.chatViewModel.activeChat?.systemPrompt = newValue
-            }
-            
-            Section {
-                Slider(value: $temperature, in: 0...1, step: 0.1) {
-                    Text(temperature.formatted())
-                } minimumValueLabel: {
-                    Text("0")
-                } maximumValueLabel: {
-                    Text("1")
+                
+                Section {
+                    Slider(value: $temperature, in: 0...1, step: 0.1) {
+                        Text(temperature.formatted())
+                    } minimumValueLabel: {
+                        Text("0")
+                    } maximumValueLabel: {
+                        Text("1")
+                    }
+                } header: {
+                    Text("Temperature")
+                } footer: {
+                    ChatPreferencesFooterView("Controls randomness. Higher values increase creativity, lower values are more focused.")
                 }
-            } header: {
-                Text("Temperature")
-            } footer: {
-                ChatPreferencesFooterView("Controls randomness. Higher values increase creativity, lower values are more focused.")
-            }
-            .onChange(of: temperature) { _, newValue in
-                self.chatViewModel.activeChat?.temperature = newValue
-            }
-            
-            Section {
-                Slider(value: $topP, in: 0...1, step: 0.1) {
-                    Text(topP.formatted())
-                } minimumValueLabel: {
-                    Text("0")
-                } maximumValueLabel: {
-                    Text("1")
+                .onChange(of: temperature) { _, newValue in
+                    self.chatViewModel.activeChat?.temperature = newValue
                 }
-            } header: {
-                Text("Top P")
-            } footer: {
-                ChatPreferencesFooterView("Affects diversity. Higher values increase variety, lower values are more conservative.")
-            }
-            .onChange(of: topP) { _, newValue in
-                self.chatViewModel.activeChat?.topP = newValue
-            }
-            
-            Section {
-                Stepper(topK.formatted(), value: $topK)
-            } header: {
-                Text("Top K")
-            } footer: {
-                ChatPreferencesFooterView("Limits token pool. Higher values increase diversity, lower values are more focused.")
-            }
-            .onChange(of: topK) { _, newValue in
-                self.chatViewModel.activeChat?.topK = newValue
+                
+                Section {
+                    Slider(value: $topP, in: 0...1, step: 0.1) {
+                        Text(topP.formatted())
+                    } minimumValueLabel: {
+                        Text("0")
+                    } maximumValueLabel: {
+                        Text("1")
+                    }
+                } header: {
+                    Text("Top P")
+                } footer: {
+                    ChatPreferencesFooterView("Affects diversity. Higher values increase variety, lower values are more conservative.")
+                }
+                .onChange(of: topP) { _, newValue in
+                    self.chatViewModel.activeChat?.topP = newValue
+                }
+                
+                Section {
+                    Stepper(topK.formatted(), value: $topK)
+                } header: {
+                    Text("Top K")
+                } footer: {
+                    ChatPreferencesFooterView("Limits token pool. Higher values increase diversity, lower values are more focused.")
+                }
+                .onChange(of: topK) { _, newValue in
+                    self.chatViewModel.activeChat?.topK = newValue
+                }
             }
         }
         .onChange(of: self.chatViewModel.activeChat) { _, newValue in
