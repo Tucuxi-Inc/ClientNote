@@ -48,6 +48,10 @@ struct EasyNoteSheet: View {
     @State private var treatmentGoals = "Reduce anxiety symptoms"
     @State private var customTreatmentGoals = ""
     
+    // Location field
+    @State private var selectedLocation = "In-Person"
+    private let locations = ["In-Person", "Telehealth"]
+    
     // Insurance Code/Diagnosis Fields
     @State private var insuranceQuery = ""
     @State private var icdResults: [ICDResult] = []
@@ -277,6 +281,18 @@ struct EasyNoteSheet: View {
                             .datePickerStyle(.compact)
                     } header: {
                         Text("Session Information")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                    }
+                    
+                    Section {
+                        Picker("Location", selection: $selectedLocation) {
+                            ForEach(locations, id: \.self) { location in
+                                Text(location).tag(location)
+                            }
+                        }
+                    } header: {
+                        Text("Session Location")
                             .font(.title3)
                             .fontWeight(.bold)
                     }
@@ -542,6 +558,7 @@ struct EasyNoteSheet: View {
         customClinicalFocus = ""
         treatmentGoals = "Reduce anxiety symptoms"
         customTreatmentGoals = ""
+        selectedLocation = "In-Person"
         additionalNotes = ""
         isRecording = false
         showingPermissionAlert = false
@@ -802,6 +819,14 @@ struct EasyNoteSheet: View {
         
         // Create the base prompt with date and time
         var promptText = "Date: \(formattedDate)\nTime: \(formattedTime)\n\n"
+        
+        // Add location
+        promptText += "Location: \(selectedLocation)\n"
+        
+        // Add telehealth placeholder if needed
+        if selectedLocation == "Telehealth" {
+            promptText += "Telehealth Note: Placeholder Text for Telehealth\n\n"
+        }
         
         // Add note format
         promptText += "Note Format: \(selectedNoteFormat == "Other" ? customNoteFormat : selectedNoteFormat)\n\n"
