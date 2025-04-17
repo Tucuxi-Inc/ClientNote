@@ -1,10 +1,3 @@
-//
-//  UpdateOllamaHostSheet.swift
-//  Ollamac
-//
-//  Created by Kevin Hermawan on 8/7/24.
-//
-
 import OllamaKit
 import SwiftUI
 import ViewState

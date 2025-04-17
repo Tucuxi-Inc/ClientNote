@@ -1,10 +1,3 @@
-//
-//  UserMessageView.swift
-//  Ollamac
-//
-//  Created by Kevin Hermawan on 8/2/24.
-//
-
 import Defaults
 import SwiftUI
 import ViewCondition

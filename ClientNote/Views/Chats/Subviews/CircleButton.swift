@@ -1,10 +1,3 @@
-//
-//  CircleButton.swift
-//  Ollamac
-//
-//  Created by Kevin Hermawan on 8/8/24.
-//
-
 import SwiftUI
 
 public struct CircleButton: View {

@@ -1,10 +1,3 @@
-//
-//  DefaultFontSizeField.swift
-//
-//
-//  Created by Philipp on 28.07.2024.
-//
-
 import Defaults
 import SwiftUI
 

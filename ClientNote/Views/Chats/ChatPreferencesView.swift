@@ -46,7 +46,7 @@ struct ChatPreferencesView: View {
                 }
             } header: {
                 HStack {
-                    Text("Pick Model")
+                    Text("Choose Installed Model")
                     
                     Spacer()
                     

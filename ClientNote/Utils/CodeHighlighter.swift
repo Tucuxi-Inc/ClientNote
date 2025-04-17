@@ -1,10 +1,3 @@
-//
-//  CodeHighlighter.swift
-//  Ollamac
-//
-//  Created by Kevin Hermawan on 06/07/24.
-//
-
 import Defaults
 import Highlightr
 import MarkdownUI

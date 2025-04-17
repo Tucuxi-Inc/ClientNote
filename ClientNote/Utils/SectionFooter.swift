@@ -1,10 +1,3 @@
-//
-//  SectionFooter.swift
-//  Ollamac
-//
-//  Created by Kevin Hermawan on 8/9/24.
-//
-
 import SwiftUI
 
 struct SectionFooter: View {

@@ -1,10 +1,3 @@
-//
-//  ExperimentalView.swift
-//  Ollamac
-//
-//  Created by Kevin Hermawan on 8/10/24.
-//
-
 import Defaults
 import SwiftUI
 
