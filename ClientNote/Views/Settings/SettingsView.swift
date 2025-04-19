@@ -17,5 +17,7 @@ struct SettingsView: View {
         }
         .padding()
         .frame(width: 512)
+        .background(Color.euniBackground)
+        .foregroundColor(Color.euniText)
     }
 }

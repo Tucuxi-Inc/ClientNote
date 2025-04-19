@@ -1,23 +1,24 @@
 import SwiftUI
 
 struct MessageButton: View {
-    private var titleKey: LocalizedStringKey
-    private var systemImage: String
-    private var action: () -> Void
+    private let title: String
+    private let systemImage: String
+    private let action: () -> Void
     
-    init(_ titleKey: LocalizedStringKey, systemImage: String, action: @escaping () -> Void) {
-        self.titleKey = titleKey
+    init(_ title: String, systemImage: String, action: @escaping () -> Void) {
+        self.title = title
         self.systemImage = systemImage
         self.action = action
     }
     
     var body: some View {
         Button(action: action) {
-            Label(titleKey, systemImage: systemImage)
-                .help(titleKey)
-                .labelStyle(.iconOnly)
+            Label(title, systemImage: systemImage)
+                .font(.caption)
+                .foregroundColor(Color.euniSecondary)
         }
-        .frame(minWidth: 20, minHeight: 20)
-        .buttonStyle(.borderless)
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .tint(Color.euniPrimary)
     }
 }

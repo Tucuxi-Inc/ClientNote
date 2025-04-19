@@ -1,15 +1,15 @@
 import SwiftUI
 
 struct SectionFooter: View {
-    private let text: LocalizedStringKey
+    private let text: String
     
-    init(_ text: LocalizedStringKey) {
+    init(_ text: String) {
         self.text = text
     }
     
     var body: some View {
         Text(text)
-            .font(.callout)
-            .foregroundStyle(.secondary)
+            .font(.caption)
+            .foregroundColor(Color.euniSecondary)
     }
 }

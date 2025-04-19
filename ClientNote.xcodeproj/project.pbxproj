@@ -55,6 +55,7 @@
 		175D318C2C64ADF9009B58E0 /* DefaultFontSizeField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 175D318B2C64ADF9009B58E0 /* DefaultFontSizeField.swift */; };
 		4A4A8EBE2D5047590065A5EC /* String+ReplaceAndTrim.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A4A8EBD2D5047590065A5EC /* String+ReplaceAndTrim.swift */; };
 		8807AC192DACBBC600C3D195 /* EasyNoteSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8807AC182DACBBC600C3D195 /* EasyNoteSheet.swift */; };
+		8807ADD12DB30C5400C3D195 /* Color+ClientNoteCustom.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8807ADD02DB30C5400C3D195 /* Color+ClientNoteCustom.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -101,6 +102,7 @@
 		175D318B2C64ADF9009B58E0 /* DefaultFontSizeField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultFontSizeField.swift; sourceTree = "<group>"; };
 		4A4A8EBD2D5047590065A5EC /* String+ReplaceAndTrim.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+ReplaceAndTrim.swift"; sourceTree = "<group>"; };
 		8807AC182DACBBC600C3D195 /* EasyNoteSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EasyNoteSheet.swift; sourceTree = "<group>"; };
+		8807ADD02DB30C5400C3D195 /* Color+ClientNoteCustom.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+ClientNoteCustom.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -295,6 +297,7 @@
 				0A6E85192C5E98770030A4AA /* Optional+Utils.swift */,
 				0A6E851A2C5E98770030A4AA /* String+IsValidURL.swift */,
 				0A6E851B2C5E98770030A4AA /* String+RemoveTrailingSlash.swift */,
+				8807ADD02DB30C5400C3D195 /* Color+ClientNoteCustom.swift */,
 			);
 			path = Extensions;
 			sourceTree = "<group>";
@@ -405,6 +408,7 @@
 				0ADB95ED2C5D42E200EB0C60 /* UserMessageView.swift in Sources */,
 				0ADB95EF2C5D42FF00EB0C60 /* AssistantMessageView.swift in Sources */,
 				0A6E85302C5EB5F90030A4AA /* UpdateSystemPromptSheet.swift in Sources */,
+				8807ADD12DB30C5400C3D195 /* Color+ClientNoteCustom.swift in Sources */,
 				0A6E85152C5E98620030A4AA /* Message.swift in Sources */,
 				0A6E85162C5E98620030A4AA /* Chat.swift in Sources */,
 				0A6E85262C5E98B20030A4AA /* SettingsView.swift in Sources */,
@@ -585,13 +589,15 @@
 				INFOPLIST_FILE = ClientNote/Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ClientNote;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © Kevin Hermawan. All rights reserved.";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2025 Tucuxi, Inc. All rights reserved.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Voice Input for Dictating Note Information";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Voice Input for Dictating Note Information";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = ai.tucuxi.ClientNote;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -620,13 +626,15 @@
 				INFOPLIST_FILE = ClientNote/Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ClientNote;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © Kevin Hermawan. All rights reserved.";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2025 Tucuxi, Inc. All rights reserved.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Voice Input for Dictating Note Information";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Voice Input for Dictating Note Information";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = ai.tucuxi.ClientNote;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

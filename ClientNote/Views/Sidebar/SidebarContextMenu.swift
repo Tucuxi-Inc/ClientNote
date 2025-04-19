@@ -14,10 +14,12 @@ struct SidebarContextMenu: View {
             chatViewModelBindable.isRenameChatPresented = true
         }
         .disabled(chatViewModel.selectedChats.count > 1)
+        .foregroundColor(Color.euniPrimary)
         
         Button("Delete") {
             chatViewModelBindable.isDeleteConfirmationPresented = true
         }
         .keyboardShortcut(.delete, modifiers: [.shift, .command])
+        .foregroundColor(Color.euniError)
     }
 }

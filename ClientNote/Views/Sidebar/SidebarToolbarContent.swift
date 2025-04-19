@@ -13,6 +13,7 @@ struct SidebarToolbarContent: ToolbarContent {
             
             Button(action: addAction) {
                 Label("New Chat", systemImage: "square.and.pencil")
+                    .foregroundColor(Color.euniPrimary)
             }
             .keyboardShortcut("n")
             .help("New Chat")

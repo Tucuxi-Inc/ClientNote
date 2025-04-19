@@ -13,6 +13,7 @@ import ViewCondition
 import Speech
 import AVFoundation
 
+
 @Observable
 class SpeechRecognitionViewModel {
     private var speechRecognizer: SFSpeechRecognizer?
@@ -163,37 +164,57 @@ struct ChatView: View {
     }
     
     var body: some View {
-        ScrollViewReader { proxy in
-            VStack {
-                List(messageViewModel.messages) { message in
-                    let lastMessageId = messageViewModel.messages.last?.id
-                    
-                    UserMessageView(
-                        content: message.displayPrompt,
-                        copyAction: self.copyAction
-                    )
-                    .padding(.top)
-                    .padding(.horizontal)
-                    .listRowSeparator(.hidden)
-                    
-                    AssistantMessageView(
-                        content: message.response ?? messageViewModel.tempResponse,
-                        isGenerating: messageViewModel.loading == .generate,
-                        isLastMessage: lastMessageId == message.id,
-                        copyAction: self.copyAction,
-                        regenerateAction: self.regenerateAction
-                    )
-                    .id(message)
-                    .padding(.top)
-                    .padding(.horizontal)
-                    .listRowSeparator(.hidden)
-                    .if(lastMessageId == message.id) { view in
-                        view.padding(.bottom)
-                    }
-                }
-                
+        MainChatContent(
+            prompt: $prompt,
+            messageViewModel: messageViewModel,
+            chatViewModel: chatViewModel,
+            fontSize: fontSize,
+            isFocused: _isFocused,
+            isEasyNotePresented: $isEasyNotePresented,
+            isPreferencesPresented: $isPreferencesPresented,
+            ollamaKit: $ollamaKit,
+            copyAction: copyAction,
+            generateAction: generateAction,
+            regenerateAction: regenerateAction,
+            onActiveChatChanged: onActiveChatChanged
+        )
+    }
+    
+    // MARK: - Helper Views
+    
+    struct MainChatContent: View {
+        @Binding var prompt: String
+        let messageViewModel: MessageViewModel
+        let chatViewModel: ChatViewModel
+        let fontSize: Double
+        @FocusState var isFocused: Bool
+        @Binding var isEasyNotePresented: Bool
+        @Binding var isPreferencesPresented: Bool
+        @Binding var ollamaKit: OllamaKit
+        let copyAction: (_ content: String) -> Void
+        let generateAction: () -> Void
+        let regenerateAction: () -> Void
+        let onActiveChatChanged: () -> Void
+        
+        @State private var scrollProxy: ScrollViewProxy? = nil
+        @Environment(\.colorScheme) private var colorScheme
+        @Environment(CodeHighlighter.self) private var codeHighlighter
+        @AppStorage("experimentalCodeHighlighting") private var experimentalCodeHighlighting = false
+        
+        var body: some View {
+            ScrollViewReader { proxy in
                 VStack {
-                    ChatFieldView(
+                    MessagesListView(
+                        messages: messageViewModel.messages,
+                        tempResponse: messageViewModel.tempResponse,
+                        isGenerating: messageViewModel.loading == .generate,
+                        copyAction: copyAction,
+                        regenerateAction: regenerateAction
+                    )
+                    .scrollContentBackground(.hidden)
+                    .background(Color.euniFieldBackground.opacity(0.5))
+                    
+                    ChatInputView(
                         prompt: $prompt,
                         isEasyNotePresented: $isEasyNotePresented,
                         messageViewModel: messageViewModel,
@@ -203,52 +224,135 @@ struct ChatView: View {
                         generateAction: generateAction,
                         onActiveChatChanged: onActiveChatChanged
                     )
+                    .padding(.top, 8)
+                    .padding(.bottom, 12)
+                    .padding(.horizontal)
+                    .visible(if: chatViewModel.activeChat.isNotNil, removeCompletely: true)
                 }
-                .padding(.top, 8)
-                .padding(.bottom, 12)
-                .padding(.horizontal)
-                .visible(if: chatViewModel.activeChat.isNotNil, removeCompletely: true)
-            }
-            .onAppear {
-                self.scrollProxy = proxy
-            }
-            .onChange(of: chatViewModel.activeChat?.id, initial: true) {
-                self.onActiveChatChanged()
-            }
-            .onChange(of: messageViewModel.tempResponse) {
-                if let proxy = scrollProxy {
-                    scrollToBottom(proxy: proxy)
+                .onAppear {
+                    self.scrollProxy = proxy
                 }
-            }
-            .onChange(of: colorScheme, initial: true) {
-                codeHighlighter.colorScheme = colorScheme
-            }
-            .onChange(of: fontSize, initial: true) {
-                codeHighlighter.fontSize = fontSize
-            }
-            .onChange(of: experimentalCodeHighlighting) {
-                codeHighlighter.enabled = experimentalCodeHighlighting
-            }
-        }
-        .navigationTitle(chatViewModel.activeChat?.name ?? "ClientNote")
-        .navigationSubtitle(chatViewModel.activeChat?.model ?? "")
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button("Show Preferences", systemImage: "sidebar.trailing") {
-                    isPreferencesPresented.toggle()
+                .onChange(of: chatViewModel.activeChat?.id, initial: true) {
+                    onActiveChatChanged()
+                }
+                .onChange(of: messageViewModel.tempResponse) {
+                    if let proxy = scrollProxy {
+                        scrollToBottom(proxy: proxy, messages: messageViewModel.messages)
+                    }
+                }
+                .onChange(of: colorScheme, initial: true) {
+                    codeHighlighter.colorScheme = colorScheme
+                }
+                .onChange(of: fontSize, initial: true) {
+                    codeHighlighter.fontSize = fontSize
+                }
+                .onChange(of: experimentalCodeHighlighting) {
+                    codeHighlighter.enabled = experimentalCodeHighlighting
                 }
             }
+            .navigationTitle(chatViewModel.activeChat?.name ?? "ClientNote")
+            .navigationSubtitle(chatViewModel.activeChat?.model ?? "")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Show Preferences", systemImage: "sidebar.trailing") {
+                        isPreferencesPresented.toggle()
+                    }
+                    .foregroundColor(Color.euniSecondary)
+                }
+            }
+            .inspector(isPresented: $isPreferencesPresented) {
+                ChatPreferencesView(ollamaKit: $ollamaKit)
+                    .inspectorColumnWidth(min: 320, ideal: 320)
+            }
+            .sheet(isPresented: $isEasyNotePresented) {
+                NavigationView {
+                    EasyNoteSheet(prompt: $prompt, generateAction: generateAction)
+                }
+                .frame(minWidth: 1000, minHeight: 800)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         }
-        .inspector(isPresented: $isPreferencesPresented) {
-            ChatPreferencesView(ollamaKit: $ollamaKit)
-                .inspectorColumnWidth(min: 320, ideal: 320)
-        }
-        .sheet(isPresented: $isEasyNotePresented) {
-            NavigationView {
-                EasyNoteSheet(prompt: $prompt, generateAction: generateAction)
+        
+        private func scrollToBottom(proxy: ScrollViewProxy, messages: [Message]) {
+            guard messages.count > 0 else { return }
+            guard let lastMessage = messages.last else { return }
+            
+            DispatchQueue.main.async {
+                proxy.scrollTo(lastMessage, anchor: .bottom)
             }
         }
     }
+    
+    struct MessagesListView: View {
+        let messages: [Message]
+        let tempResponse: String
+        let isGenerating: Bool
+        let copyAction: (_ content: String) -> Void
+        let regenerateAction: () -> Void
+        
+        var body: some View {
+            ScrollView {
+                LazyVStack(spacing: 16) {
+                    ForEach(messages) { message in
+                        VStack(spacing: 16) {
+                            UserMessageView(content: message.displayPrompt, copyAction: copyAction)
+                            
+                            if let response = message.response {
+                                AssistantMessageView(
+                                    content: response,
+                                    isGenerating: false,
+                                    isLastMessage: message == messages.last,
+                                    copyAction: copyAction,
+                                    regenerateAction: regenerateAction
+                                )
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+                    
+                    if !tempResponse.isEmpty {
+                        AssistantMessageView(
+                            content: tempResponse,
+                            isGenerating: true,
+                            isLastMessage: true,
+                            copyAction: copyAction,
+                            regenerateAction: regenerateAction
+                        )
+                        .padding(.horizontal)
+                    }
+                }
+                .padding(.vertical)
+            }
+        }
+    }
+    
+    struct ChatInputView: View {
+        @Binding var prompt: String
+        @Binding var isEasyNotePresented: Bool
+        let messageViewModel: MessageViewModel
+        let chatViewModel: ChatViewModel
+        let fontSize: Double
+        @FocusState var isFocused: Bool
+        let generateAction: () -> Void
+        let onActiveChatChanged: () -> Void
+        
+        var body: some View {
+            VStack {
+                ChatFieldView(
+                    prompt: $prompt,
+                    isEasyNotePresented: $isEasyNotePresented,
+                    messageViewModel: messageViewModel,
+                    chatViewModel: chatViewModel,
+                    fontSize: fontSize,
+                    isFocused: _isFocused,
+                    generateAction: generateAction,
+                    onActiveChatChanged: onActiveChatChanged
+                )
+            }
+        }
+    }
+    
+    // MARK: - Helper Methods
     
     private func onActiveChatChanged() {
         self.prompt = ""
@@ -308,15 +412,6 @@ struct ChatView: View {
         
         prompt = ""
     }
-    
-    private func scrollToBottom(proxy: ScrollViewProxy) {
-        guard messageViewModel.messages.count > 0 else { return }
-        guard let lastMessage = messageViewModel.messages.last else { return }
-        
-        DispatchQueue.main.async {
-            proxy.scrollTo(lastMessage, anchor: .bottom)
-        }
-    }
 }
 
 struct ChatFieldView: View {
@@ -339,14 +434,13 @@ struct ChatFieldView: View {
                     // Easy Note Button
                     Button(action: { isEasyNotePresented = true }) {
                         Image(systemName: "note.text.badge.plus")
-                            .foregroundStyle(.foreground)
+                            .foregroundStyle(.white)
                             .fontWeight(.bold)
                             .padding(8)
                     }
-                    .background(.background)
+                    .background(Color.euniPrimary)
                     .buttonStyle(.borderless)
                     .clipShape(.circle)
-                    .colorInvert()
                     
                     // Microphone Button
                     Button {
@@ -359,14 +453,13 @@ struct ChatFieldView: View {
                         }
                     } label: {
                         Image(systemName: speechRecognitionVM.isRecording ? "stop.circle.fill" : "mic.circle")
-                            .foregroundStyle(.foreground)
+                            .foregroundStyle(Color.euniText)
                             .fontWeight(.bold)
                             .padding(8)
                     }
-                    .background(.background)
+                    .background(speechRecognitionVM.isRecording ? Color.euniError : Color.euniSecondary)
                     .buttonStyle(.borderless)
                     .clipShape(.circle)
-                    .colorInvert()
                 }
                 
                 // Chat Field
@@ -374,8 +467,12 @@ struct ChatFieldView: View {
                     .font(.system(size: fontSize))
                     .frame(height: max(40, textHeight))
                     .scrollContentBackground(.hidden)
-                    .background(Color(.textBackgroundColor))
+                    .background(Color.euniFieldBackground)
                     .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.euniBorder, lineWidth: 1)
+                    )
                     .focused($isFocused)
                     .onChange(of: prompt) { _, newValue in
                         let size = CGSize(width: NSScreen.main?.frame.width ?? 800 - 100, height: .infinity)
@@ -396,19 +493,22 @@ struct ChatFieldView: View {
                 // Send Button
                 Button(action: generateAction) {
                     Image(systemName: messageViewModel.loading == .generate ? "stop.fill" : "arrow.up")
-                        .foregroundStyle(.foreground)
+                        .foregroundStyle(Color.euniText)
                         .fontWeight(.bold)
                         .padding(8)
                 }
-                .background(.background)
+                .background(messageViewModel.loading == .generate ? Color.euniError : Color.euniPrimary)
                 .buttonStyle(.borderless)
                 .clipShape(.circle)
-                .colorInvert()
                 .disabled(prompt.isEmpty && messageViewModel.loading != .generate)
             }
             .padding(8)
-            .background(Color(.textBackgroundColor))
-            .clipShape(Capsule())
+            .background(Color.euniFieldBackground)
+            .cornerRadius(20)
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(Color.euniBorder, lineWidth: 1)
+            )
             
             // Footer
             if chatViewModel.loading != nil {

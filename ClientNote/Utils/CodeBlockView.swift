@@ -11,13 +11,13 @@ struct CodeBlockView: View {
         VStack(alignment: .leading) {
             HStack {
                 Text(configuration.language?.capitalized ?? "")
-                    .foregroundStyle(.white)
+                    .foregroundColor(Color.euniText)
                 
                 Spacer()
                 
                 Button(action: copyCodeAction) {
                     Text(isCopied ? "Copied!" : "Copy Code")
-                        .foregroundStyle(.white)
+                        .foregroundColor(Color.euniText)
                         .frame(width: 80)
                         .padding(4)
                 }
@@ -25,12 +25,12 @@ struct CodeBlockView: View {
                 .cornerRadius(4)
                 .overlay(
                     RoundedRectangle(cornerRadius: 4)
-                        .stroke(borderColor, lineWidth: 1)
+                        .stroke(Color.euniBorder, lineWidth: 1)
                 )
             }
             .padding(.horizontal)
             .padding(.vertical, 8)
-            .background(headerBackground)
+            .background(Color.euniFieldBackground)
 
             configuration.label
                 .padding(.top, 8)
@@ -38,34 +38,38 @@ struct CodeBlockView: View {
                 .padding(.horizontal)
                 .monospaced()
         }
-        .background(codeBackground)
+        .background(Color.euniFieldBackground)
         .cornerRadius(8)
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .stroke(.secondary, lineWidth: 0.2)
+                .stroke(Color.euniBorder, lineWidth: 0.2)
         )
     }
 
     var headerBackground: some View {
-        Color.primary.brightness(codeHighlighter.colorScheme == .dark ? -0.8 : 0.2)
+        Color.euniFieldBackground
     }
 
     var borderColor: Color {
-        codeHighlighter.colorScheme == .dark ? Color(hex: "#a5a5a9") : Color.gray
+        Color.euniBorder
     }
 
     var codeBackground: some View {
-        Color.primary.brightness(codeHighlighter.colorScheme == .dark ? -0.85 : 0.95)
+        Color.euniFieldBackground
     }
     
     private func copyCodeAction() {
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(configuration.content, forType: .string)
-        isCopied = true
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(configuration.content, forType: .string)
+        
+        withAnimation {
+            isCopied = true
+        }
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-            isCopied = false
+            withAnimation {
+                isCopied = false
+            }
         }
     }
 }

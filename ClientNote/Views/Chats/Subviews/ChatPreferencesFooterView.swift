@@ -11,7 +11,7 @@ struct ChatPreferencesFooterView: View {
         VStack {
             Text(text)
                 .multilineTextAlignment(.leading)
-                .foregroundColor(.secondary)
+                .foregroundColor(Color.euniSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

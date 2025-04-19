@@ -13,6 +13,7 @@ import SwiftData
 @main
 struct ClientNoteApp: App {
     @State private var appUpdater: AppUpdater
+    @State private var showSplashScreen = true
     
     @State private var chatViewModel: ChatViewModel
     @State private var messageViewModel: MessageViewModel
@@ -55,10 +56,18 @@ struct ClientNoteApp: App {
     
     var body: some Scene {
         WindowGroup {
-            AppView()
-                .environment(chatViewModel)
-                .environment(messageViewModel)
-                .environment(codeHighlighter)
+            ZStack {
+                AppView()
+                    .environment(chatViewModel)
+                    .environment(messageViewModel)
+                    .environment(codeHighlighter)
+                
+                if showSplashScreen {
+                    SimpleSplashScreen(isPresented: $showSplashScreen)
+                        .transition(.opacity)
+                        .zIndex(1)
+                }
+            }
         }
         .modelContainer(sharedModelContainer)
         .keyboardShortcut(KeyboardShortcut("n", modifiers: [.command, .shift]))
@@ -103,12 +112,78 @@ struct ClientNoteApp: App {
     }
     
     private func increaseFontSize() {
-        Defaults[.fontSize] += 1
+        let currentSize = Defaults[.fontSize]
+        Defaults[.fontSize] = min(currentSize + 1, 24)
         codeHighlighter.fontSize = Defaults[.fontSize]
     }
     
     private func decreaseFontSize() {
-        Defaults[.fontSize] -= 1
+        let currentSize = Defaults[.fontSize]
+        Defaults[.fontSize] = max(currentSize - 1, 8)
         codeHighlighter.fontSize = Defaults[.fontSize]
+    }
+}
+
+// Simple splash screen view
+struct SimpleSplashScreen: View {
+    @Binding var isPresented: Bool
+    @State private var isFirstLaunch = !UserDefaults.standard.bool(forKey: "hasLaunchedBefore")
+    
+    // Regular launch image
+    private let logoImage = "1_Eunitm-Client-Notes-Effortless-AI-Powered-Therapy-Documentation"
+    
+    var body: some View {
+        ZStack {
+            Color.euniBackground
+                .ignoresSafeArea()
+            
+            if isFirstLaunch {
+                // For first launch, show a simple welcome screen
+                VStack(spacing: 20) {
+                    Image(logoImage)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: 800, maxHeight: 800)
+                    
+                    Text("Welcome to ClientNote")
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
+                        .foregroundColor(Color.euniText)
+                    
+                    Text("Your AI-powered therapy documentation assistant")
+                        .font(.title2)
+                        .foregroundColor(Color.euniSecondary)
+                    
+                    Button("Get Started") {
+                        // Mark as launched
+                        UserDefaults.standard.set(true, forKey: "hasLaunchedBefore")
+                        withAnimation(.easeOut(duration: 0.3)) {
+                            isPresented = false
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color.euniPrimary)
+                    .padding(.top, 20)
+                }
+                .padding()
+            } else {
+                // For regular launch, just show the logo
+                Image(logoImage)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: 800, maxHeight: 800)
+                    .onAppear {
+                        // Mark as launched (in case it wasn't already)
+                        UserDefaults.standard.set(true, forKey: "hasLaunchedBefore")
+                        
+                        // Simple delay without timer
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                            withAnimation(.easeOut(duration: 0.3)) {
+                                isPresented = false
+                            }
+                        }
+                    }
+            }
+        }
     }
 }

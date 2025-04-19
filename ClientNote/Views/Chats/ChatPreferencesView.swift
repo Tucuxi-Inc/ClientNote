@@ -56,7 +56,7 @@ struct ChatPreferencesView: View {
                                 .controlSize(.small)
                         } else {
                             Text("Refresh")
-                                .foregroundColor(.accent)
+                                .foregroundColor(Color.euniPrimary)
                         }
                     }
                     .buttonStyle(.accessoryBar)
@@ -104,7 +104,7 @@ struct ChatPreferencesView: View {
                         
                         Button("Change", action: { isUpdateOllamaHostPresented = true })
                             .buttonStyle(.accessoryBar)
-                            .foregroundColor(.accent)
+                            .foregroundColor(Color.euniPrimary)
                     }
                 }
                 .onChange(of: host) { _, newValue in
@@ -127,7 +127,7 @@ struct ChatPreferencesView: View {
                         
                         Button("Change", action: { isUpdateSystemPromptPresented = true })
                             .buttonStyle(.accessoryBar)
-                            .foregroundColor(.accent)
+                            .foregroundColor(Color.euniPrimary)
                     }
                 } footer: {
                     Button("Restore Default System Prompt") {
@@ -135,6 +135,7 @@ struct ChatPreferencesView: View {
                     }
                     .buttonStyle(.link)
                     .font(.caption)
+                    .foregroundColor(Color.euniPrimary)
                 }
                 .onChange(of: systemPrompt) { _, newValue in
                     self.chatViewModel.activeChat?.systemPrompt = newValue

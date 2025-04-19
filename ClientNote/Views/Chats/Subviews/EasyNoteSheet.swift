@@ -267,235 +267,349 @@ struct EasyNoteSheet: View {
     }
     
     var body: some View {
-        NavigationView {
-            HSplitView {
-                // Left column - Form fields
-                Form {
-                    Section {
-                        // Date Picker
-                        DatePicker("Date", selection: $selectedDate, displayedComponents: .date)
-                            .datePickerStyle(.compact)
+        VStack(spacing: 0) {
+            HStack(spacing: 20) {
+                // LEFT COLUMN - FORM
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        // Session Information Section
+                        GroupBox {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Session Information")
+                                    .font(.title3)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.primary)
+                                
+                                HStack {
+                                    Text("Date")
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(Color.euniText)
+                                    
+                                    DatePicker("Date", selection: $selectedDate, displayedComponents: .date)
+                                        .datePickerStyle(.compact)
+                                }
+                                
+                                HStack {
+                                    Text("Time")
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(Color.euniText)
+                                    
+                                    DatePicker("Time", selection: $selectedTime, displayedComponents: .hourAndMinute)
+                                        .datePickerStyle(.compact)
+                                }
+                                
+                                Picker("Location", selection: $selectedLocation) {
+                                    ForEach(locations, id: \.self) { location in
+                                        Text(location).tag(location)
+                                    }
+                                }
+                            }
+                            .padding()
+                        }
                         
-                        // Time Picker
-                        DatePicker("Time", selection: $selectedTime, displayedComponents: .hourAndMinute)
-                            .datePickerStyle(.compact)
-                    } header: {
-                        Text("Session Information")
-                            .font(.title3)
-                            .fontWeight(.bold)
-                    }
-                    
-                    Section {
-                        Picker("Location", selection: $selectedLocation) {
-                            ForEach(locations, id: \.self) { location in
-                                Text(location).tag(location)
-                            }
-                        }
-                    } header: {
-                        Text("Session Location")
-                            .font(.title3)
-                            .fontWeight(.bold)
-                    }
-                    
-                    Section {
-                        Picker("Format", selection: $selectedNoteFormat) {
-                            ForEach(noteFormats, id: \.self) { format in
-                                Text(format).tag(format)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        
-                        if selectedNoteFormat == "Other" {
-                            TextField("Custom Format", text: $customNoteFormat)
-                                .textFieldStyle(.roundedBorder)
-                        }
-                    } header: {
-                        Text("Note Format")
-                            .font(.title3)
-                            .fontWeight(.bold)
-                    }
-                    
-                    Section {
-                        Picker("Approach", selection: $selectedApproach) {
-                            ForEach(approaches, id: \.self) { approach in
-                                Text(approach).tag(approach)
-                            }
-                        }
-                        if selectedApproach == "Other" {
-                            TextField("Custom Therapeutic Approach", text: $customApproach)
-                                .textFieldStyle(.roundedBorder)
-                        } else if let approachInterventions = interventions[selectedApproach] {
-                            ForEach(approachInterventions, id: \.self) { intervention in
-                                Toggle(intervention, isOn: Binding(
-                                    get: { selectedInterventions.contains(intervention) },
-                                    set: { isSelected in
-                                        if isSelected {
-                                            selectedInterventions.insert(intervention)
-                                        } else {
-                                            selectedInterventions.remove(intervention)
+                        // Note Format Section
+                        GroupBox {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Note Format")
+                                    .font(.title3)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.primary)
+                                
+                                HStack {
+                                    Text("Note Format")
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(Color.euniText)
+                                    
+                                    Picker("Format", selection: $selectedNoteFormat) {
+                                        ForEach(noteFormats, id: \.self) { format in
+                                            Text(format).tag(format)
                                         }
                                     }
-                                ))
-                            }
-                        }
-                    } header: {
-                        Text("Therapeutic Approach")
-                            .font(.title3)
-                            .fontWeight(.bold)
-                    }
-                    
-                    Section {
-                        Picker("Issue", selection: $presentingIssue) {
-                            ForEach(presentingIssues, id: \.self) { issue in
-                                Text(issue).tag(issue)
-                            }
-                        }
-                        
-                        if presentingIssue == "Other" {
-                            TextField("Custom Issue", text: $customPresentingIssue)
-                                .textFieldStyle(.roundedBorder)
-                        }
-                    } header: {
-                        Text("Presenting Issue")
-                            .font(.title3)
-                            .fontWeight(.bold)
-                    }
-                    
-                    Section {
-                        Picker("Response", selection: $clientResponse) {
-                            ForEach(clientResponses, id: \.self) { response in
-                                Text(response).tag(response)
-                            }
-                        }
-                        
-                        if clientResponse == "Other" {
-                            TextField("Custom Response", text: $customClientResponse)
-                                .textFieldStyle(.roundedBorder)
-                        }
-                    } header: {
-                        Text("Client Response")
-                            .font(.title3)
-                            .fontWeight(.bold)
-                    }
-                    
-                    Section {
-                        Picker("Focus", selection: $clinicalFocus) {
-                            ForEach(clinicalFocuses, id: \.self) { focus in
-                                Text(focus).tag(focus)
-                            }
-                        }
-                        
-                        if clinicalFocus == "Other" {
-                            TextField("Custom Focus", text: $customClinicalFocus)
-                                .textFieldStyle(.roundedBorder)
-                        }
-                    } header: {
-                        Text("Clinical Focus")
-                            .font(.title3)
-                            .fontWeight(.bold)
-                    }
-                    
-                    Section {
-                        Picker("Goals", selection: $treatmentGoals) {
-                            ForEach(treatmentGoalsList, id: \.self) { goal in
-                                Text(goal).tag(goal)
-                            }
-                        }
-                        
-                        if treatmentGoals == "Other" {
-                            TextField("Custom Goals", text: $customTreatmentGoals)
-                                .textFieldStyle(.roundedBorder)
-                        }
-                    } header: {
-                        Text("Treatment Goals")
-                            .font(.title3)
-                            .fontWeight(.bold)
-                    }
-                    
-                    Section {
-                        TextField("ICD-10/Diagnosis", text: $insuranceQuery)
-                            .textFieldStyle(.roundedBorder)
-                            .padding(.leading, 8)
-                            .onChange(of: insuranceQuery) { oldValue, newValue in
-                                if newValue.count >= 2 {
-                                    fetchICD10Codes(query: newValue)
-                                } else {
-                                    icdResults = []
-                                    icdSearchError = nil
+                                    .pickerStyle(.segmented)
+                                }
+                                
+                                if selectedNoteFormat == "Other" {
+                                    TextField("Custom Note Format", text: $customNoteFormat)
+                                        .textFieldStyle(.roundedBorder)
                                 }
                             }
+                            .padding()
+                        }
                         
-                        if isSearchingICD {
-                            ProgressView()
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 4)
-                        } else if let error = icdSearchError {
-                            Text(error)
-                                .foregroundColor(.red)
-                                .font(.caption)
-                                .padding(.vertical, 4)
-                        } else if !icdResults.isEmpty {
-                            List(icdResults) { result in
-                                Button(action: {
-                                    selectedICDCode = result.code
-                                    selectedICDDescription = result.description
-                                    insuranceQuery = "\(result.code) - \(result.description)"
-                                    icdResults = []
-                                }) {
-                                    Text("\(result.code) - \(result.description)")
+                        // Therapeutic Approach Section
+                        GroupBox {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Therapeutic Approach")
+                                    .font(.title3)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.primary)
+                                
+                                HStack {
+                                    Text("Therapeutic Approach")
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(Color.euniText)
+                                    
+                                    Picker("Approach", selection: $selectedApproach) {
+                                        ForEach(approaches, id: \.self) { approach in
+                                            Text(approach).tag(approach)
+                                        }
+                                    }
+                                }
+                                
+                                if selectedApproach == "Other" {
+                                    TextField("Custom Therapeutic Approach", text: $customApproach)
+                                        .textFieldStyle(.roundedBorder)
+                                } else if let approachInterventions = interventions[selectedApproach] {
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Text("Interventions:")
+                                            .font(.headline)
+                                            .foregroundColor(.primary)
+                                        
+                                        ForEach(approachInterventions, id: \.self) { intervention in
+                                            Toggle(intervention, isOn: Binding(
+                                                get: { selectedInterventions.contains(intervention) },
+                                                set: { isSelected in
+                                                    if isSelected {
+                                                        selectedInterventions.insert(intervention)
+                                                    } else {
+                                                        selectedInterventions.remove(intervention)
+                                                    }
+                                                }
+                                            ))
+                                            .toggleStyle(SwitchToggleStyle(tint: .primary))
+                                        }
+                                    }
                                 }
                             }
-                            .frame(height: 100)
+                            .padding()
                         }
-                    } header: {
-                        Text("Insurance Code/Diagnosis")
-                            .font(.title3)
-                            .fontWeight(.bold)
-                    }
-                }
-                .frame(minWidth: 350, idealWidth: 400, maxWidth: 450)
-                
-                // Right column - Additional Notes and Voice Recording
-                VStack(alignment: .leading) {
-                    Text("Additional Notes")
-                        .font(.title3)
-                        .fontWeight(.bold)
-                        .padding(.top)
-                        .padding(.leading, 12)
-                    
-                    TextEditor(text: $additionalNotes)
-                        .font(.body)
-                        .padding(8)
-                        .background(Color(.textBackgroundColor))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .padding(.horizontal)
-                    
-                    HStack {
-                        Button(action: {
-                            if isRecording {
-                                stopRecording()
-                            } else {
-                                startRecording()
-                            }
-                        }) {
-                            Label(isRecording ? "Stop Recording" : "Start Recording",
-                                  systemImage: isRecording ? "stop.circle.fill" : "mic.circle.fill")
-                                .foregroundColor(isRecording ? .red : .blue)
-                        }
-                        .buttonStyle(.bordered)
                         
-                        if isRecording {
-                            Text("Recording...")
-                                .foregroundColor(.red)
-                                .padding(.leading, 8)
+                        // Presenting Issue Section
+                        GroupBox {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Presenting Issue")
+                                    .font(.title3)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.primary)
+                                
+                                HStack {
+                                    Text("Presenting Issue")
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(Color.euniText)
+                                    
+                                    Picker("Issue", selection: $presentingIssue) {
+                                        ForEach(presentingIssues, id: \.self) { issue in
+                                            Text(issue).tag(issue)
+                                        }
+                                    }
+                                }
+                                
+                                if presentingIssue == "Other" {
+                                    TextField("Custom Presenting Issue", text: $customPresentingIssue)
+                                        .textFieldStyle(.roundedBorder)
+                                }
+                            }
+                            .padding()
+                        }
+                        
+                        // Client Response Section
+                        GroupBox {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Client Response")
+                                    .font(.title3)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.primary)
+                                
+                                HStack {
+                                    Text("Client Response")
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(Color.euniText)
+                                    
+                                    Picker("Response", selection: $clientResponse) {
+                                        ForEach(clientResponses, id: \.self) { response in
+                                            Text(response).tag(response)
+                                        }
+                                    }
+                                }
+                                
+                                if clientResponse == "Other" {
+                                    TextField("Custom Client Response", text: $customClientResponse)
+                                        .textFieldStyle(.roundedBorder)
+                                }
+                            }
+                            .padding()
+                        }
+                        
+                        // Clinical Focus Section
+                        GroupBox {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Clinical Focus")
+                                    .font(.title3)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.primary)
+                                
+                                HStack {
+                                    Text("Clinical Focus")
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(Color.euniText)
+                                    
+                                    Picker("Focus", selection: $clinicalFocus) {
+                                        ForEach(clinicalFocuses, id: \.self) { focus in
+                                            Text(focus).tag(focus)
+                                        }
+                                    }
+                                }
+                                
+                                if clinicalFocus == "Other" {
+                                    TextField("Custom Clinical Focus", text: $customClinicalFocus)
+                                        .textFieldStyle(.roundedBorder)
+                                }
+                            }
+                            .padding()
+                        }
+                        
+                        // Treatment Goals Section
+                        GroupBox {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Treatment Goals")
+                                    .font(.title3)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.primary)
+                                
+                                HStack {
+                                    Text("Treatment Goals")
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(Color.euniText)
+                                    
+                                    Picker("Goals", selection: $treatmentGoals) {
+                                        ForEach(treatmentGoalsList, id: \.self) { goal in
+                                            Text(goal).tag(goal)
+                                        }
+                                    }
+                                }
+                                
+                                if treatmentGoals == "Other" {
+                                    TextField("Custom Treatment Goals", text: $customTreatmentGoals)
+                                        .textFieldStyle(.roundedBorder)
+                                }
+                            }
+                            .padding()
+                        }
+                        
+                        // Insurance Code/Diagnosis Section
+                        GroupBox {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Insurance Code/Diagnosis")
+                                    .font(.title3)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.primary)
+                                
+                                HStack {
+                                    Text("ICD-10/Diagnosis")
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(Color.euniText)
+                                    
+                                    TextField("ICD-10/Diagnosis", text: $insuranceQuery)
+                                        .textFieldStyle(.roundedBorder)
+                                        .padding(.leading, 8)
+                                        .onChange(of: insuranceQuery) { oldValue, newValue in
+                                            if newValue.count >= 2 {
+                                                fetchICD10Codes(query: newValue)
+                                            } else {
+                                                icdResults = []
+                                                icdSearchError = nil
+                                            }
+                                        }
+                                }
+                                
+                                if isSearchingICD {
+                                    ProgressView()
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 4)
+                                } else if let error = icdSearchError {
+                                    Text(error)
+                                        .foregroundColor(Color.euniError)
+                                        .font(.caption)
+                                        .padding(.vertical, 4)
+                                } else if !icdResults.isEmpty {
+                                    List(icdResults) { result in
+                                        Button(action: {
+                                            selectedICDCode = result.code
+                                            selectedICDDescription = result.description
+                                            insuranceQuery = "\(result.code) - \(result.description)"
+                                            icdResults = []
+                                        }) {
+                                            Text("\(result.code) - \(result.description)")
+                                                .foregroundColor(Color.euniText)
+                                        }
+                                    }
+                                    .frame(height: 100)
+                                }
+                            }
+                            .padding()
                         }
                     }
                     .padding()
                 }
-                .frame(minWidth: 350, idealWidth: 400, maxWidth: .infinity)
-            } // End HSplitView
-            .navigationTitle("Easy Note")
+                .frame(minWidth: 400, idealWidth: 450, maxWidth: .infinity)
+                .background(Color.euniBackground)
+                
+                // RIGHT COLUMN - NOTES
+                VStack(alignment: .leading, spacing: 16) {
+                    GroupBox {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Additional Notes")
+                                .font(.title3)
+                                .fontWeight(.bold)
+                                .foregroundColor(.primary)
+                            
+                            HStack {
+                                Text("Additional Notes")
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(Color.euniText)
+                                
+                                Spacer()
+                                
+                                Button(action: {
+                                    if isRecording {
+                                        stopRecording()
+                                    } else {
+                                        startRecording()
+                                    }
+                                }) {
+                                    Label(isRecording ? "Stop Recording" : "Start Recording",
+                                          systemImage: isRecording ? "stop.circle.fill" : "mic.circle.fill")
+                                        .foregroundColor(isRecording ? Color.euniError : Color.euniPrimary)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            
+                            if isRecording {
+                                Text("Recording...")
+                                    .foregroundColor(Color.euniError)
+                                    .padding(.leading, 8)
+                            }
+                            
+                            ScrollView {
+                                TextEditor(text: $additionalNotes)
+                                    .font(.body)
+                                    .padding(8)
+                                    .background(Color.euniFieldBackground)
+                                    .cornerRadius(8)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(Color.euniBorder, lineWidth: 1)
+                                    )
+                                    .frame(minHeight: 300)
+                            }
+                        }
+                        .padding()
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                .frame(minWidth: 400, idealWidth: 450, maxWidth: .infinity)
+            }
+            .padding()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -516,22 +630,27 @@ struct EasyNoteSheet: View {
                         
                         dismiss()
                     }
+                    .buttonStyle(.borderedProminent)
                 }
             }
-            .alert("Microphone Access Required", isPresented: $showingPermissionAlert) {
-                Button("Open Settings") {
-                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")!)
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("Please enable microphone access in System Settings to use voice input.")
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.euniBackground)
+        .navigationTitle("Easy Note")
+        .foregroundColor(.primary)
+        .alert("Microphone Access Required", isPresented: $showingPermissionAlert) {
+            Button("Open Settings") {
+                NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")!)
             }
-            .alert("Speech Recognition Error", isPresented: $showingNetworkAlert) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text(networkErrorMessage)
-            }
-        } // End NavigationView
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Please enable microphone access in System Settings to use voice input.")
+        }
+        .alert("Speech Recognition Error", isPresented: $showingNetworkAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(networkErrorMessage)
+        }
         .onAppear {
             resetState()
             requestSpeechRecognitionPermission()
@@ -651,17 +770,14 @@ struct EasyNoteSheet: View {
             
             recognitionTask = recognizer.recognitionTask(with: recognitionRequest) { result, error in
                 if let error = error {
-                    print("Recognition error: \(error.localizedDescription)")
                     if let error = error as NSError? {
                         switch (error.domain, error.code) {
                         case ("kLSRErrorDomain", 301):
-                            print("Recognition request canceled (normal)")
                             return
                         case ("kAFAssistantErrorDomain", 1101):
-                            print("Local speech recognition error: \(error.localizedDescription)")
                             return
                         case (_, 1110):
-                            if self.isRecording && self.additionalNotes.isEmpty {
+                            if self.isRecording {
                                 self.networkErrorMessage = "No speech detected. Please try speaking again."
                                 self.showingNetworkAlert = true
                             }
@@ -675,19 +791,12 @@ struct EasyNoteSheet: View {
                     return
                 }
                 
-                guard let result = result else {
-                    print("No recognition result available")
-                    return
-                }
+                guard let result = result else { return }
                 
                 DispatchQueue.main.async {
                     if !result.bestTranscription.formattedString.isEmpty {
                         self.additionalNotes = result.bestTranscription.formattedString
                     }
-                }
-                
-                if result.isFinal {
-                    print("Recognition completed with final result")
                 }
             }
             
@@ -705,7 +814,6 @@ struct EasyNoteSheet: View {
             audioEngine.prepare()
             try audioEngine.start()
             isRecording = true
-            print("Recording started successfully")
         } catch {
             networkErrorMessage = "Error starting recording: \(error.localizedDescription)"
             showingNetworkAlert = true
@@ -714,7 +822,6 @@ struct EasyNoteSheet: View {
     }
     
     private func stopRecording() {
-        print("Stopping recording...")
         recognitionTask?.cancel()
         recognitionTask = nil
         audioEngine.stop()
@@ -722,7 +829,6 @@ struct EasyNoteSheet: View {
         recognitionRequest?.endAudio()
         recognitionRequest = nil
         isRecording = false
-        print("Recording stopped")
     }
     
     // MARK: - ICD-10 API Integration

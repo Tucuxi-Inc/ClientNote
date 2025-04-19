@@ -76,6 +76,8 @@ struct SidebarView: View {
             .hide(if: previousDaysChats.isEmpty, removeCompletely: true)
         }
         .listStyle(.sidebar)
+        .background(Color.euniBackground)
+        .foregroundColor(Color.euniText)
         .toolbar {
             SidebarToolbarContent {
                 chatViewModel.create(model: Defaults[.defaultModel])

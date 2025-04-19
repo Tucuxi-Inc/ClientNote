@@ -15,10 +15,11 @@ struct SidebarListItemView: View {
         VStack(alignment: .leading) {
             Text(name)
                 .font(.headline.weight(.semibold))
+                .foregroundColor(Color.euniText)
             
             if let message {
                 Text(message)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.euniSecondary)
                     .lineLimit(1)
             }
         }
