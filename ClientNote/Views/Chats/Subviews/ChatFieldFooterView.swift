@@ -1,10 +1,3 @@
-//
-//  ChatFieldFooterView.swift
-//  Ollamac
-//
-//  Created by Kevin Hermawan on 8/4/24.
-//
-
 import SwiftUI
 
 struct ChatFieldFooterView: View {

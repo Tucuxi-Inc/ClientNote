@@ -1,10 +1,3 @@
-//
-//  CodeHighlighter.swift
-//  Ollamac
-//
-//  Created by Kevin Hermawan on 06/07/24.
-//
-
 import Defaults
 import Highlightr
 import MarkdownUI
@@ -23,7 +16,7 @@ class CodeHighlighter: CodeSyntaxHighlighter {
             recalcState()
         }
     }
-    var colorScheme: ColorScheme = .dark {
+    var colorScheme: ColorScheme = .light {
         didSet {
             recalcState()
         }
@@ -35,9 +28,9 @@ class CodeHighlighter: CodeSyntaxHighlighter {
             fatalError("Failed to initialize Highlightr")
         }
         self.highlightr = highlightrInstance
-        self.highlightr.setTheme(to: "atom-one-dark")
+        self.highlightr.setTheme(to: "atom-one-light")
         self.fontSize = fontSize
-        self.colorScheme = colorScheme
+        self.colorScheme = .light
         self.enabled = enabled
 
         recalcState()
@@ -65,10 +58,10 @@ class CodeHighlighter: CodeSyntaxHighlighter {
     }
 
     func set(colorScheme: ColorScheme, fontSize: Double, enabled: Bool) {
-        let newTheme = colorScheme == .dark ? "atom-one-dark" : "atom-one-light"
-        self.highlightr.setTheme(to: newTheme)
-        self.colorScheme = colorScheme
+        self.highlightr.setTheme(to: "atom-one-light")
+        self.colorScheme = .light
         self.fontSize = fontSize
+        self.enabled = enabled
         recalcState()
     }
 

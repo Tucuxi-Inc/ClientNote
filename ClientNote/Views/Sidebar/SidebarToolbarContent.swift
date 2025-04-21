@@ -1,10 +1,3 @@
-//
-//  SidebarToolbarContent.swift
-//  Ollamac
-//
-//  Created by Kevin Hermawan on 8/2/24.
-//
-
 import SwiftUI
 
 struct SidebarToolbarContent: ToolbarContent {
@@ -20,6 +13,7 @@ struct SidebarToolbarContent: ToolbarContent {
             
             Button(action: addAction) {
                 Label("New Chat", systemImage: "square.and.pencil")
+                    .foregroundColor(Color.euniPrimary)
             }
             .keyboardShortcut("n")
             .help("New Chat")

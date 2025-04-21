@@ -1,10 +1,3 @@
-//
-//  Color+Hex.swift
-//  Ollamac
-//
-//  Created by Kevin Hermawan on 8/3/24.
-//
-
 import Foundation
 import SwiftUI
 

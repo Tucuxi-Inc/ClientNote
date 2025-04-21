@@ -1,10 +1,3 @@
-//
-//  UserMessageView.swift
-//  Ollamac
-//
-//  Created by Kevin Hermawan on 8/2/24.
-//
-
 import Defaults
 import SwiftUI
 import ViewCondition
@@ -22,23 +15,27 @@ struct UserMessageView: View {
     }
     
     var body: some View {
-        HStack {
-            Spacer()
+        VStack(alignment: .leading, spacing: 8) {
+            Text("You")
+                .font(Font.system(size: fontSize).weight(.semibold))
+                .foregroundStyle(Color.euniSecondary)
             
-            VStack(alignment: .trailing) {
-                Text(content)
-                    .padding(12)
-                    .background(.accent)
-                    .foregroundColor(.white)
-                    .textSelection(.enabled)
-                    .font(Font.system(size: fontSize))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                
-                HStack(spacing: 16){
-                    MessageButton("Copy", systemImage: "doc.on.doc", action: { copyAction(content) })
-                }
+            Text(content)
+                .font(.system(size: fontSize))
+                .foregroundColor(Color.euniText)
+                .textSelection(.enabled)
+            
+            HStack(spacing: 16) {
+                MessageButton("Copy", systemImage: "doc.on.doc", action: { copyAction(content) })
             }
-            .frame(maxWidth: windowWidth / 2, alignment: .trailing)
         }
+        .padding(12)
+        .background(Color.euniFieldBackground)
+        .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.euniBorder, lineWidth: 1)
+        )
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

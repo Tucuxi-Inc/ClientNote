@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import Defaults
 
 struct AppView: View {
     var body: some View {
@@ -16,6 +17,7 @@ struct AppView: View {
         } detail: {
             ChatView()
         }
+        .background(Color.euniBackground)
     }
 }
 

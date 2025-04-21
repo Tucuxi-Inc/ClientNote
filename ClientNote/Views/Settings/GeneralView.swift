@@ -1,10 +1,3 @@
-//
-//  GeneralView.swift
-//
-//
-//  Created by Kevin Hermawan on 13/07/24.
-//
-
 import Defaults
 import SwiftUI
 
@@ -26,36 +19,41 @@ struct GeneralView: View {
                         Text(defaultHost)
                             .help(defaultHost)
                             .lineLimit(1)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color.euniSecondary)
                         
                         Spacer()
                         
                         Button("Change", action: { isUpdateOllamaHostPresented = true })
+                            .foregroundColor(Color.euniPrimary)
                     }
                 }
             } footer: {
                 SectionFooter("This host will be used for new chats.")
                     .padding(.bottom)
+                    .foregroundColor(Color.euniSecondary)
             }
             
             Section {
                 Box {
                     Text("Default System Prompt")
                         .font(.headline.weight(.semibold))
+                        .foregroundColor(Color.euniText)
                     
                     HStack {
                         Text(defaultSystemPrompt)
                             .help(defaultSystemPrompt)
                             .lineLimit(1)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color.euniSecondary)
                         
                         Spacer()
                         
                         Button("Change", action: { isUpdateSystemPromptPresented = true })
+                            .foregroundColor(Color.euniPrimary)
                     }
                 }
             } footer: {
                 SectionFooter("This prompt will be used for new chats.")
+                    .foregroundColor(Color.euniSecondary)
             }
 
             Section {

@@ -35,7 +35,7 @@ struct AssistantMessageView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Assistant")
                 .font(Font.system(size: fontSize).weight(.semibold))
-                .foregroundStyle(.accent)
+                .foregroundStyle(Color.euniSecondary)
             
             if isGenerating && content.isEmpty {
                 ProgressView()
@@ -45,6 +45,7 @@ struct AssistantMessageView: View {
                     .textSelection(.enabled)
                     .markdownTextStyle(\.text) {
                         FontSize(CGFloat(fontSize))
+                        ForegroundColor(Color.euniText)
                     }
                     .markdownTextStyle(\.code) {
                         FontSize(CGFloat(fontSize))
@@ -64,6 +65,13 @@ struct AssistantMessageView: View {
                 .hide(if: isLastMessage && isGenerating)
             }
         }
+        .padding(12)
+        .background(Color.euniFieldBackground)
+        .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.euniBorder, lineWidth: 1)
+        )
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 	

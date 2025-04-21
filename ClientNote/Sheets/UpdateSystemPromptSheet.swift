@@ -1,10 +1,3 @@
-//
-//  UpdateSystemPromptSheet.swift
-//  Ollamac
-//
-//  Created by Kevin Hermawan on 8/4/24.
-//
-
 import Defaults
 import SwiftUI
 
@@ -29,6 +22,8 @@ struct UpdateSystemPromptSheet: View {
                     .textEditorStyle(.plain)
                     .scrollIndicators(.never)
                     .font(Font.system(size: fontSize))
+                    .foregroundColor(Color.euniText)
+                    .background(Color.euniFieldBackground)
             }
             .padding(.vertical, 16)
             .padding(.horizontal, 10)
@@ -37,6 +32,7 @@ struct UpdateSystemPromptSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", role: .cancel, action: { dismiss() })
+                        .foregroundColor(Color.euniSecondary)
                 }
                 
                 ToolbarItem(placement: .confirmationAction) {
@@ -44,8 +40,10 @@ struct UpdateSystemPromptSheet: View {
                         action(prompt)
                         dismiss()
                     }
+                    .foregroundColor(Color.euniPrimary)
                 }
             }
         }
+        .background(Color.euniBackground)
     }
 }

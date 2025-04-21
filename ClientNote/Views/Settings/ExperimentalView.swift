@@ -1,10 +1,3 @@
-//
-//  ExperimentalView.swift
-//  Ollamac
-//
-//  Created by Kevin Hermawan on 8/10/24.
-//
-
 import Defaults
 import SwiftUI
 
@@ -18,16 +11,19 @@ struct ExperimentalView: View {
                     HStack(alignment: .center) {
                         Text("Code Highlighting")
                             .fontWeight(.semibold)
+                            .foregroundColor(Color.euniText)
                         
                         Spacer()
                         
                         Toggle("", isOn: $experimentalCodeHighlighting)
                             .labelsHidden()
                             .toggleStyle(.switch)
+                            .tint(Color.euniPrimary)
                     }
                 }
             } footer: {
                 SectionFooter("Enabling this might affect generation and scrolling performance.")
+                    .foregroundColor(Color.euniSecondary)
             }
         }
     }

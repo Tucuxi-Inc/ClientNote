@@ -43,7 +43,6 @@
 		0ADB96112C5D585500EB0C60 /* Theme+ClientNote.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0ADB96102C5D585500EB0C60 /* Theme+ClientNote.swift */; };
 		0ADB96132C5D5CC400EB0C60 /* CodeHighlighter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0ADB96122C5D5CC400EB0C60 /* CodeHighlighter.swift */; };
 		0ADB96162C5D5DE700EB0C60 /* Color+Hex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0ADB96152C5D5DE700EB0C60 /* Color+Hex.swift */; };
-		0AE024832AFB898300347C18 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 0AE024822AFB898300347C18 /* Sparkle */; };
 		0AE0248B2AFEA24600347C18 /* OllamaKit in Frameworks */ = {isa = PBXBuildFile; productRef = 0AE0248A2AFEA24600347C18 /* OllamaKit */; };
 		0AF5662E2C6431FB00D6E01A /* CircleButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AF5662D2C6431FB00D6E01A /* CircleButton.swift */; };
 		0AF566322C65582300D6E01A /* MessageButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AF566312C65582300D6E01A /* MessageButton.swift */; };
@@ -55,6 +54,8 @@
 		0AFC5AA92C66A20C00A148A2 /* CodeBlockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AFC5AA82C66A20C00A148A2 /* CodeBlockView.swift */; };
 		175D318C2C64ADF9009B58E0 /* DefaultFontSizeField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 175D318B2C64ADF9009B58E0 /* DefaultFontSizeField.swift */; };
 		4A4A8EBE2D5047590065A5EC /* String+ReplaceAndTrim.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A4A8EBD2D5047590065A5EC /* String+ReplaceAndTrim.swift */; };
+		8807AC192DACBBC600C3D195 /* EasyNoteSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8807AC182DACBBC600C3D195 /* EasyNoteSheet.swift */; };
+		8807ADD12DB30C5400C3D195 /* Color+ClientNoteCustom.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8807ADD02DB30C5400C3D195 /* Color+ClientNoteCustom.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -100,6 +101,8 @@
 		0AFC5AA82C66A20C00A148A2 /* CodeBlockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeBlockView.swift; sourceTree = "<group>"; };
 		175D318B2C64ADF9009B58E0 /* DefaultFontSizeField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultFontSizeField.swift; sourceTree = "<group>"; };
 		4A4A8EBD2D5047590065A5EC /* String+ReplaceAndTrim.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+ReplaceAndTrim.swift"; sourceTree = "<group>"; };
+		8807AC182DACBBC600C3D195 /* EasyNoteSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EasyNoteSheet.swift; sourceTree = "<group>"; };
+		8807ADD02DB30C5400C3D195 /* Color+ClientNoteCustom.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+ClientNoteCustom.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -108,7 +111,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				0AF5CB682C62BCA100DF8DA8 /* AppInfo in Frameworks */,
-				0AE024832AFB898300347C18 /* Sparkle in Frameworks */,
 				0AA41A172AF635AD0053B8DB /* ViewState in Frameworks */,
 				0ADB960E2C5D57D500EB0C60 /* MarkdownUI in Frameworks */,
 				0ACA4D732AF88DB6000DA76F /* ViewCondition in Frameworks */,
@@ -242,6 +244,7 @@
 				0AF5662D2C6431FB00D6E01A /* CircleButton.swift */,
 				0AF566312C65582300D6E01A /* MessageButton.swift */,
 				0ADB95EC2C5D42E200EB0C60 /* UserMessageView.swift */,
+				8807AC182DACBBC600C3D195 /* EasyNoteSheet.swift */,
 			);
 			path = Subviews;
 			sourceTree = "<group>";
@@ -294,6 +297,7 @@
 				0A6E85192C5E98770030A4AA /* Optional+Utils.swift */,
 				0A6E851A2C5E98770030A4AA /* String+IsValidURL.swift */,
 				0A6E851B2C5E98770030A4AA /* String+RemoveTrailingSlash.swift */,
+				8807ADD02DB30C5400C3D195 /* Color+ClientNoteCustom.swift */,
 			);
 			path = Extensions;
 			sourceTree = "<group>";
@@ -327,7 +331,6 @@
 				0AA41A162AF635AD0053B8DB /* ViewState */,
 				0ACA4D5D2AF7AC43000DA76F /* SwiftUIIntrospect */,
 				0ACA4D722AF88DB6000DA76F /* ViewCondition */,
-				0AE024822AFB898300347C18 /* Sparkle */,
 				0AE0248A2AFEA24600347C18 /* OllamaKit */,
 				0AB30EB12B272A67009C038A /* ChatField */,
 				0AB362A12C398ED700DE3F31 /* Highlightr */,
@@ -367,7 +370,6 @@
 				0AA41A152AF635AD0053B8DB /* XCRemoteSwiftPackageReference "ViewState" */,
 				0ACA4D5C2AF7AC43000DA76F /* XCRemoteSwiftPackageReference "swiftui-introspect" */,
 				0ACA4D712AF88DB6000DA76F /* XCRemoteSwiftPackageReference "ViewCondition" */,
-				0AE024812AFB898300347C18 /* XCRemoteSwiftPackageReference "Sparkle" */,
 				0AE024892AFEA24600347C18 /* XCRemoteSwiftPackageReference "OllamaKit" */,
 				0AB30EB02B272A67009C038A /* XCRemoteSwiftPackageReference "ChatField" */,
 				0AB362A02C398ED700DE3F31 /* XCRemoteSwiftPackageReference "Highlightr" */,
@@ -406,6 +408,7 @@
 				0ADB95ED2C5D42E200EB0C60 /* UserMessageView.swift in Sources */,
 				0ADB95EF2C5D42FF00EB0C60 /* AssistantMessageView.swift in Sources */,
 				0A6E85302C5EB5F90030A4AA /* UpdateSystemPromptSheet.swift in Sources */,
+				8807ADD12DB30C5400C3D195 /* Color+ClientNoteCustom.swift in Sources */,
 				0A6E85152C5E98620030A4AA /* Message.swift in Sources */,
 				0A6E85162C5E98620030A4AA /* Chat.swift in Sources */,
 				0A6E85262C5E98B20030A4AA /* SettingsView.swift in Sources */,
@@ -426,6 +429,7 @@
 				0ADB95E42C5D34B200EB0C60 /* SidebarListItemView.swift in Sources */,
 				0A4D35992AF5425900846890 /* AppView.swift in Sources */,
 				0A6E852E2C5EAA750030A4AA /* ChatPreferencesFooterView.swift in Sources */,
+				8807AC192DACBBC600C3D195 /* EasyNoteSheet.swift in Sources */,
 				0ADB95E82C5D3BE900EB0C60 /* SidebarContextMenu.swift in Sources */,
 				0AFC5AA52C6694F400A148A2 /* ExperimentalView.swift in Sources */,
 				0AB3629F2C398C3300DE3F31 /* AppUpdater.swift in Sources */,
@@ -572,27 +576,31 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = ClientNote/Resources/ClientNote.entitlements;
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"ClientNote/Preview Content\"";
+				DEVELOPMENT_TEAM = MC8BT9Z8GD;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ClientNote/Resources/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = ClientNote;
+				INFOPLIST_KEY_CFBundleDisplayName = "Euni™ - Client Notes";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © Kevin Hermawan. All rights reserved.";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2025 Tucuxi, Inc. All rights reserved.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Voice Input for Dictating Note Information";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Voice Input for Dictating Note Information";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 3.0.3;
+				MARKETING_VERSION = 1.0.3;
 				PRODUCT_BUNDLE_IDENTIFIER = ai.tucuxi.ClientNote;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -605,27 +613,31 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = ClientNote/Resources/ClientNote.entitlements;
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"ClientNote/Preview Content\"";
+				DEVELOPMENT_TEAM = MC8BT9Z8GD;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ClientNote/Resources/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = ClientNote;
+				INFOPLIST_KEY_CFBundleDisplayName = "Euni™ - Client Notes";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © Kevin Hermawan. All rights reserved.";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2025 Tucuxi, Inc. All rights reserved.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Voice Input for Dictating Note Information";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Voice Input for Dictating Note Information";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 3.0.3;
+				MARKETING_VERSION = 1.0.3;
 				PRODUCT_BUNDLE_IDENTIFIER = ai.tucuxi.ClientNote;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -711,14 +723,6 @@
 				minimumVersion = 2.3.1;
 			};
 		};
-		0AE024812AFB898300347C18 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/sparkle-project/Sparkle";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.5.1;
-			};
-		};
 		0AE024892AFEA24600347C18 /* XCRemoteSwiftPackageReference "OllamaKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/kevinhermawan/OllamaKit";
@@ -772,11 +776,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 0ADB960C2C5D57D500EB0C60 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */;
 			productName = MarkdownUI;
-		};
-		0AE024822AFB898300347C18 /* Sparkle */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 0AE024812AFB898300347C18 /* XCRemoteSwiftPackageReference "Sparkle" */;
-			productName = Sparkle;
 		};
 		0AE0248A2AFEA24600347C18 /* OllamaKit */ = {
 			isa = XCSwiftPackageProductDependency;

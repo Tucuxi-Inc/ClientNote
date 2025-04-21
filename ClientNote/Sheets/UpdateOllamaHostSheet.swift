@@ -1,10 +1,3 @@
-//
-//  UpdateOllamaHostSheet.swift
-//  Ollamac
-//
-//  Created by Kevin Hermawan on 8/7/24.
-//
-
 import OllamaKit
 import SwiftUI
 import ViewState
@@ -28,12 +21,13 @@ struct UpdateOllamaHostSheet: View {
                 Section {
                     TextField("Enter the Ollama host", text: $host)
                         .labelsHidden()
+                        .foregroundColor(Color.euniText)
                 } footer: {
                     Text(String(stringLiteral: "Enter the Ollama host (e.g., http://localhost:11434)"))
-                        .foregroundStyle(.secondary)
+                        .foregroundColor(Color.euniSecondary)
                         .whenError(viewState) { message in
                             Text(message)
-                                .foregroundStyle(.red)
+                                .foregroundColor(.red)
                         }
                         .padding(.top, 4)
                 }
@@ -44,14 +38,17 @@ struct UpdateOllamaHostSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", role: .cancel, action: { dismiss() })
+                        .foregroundColor(Color.euniSecondary)
                 }
                 
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save", action: saveAction)
                         .disabled(viewState == .loading)
+                        .foregroundColor(Color.euniPrimary)
                 }
             }
         }
+        .background(Color.euniBackground)
     }
     
     @MainActor

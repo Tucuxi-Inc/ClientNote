@@ -1,10 +1,3 @@
-//
-//  CircleButton.swift
-//  Ollamac
-//
-//  Created by Kevin Hermawan on 8/8/24.
-//
-
 import SwiftUI
 
 public struct CircleButton: View {
@@ -19,13 +12,16 @@ public struct CircleButton: View {
     public var body: some View {
         Button(action: action) {
             Image(systemName: systemImage)
-                .foregroundStyle(.foreground)
+                .foregroundColor(Color.euniText)
                 .fontWeight(.bold)
                 .padding(8)
         }
-        .background(.background)
+        .background(Color.euniFieldBackground)
         .buttonStyle(.borderless)
         .clipShape(.circle)
-        .colorInvert()
+        .overlay(
+            Circle()
+                .stroke(Color.euniBorder, lineWidth: 1)
+        )
     }
 }

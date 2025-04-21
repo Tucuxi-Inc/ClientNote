@@ -1,10 +1,3 @@
-//
-//  SidebarListItemView.swift
-//  Ollamac
-//
-//  Created by Kevin Hermawan on 8/2/24.
-//
-
 import SwiftUI
 
 struct SidebarListItemView: View {
@@ -22,10 +15,11 @@ struct SidebarListItemView: View {
         VStack(alignment: .leading) {
             Text(name)
                 .font(.headline.weight(.semibold))
+                .foregroundColor(Color.euniText)
             
             if let message {
                 Text(message)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.euniSecondary)
                     .lineLimit(1)
             }
         }

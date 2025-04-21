@@ -1,10 +1,3 @@
-//
-//  SettingsView.swift
-//
-//
-//  Created by Kevin Hermawan on 13/07/24.
-//
-
 import SwiftUI
 
 struct SettingsView: View {
@@ -24,5 +17,7 @@ struct SettingsView: View {
         }
         .padding()
         .frame(width: 512)
+        .background(Color.euniBackground)
+        .foregroundColor(Color.euniText)
     }
 }
