@@ -50,7 +50,7 @@ struct EasyNoteSheet: View {
     
     // Location field
     @State private var selectedLocation = "In-Person"
-    private let locations = ["In-Person", "Telehealth"]
+    private let locations = ["In-Person", "First Telehealth Visit", "Subsequent Telehealth Visit"]
     
     // Insurance Code/Diagnosis Fields
     @State private var insuranceQuery = ""
@@ -70,6 +70,12 @@ struct EasyNoteSheet: View {
     @State private var showingPermissionAlert = false
     @State private var showingNetworkAlert = false
     @State private var networkErrorMessage = ""
+    
+    // Suicidal Ideation or Self-Harm
+    @State private var hasSuicidalIdeation = false
+    @State private var suicidalIdeationPastSession = false
+    @State private var suicidalIdeationCurrentSession = false
+    @State private var suicidalIdeationBothSessions = false
     
     private let noteFormats = ["BIRP", "PIRP", "SOAP", "DAP", "Other"]
     private let approaches = [
@@ -602,6 +608,48 @@ struct EasyNoteSheet: View {
                                     )
                                     .frame(minHeight: 300)
                             }
+                            
+                            VStack(alignment: .leading, spacing: 8) {
+                                Toggle("Client Expressed Suicidal Ideation or Self-Harm", isOn: $hasSuicidalIdeation)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(Color.euniText)
+                                    .padding(.top, 12)
+                                
+                                if hasSuicidalIdeation {
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Toggle("In a past session", isOn: $suicidalIdeationPastSession)
+                                            .onChange(of: suicidalIdeationPastSession) { _, newValue in
+                                                if newValue && suicidalIdeationBothSessions {
+                                                    suicidalIdeationBothSessions = false
+                                                }
+                                                if newValue && suicidalIdeationCurrentSession {
+                                                    suicidalIdeationCurrentSession = false
+                                                    suicidalIdeationBothSessions = true
+                                                }
+                                            }
+                                        
+                                        Toggle("For the first time in the current session", isOn: $suicidalIdeationCurrentSession)
+                                            .onChange(of: suicidalIdeationCurrentSession) { _, newValue in
+                                                if newValue && suicidalIdeationBothSessions {
+                                                    suicidalIdeationBothSessions = false
+                                                }
+                                                if newValue && suicidalIdeationPastSession {
+                                                    suicidalIdeationPastSession = false
+                                                    suicidalIdeationBothSessions = true
+                                                }
+                                            }
+                                        
+                                        Toggle("In a past session and the current session", isOn: $suicidalIdeationBothSessions)
+                                            .onChange(of: suicidalIdeationBothSessions) { _, newValue in
+                                                if newValue {
+                                                    suicidalIdeationPastSession = false
+                                                    suicidalIdeationCurrentSession = false
+                                                }
+                                            }
+                                    }
+                                    .padding(.leading, 20)
+                                }
+                            }
                         }
                         .padding()
                     }
@@ -691,6 +739,10 @@ struct EasyNoteSheet: View {
         icdSearchError = nil
         chatEntryText = ""
         fullPrompt = ""
+        hasSuicidalIdeation = false
+        suicidalIdeationPastSession = false
+        suicidalIdeationCurrentSession = false
+        suicidalIdeationBothSessions = false
     }
     
     private func cleanupResources() {
@@ -930,8 +982,10 @@ struct EasyNoteSheet: View {
         promptText += "Location: \(selectedLocation)\n"
         
         // Add telehealth placeholder if needed
-        if selectedLocation == "Telehealth" {
-            promptText += "Telehealth Note: Placeholder Text for Telehealth\n\n"
+        if selectedLocation == "First Telehealth Visit" {
+            promptText += "Telehealth Note: This was the client's first telehealth session. Document that informed consent for telehealth was obtained, that the client was informed of potential risks and limitations, that the therapists license or registration number was provided, and that the therapist made efforts to identify local emergency resources relevant to the client’s location.\n\n"
+        } else if selectedLocation == "Subsequent Telehealth Visit" {
+            promptText += "Telehealth Note: This was a subsequent telehealth session. Document that the therapist confirmed the client’s full name and present physical address, assessed the appropriateness of continuing via telehealth, and ensured confidentiality and safety using best practices for secure communication. \n\n"
         }
         
         // Add note format
@@ -965,6 +1019,21 @@ struct EasyNoteSheet: View {
         // Add additional notes
         if !additionalNotes.isEmpty {
             promptText += "\nAdditional Notes:\n\(additionalNotes)\n"
+        }
+        
+        // Add suicidal ideation/self-harm information if applicable
+        if hasSuicidalIdeation {
+            promptText += "\nClient Expressed Suicidal Ideation or Self-Harm"
+            
+            if suicidalIdeationPastSession {
+                promptText += " in a past session"
+            } else if suicidalIdeationCurrentSession {
+                promptText += " for the first time in the current session"
+            } else if suicidalIdeationBothSessions {
+                promptText += " in a past session and the current session"
+            }
+            
+            promptText += "\n\nif either (a) the client has expressed suicidal ideation or self harm for the first time during the session, or (b) the client has expressed suicidal ideation or self-harm previously and also in the current session, document this clearly and clinically. Include: (1) the client's specific statements or behaviors that prompted risk assessment, (2) identified risk and protective factors, (3) the outcome of any suicide risk assessment and rationale for the therapists clinical judgment, (4) any safety plan developed collaboratively with the client, and (5) follow-up arrangements. Use objective language and avoid vague phrasing. If the client has expressed suicidal ideation or self harm in a previous session, but has not in the current session, note that the client has previously expressed suicidal ideation, that there was no further expression during the current session, but note that the therapist reviewed the client's safety plan with them. If a formal assessment tool was used, reference it. Ensure the note reflects ethical care, clinical reasoning, and legal defensibility.\n"
         }
         
         // Store the display prompt (without PIRP instructions)
