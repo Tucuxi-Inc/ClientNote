@@ -43,7 +43,8 @@ struct ClientNoteApp: App {
         let messageViewModel = MessageViewModel(modelContext: modelContext)
         self._messageViewModel = State(initialValue: messageViewModel)
 
-        let codeHighlighter =  CodeHighlighter(colorScheme: .light, fontSize: Defaults[.fontSize], enabled: Defaults[.experimentalCodeHighlighting])
+        // Always use light mode for code highlighting
+        let codeHighlighter = CodeHighlighter(colorScheme: .light, fontSize: Defaults[.fontSize], enabled: Defaults[.experimentalCodeHighlighting])
         _codeHighlighter = State(initialValue: codeHighlighter)
 
         chatViewModel.create(model: Defaults[.defaultModel])
@@ -61,11 +62,13 @@ struct ClientNoteApp: App {
                     .environment(chatViewModel)
                     .environment(messageViewModel)
                     .environment(codeHighlighter)
+                    .preferredColorScheme(.light)
                 
                 if showSplashScreen {
                     SimpleSplashScreen(isPresented: $showSplashScreen)
                         .transition(.opacity)
                         .zIndex(1)
+                        .preferredColorScheme(.light)
                 }
             }
         }
@@ -108,6 +111,7 @@ struct ClientNoteApp: App {
                 .environment(chatViewModel)
                 .environment(messageViewModel)
                 .environment(codeHighlighter)
+                .preferredColorScheme(.light)
         }
     }
     

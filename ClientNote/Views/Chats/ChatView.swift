@@ -145,17 +145,16 @@ class SpeechRecognitionViewModel {
 struct ChatView: View {
     @Environment(ChatViewModel.self) private var chatViewModel
     @Environment(MessageViewModel.self) private var messageViewModel
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(CodeHighlighter.self) private var codeHighlighter
 
     @AppStorage("experimentalCodeHighlighting") private var experimentalCodeHighlighting = false
-    @Default(.fontSize) private var fontSize
+    @Default(.fontSize) private var fontSize: Double
 
     @State private var ollamaKit: OllamaKit
-    @State private var prompt: String = ""
+    @State private var prompt = ""
     @State private var scrollProxy: ScrollViewProxy? = nil
-    @State private var isPreferencesPresented: Bool = false
-    @State private var isEasyNotePresented: Bool = false
+    @State private var isPreferencesPresented = false
+    @State private var isEasyNotePresented = false
     @FocusState private var isFocused: Bool
 
     init() {
@@ -197,7 +196,6 @@ struct ChatView: View {
         let onActiveChatChanged: () -> Void
         
         @State private var scrollProxy: ScrollViewProxy? = nil
-        @Environment(\.colorScheme) private var colorScheme
         @Environment(CodeHighlighter.self) private var codeHighlighter
         @AppStorage("experimentalCodeHighlighting") private var experimentalCodeHighlighting = false
         
@@ -239,9 +237,6 @@ struct ChatView: View {
                     if let proxy = scrollProxy {
                         scrollToBottom(proxy: proxy, messages: messageViewModel.messages)
                     }
-                }
-                .onChange(of: colorScheme, initial: true) {
-                    codeHighlighter.colorScheme = colorScheme
                 }
                 .onChange(of: fontSize, initial: true) {
                     codeHighlighter.fontSize = fontSize

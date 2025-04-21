@@ -3,48 +3,45 @@ import SwiftUI
 extension Color {
     // Dynamic primary accents
     static var euniPrimary: Color {
-        Color(light: "#A3BFA8", dark: "#88A28C") // Softer green in dark mode
+        Color(hex: "#A3BFA8") // Always use light mode color
     }
 
     static var euniSecondary: Color {
-        Color(light: "#6C8BA3", dark: "#5A7691") // Muted blue
+        Color(hex: "#6C8BA3") // Always use light mode color
     }
 
     // Backgrounds & Fields
     static var euniBackground: Color {
-        Color(light: "#FAF8F5", dark: "#1E1E1E") // Soft cream → deep gray
+        Color(hex: "#FAF8F5") // Always use light mode color
     }
 
     static var euniFieldBackground: Color {
-        Color(light: "#F1F1F0", dark: "#2B2B2B") // Mist gray → graphite
+        Color(hex: "#F1F1F0") // Always use light mode color
     }
 
     static var euniBorder: Color {
-        Color(light: "#D6CFC7", dark: "#444444") // Taupe → dark divider
+        Color(hex: "#D6CFC7") // Always use light mode color
     }
 
     // Text & Status
     static var euniText: Color {
-        Color(light: "#2D2D2D", dark: "#F0F0F0") // Charcoal → light gray
+        Color(hex: "#2D2D2D") // Always use light mode color
     }
 
     static var euniSuccess: Color {
-        Color(light: "#86A68C", dark: "#A5CBB3") // Light green to mint
+        Color(hex: "#86A68C") // Always use light mode color
     }
 
     static var euniError: Color {
-        Color(light: "#C67C7C", dark: "#D88B8B") // Burnt rose → softer red
+        Color(hex: "#C67C7C") // Always use light mode color
     }
 }
 
-// MARK: - Helper for Light/Dark Adaptive Colors
+// MARK: - Helper for Light/Dark Adaptive Colors - No longer used, but kept for reference
 extension Color {
     init(light: String, dark: String) {
-        self = Color(nsColor: NSColor(name: nil, dynamicProvider: { appearance in
-            appearance.name == .darkAqua
-                ? NSColor(hex: dark)
-                : NSColor(hex: light)
-        }))
+        // Always use light mode color regardless of system appearance
+        self = Color(hex: light)
     }
 }
 
