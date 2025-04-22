@@ -29,7 +29,7 @@ enum IAPProduct: String, CaseIterable {
     
     var price: String {
         switch self {
-        case .oneWeekSubscription: return "$3.99"
+        case .oneWeekSubscription: return "$6.99"
         case .oneMonthSubscription: return "$19.99"
         case .threeMonthSubscription: return "$49.99"
         case .yearlySubscription: return "$169.00"
