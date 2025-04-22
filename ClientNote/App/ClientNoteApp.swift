@@ -9,6 +9,9 @@ import Defaults
 import AppInfo
 import SwiftUI
 import SwiftData
+import StoreKit
+import OllamaKit
+import UserNotifications
 
 @main
 struct ClientNoteApp: App {
@@ -53,22 +56,68 @@ struct ClientNoteApp: App {
         
         chatViewModel.activeChat = activeChat
         messageViewModel.load(of: activeChat)
+
+        /*
+        #if DEBUG
+        // Set up StoreKit test environment programmatically
+        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] != "1" {
+            Task {
+                // Ensure we have the StoreKit configuration file loaded
+                print("Setting up StoreKit test environment")
+                
+                // Force load products from the StoreKit configuration file
+                let productIDs = ["ai.tucuxi.ClientNote.7DayTrial", "ai.tucuxi.ClientNote.fullUnlock"]
+                print("Loading products with IDs: \(productIDs)")
+                
+                do {
+                    let products = try await Product.products(for: productIDs)
+                    print("Successfully loaded \(products.count) products:")
+                    for product in products {
+                        print("- \(product.id): \(product.displayName), price: \(product.displayPrice)")
+                    }
+                    
+                    // Force a sync with App Store to ensure connection is working
+                    print("Syncing with App Store...")
+                    try await AppStore.sync()
+                    print("App Store sync complete")
+                } catch {
+                    print("Error loading products: \(error)")
+                }
+                
+                // Clear existing transactions for fresh testing
+                if let result = await StoreKit.Transaction.latest(for: "ai.tucuxi.ClientNote.7DayTrial") {
+                    if case .verified(let transaction) = result {
+                        await transaction.finish()
+                    }
+                }
+                
+                if let result = await StoreKit.Transaction.latest(for: "ai.tucuxi.ClientNote.fullUnlock") {
+                    if case .verified(let transaction) = result {
+                        await transaction.finish()
+                    }
+                }
+            }
+        }
+        #endif
+        */
     }
     
     var body: some Scene {
         WindowGroup {
             ZStack {
-                AppView()
-                    .environment(chatViewModel)
-                    .environment(messageViewModel)
-                    .environment(codeHighlighter)
-                    .preferredColorScheme(.light)
+                AccessControlView {
+                    AppView()
+                        .environment(chatViewModel)
+                        .environment(messageViewModel)
+                        .environment(codeHighlighter)
+                }
+                .preferredColorScheme(ColorScheme.light)
                 
                 if showSplashScreen {
                     SimpleSplashScreen(isPresented: $showSplashScreen)
                         .transition(.opacity)
                         .zIndex(1)
-                        .preferredColorScheme(.light)
+                        .preferredColorScheme(ColorScheme.light)
                 }
             }
         }

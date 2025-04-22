@@ -28,5 +28,10 @@
     <string>We need access to your microphone to enable voice input for therapy notes.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
     <string>We need speech recognition to convert your voice input into text for therapy notes.</string>
+    <key>StoreKit</key>
+    <dict>
+        <key>Configuration</key>
+        <string>Configuration.storekit</string>
+    </dict>
 </dict>
 </plist> 
