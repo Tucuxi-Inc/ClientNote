@@ -103,164 +103,164 @@ struct EasyNoteSheet: View {
     
     // Enhanced Therapeutic Approaches and Interventions Dictionary
     private var interventions: [String: [String]] = [
-        "CBT (Cognitive Behavioral Therapy)": [
-            "Cognitive restructuring",
-            "Socratic questioning",
-            "Thought records",
-            "Identifying automatic thoughts",
-            "Behavioral activation",
-            "Schema identification",
-            "Cognitive triangle",
-            "Thought-challenging techniques",
-            "Cognitive distortions labeling"
-        ],
-        "DBT (Dialectical Behavior Therapy)": [
-            "Mindfulness training",
-            "Distress tolerance (IMPROVE, self-soothing)",
-            "Emotion regulation skills (Check the Facts, Opposite Action)",
-            "Interpersonal effectiveness (DEAR MAN, GIVE, FAST)",
-            "Diary card review",
-            "Chain analysis",
-            "Radical acceptance"
-        ],
-        "ACT (Acceptance and Commitment Therapy)": [
-            "Values clarification",
-            "Cognitive defusion",
-            "Acceptance techniques",
-            "Present-moment awareness",
-            "Committed action planning",
-            "Self-as-context work",
-            "Mindful observation",
-            "Observer perspective",
-            "Breathing/grounding exercises",
-            "Values-based goal setting"
-        ],
-        "Psychodynamic": [
-            "Exploring defense mechanisms",
-            "Attachment pattern analysis",
-            "Transference/Countertransference exploration",
-            "Insight development",
-            "Free association",
-            "Interpretation of unconscious material"
-        ],
-        "Person-Centered": [
-            "Reflective listening",
-            "Unconditional positive regard",
-            "Empathic responding",
-            "Genuineness/congruence",
-            "Encouraging self-exploration",
-            "Use of silence and presence",
-            "Client-led journaling or expressive mediums",
-            "Emotional mirroring",
-            "Minimal interpretation"
-        ],
-        "EMDR (Eye Movement Desensitization and Reprocessing)": [
-            "Bilateral stimulation",
-            "Desensitization of trauma",
-            "Resource development",
-            "Installation of positive cognition",
-            "Assessment of SUDs/VoC",
-            "Target sequencing",
-            "Trauma narrative reprocessing"
-        ],
-        "IFS (Internal Family Systems)": [
-            "Identifying parts (e.g., exile, manager, firefighter)",
-            "Unblending techniques",
-            "Facilitating Self-to-part connection",
-            "Mapping internal system",
-            "Direct access and witnessing parts",
-            "Self-to-part communication",
-            "Unburdening process",
-            "Parts dialogue",
-            "Integration of parts"
-        ],
-        "Solution-Focused Brief Therapy (SFBT)": [
-            "Miracle question",
-            "Scaling questions",
-            "Exception-finding",
-            "Coping questions",
-            "SMART goal setting",
-            "Complimenting strengths",
-            "Future-focused narrative building",
-            "Visualization of preferred future",
-            "Resource and Strength Mapping"
-        ],
-        "Narrative Therapy": [
-            "Externalizing the problem",
-            "Mapping problem influence",
-            "Exploring dominant story effects",
-            "Double-listening (trauma + resilience)",
-            "Re-authoring preferred narratives",
-            "Therapeutic letter writing",
-            "Re-membering conversations",
-            "Identifying unique outcomes"
-        ],
-        "TF-CBT (Trauma-Focused Cognitive Behavioral Therapy)": [
-            "Psychoeducation about trauma",
-            "Feelings thermometer / emotion wheels",
-            "Relaxation techniques",
-            "Cognitive coping (CBT triangle, logs)",
-            "Trauma narrative (storytelling, drawing)",
-            "In vivo exposure",
-            "Caregiver-child conjoint sessions",
-            "Cognitive restructuring worksheets",
-            "Safety planning"
-        ],
-        "Behavioral Therapy": [
-            "Systematic desensitization",
-            "Counterconditioning",
-            "Reinforcement (positive/negative)",
-            "Punishment protocols",
-            "Behavioral activation",
-            "Graded exposure",
-            "Contingency management",
-            "Self-monitoring (ABC model, diaries)",
-            "Functional behavior analysis",
-            "Social skills training"
-        ],
-        "Motivational Interviewing (MI)": [
-            "OARS (Open questions, Affirmations, Reflective listening, Summarizing)",
-            "Confidence rulers / readiness rulers",
-            "Decisional balance",
-            "Exploring values-discrepancy",
-            "Change talk elicitation",
-            "Rolling with resistance",
-            "SMART goal setting"
-        ],
-        "Play Therapy": [
-            "Sand tray and miniatures",
-            "Puppets and symbolic play",
-            "Dollhouse / role play",
-            "Therapeutic board games",
-            "Emotion flashcards",
-            "Art therapy (drawing, clay)",
-            "Storytelling and narrative play",
-            "Co-regulation through grounding",
-            "Bibliotherapy",
-            "Processing trauma through play"
-        ],
-        "Gottman Method Couples Therapy": [
-            "Love Maps",
-            "Fondness and admiration exercises",
-            "Four Horsemen framework",
-            "Stress-reducing conversation",
-            "Positive Perspective",
-            "Managing conflict (soft start-up, repair attempts)",
-            "Creating shared meaning",
-            "5:1 interaction ratio",
-            "Dreams and values discussion"
-        ],
-        "Integrative Family and Couple Therapy (IFCT)": [
-            "Genograms and relational mapping",
-            "Identifying conflict cycles",
-            "Emotion-focused interventions",
-            "Structural techniques (boundary clarification)",
-            "Attachment-based psychoeducation",
-            "Reframing family narratives",
-            "Communication skill-building",
-            "Enactments and sculpting",
-            "Homework (e.g., empathy journals)"
-        ]
+            "CBT (Cognitive Behavioral Therapy)": [
+                "Cognitive restructuring",
+                "Socratic questioning",
+                "Thought records",
+                "Identifying automatic thoughts",
+                "Behavioral activation",
+                "Schema identification",
+                "Cognitive triangle",
+                "Thought-challenging techniques",
+                "Cognitive distortions labeling"
+            ],
+            "DBT (Dialectical Behavior Therapy)": [
+                "Mindfulness training",
+                "Distress tolerance (IMPROVE, self-soothing)",
+                "Emotion regulation skills (Check the Facts, Opposite Action)",
+                "Interpersonal effectiveness (DEAR MAN, GIVE, FAST)",
+                "Diary card review",
+                "Chain analysis",
+                "Radical acceptance"
+            ],
+            "ACT (Acceptance and Commitment Therapy)": [
+                "Values clarification",
+                "Cognitive defusion",
+                "Acceptance techniques",
+                "Present-moment awareness",
+                "Committed action planning",
+                "Self-as-context work",
+                "Mindful observation",
+                "Observer perspective",
+                "Breathing/grounding exercises",
+                "Values-based goal setting"
+            ],
+            "Psychodynamic": [
+                "Exploring defense mechanisms",
+                "Attachment pattern analysis",
+                "Transference/Countertransference exploration",
+                "Insight development",
+                "Free association",
+                "Interpretation of unconscious material"
+            ],
+            "Person-Centered": [
+                "Reflective listening",
+                "Unconditional positive regard",
+                "Empathic responding",
+                "Genuineness/congruence",
+                "Encouraging self-exploration",
+                "Use of silence and presence",
+                "Client-led journaling or expressive mediums",
+                "Emotional mirroring",
+                "Minimal interpretation"
+            ],
+            "EMDR (Eye Movement Desensitization and Reprocessing)": [
+                "Bilateral stimulation",
+                "Desensitization of trauma",
+                "Resource development",
+                "Installation of positive cognition",
+                "Assessment of SUDs/VoC",
+                "Target sequencing",
+                "Trauma narrative reprocessing"
+            ],
+            "IFS (Internal Family Systems)": [
+                "Identifying parts (e.g., exile, manager, firefighter)",
+                "Unblending techniques",
+                "Facilitating Self-to-part connection",
+                "Mapping internal system",
+                "Direct access and witnessing parts",
+                "Self-to-part communication",
+                "Unburdening process",
+                "Parts dialogue",
+                "Integration of parts"
+            ],
+            "Solution-Focused Brief Therapy (SFBT)": [
+                "Miracle question",
+                "Scaling questions",
+                "Exception-finding",
+                "Coping questions",
+                "SMART goal setting",
+                "Complimenting strengths",
+                "Future-focused narrative building",
+                "Visualization of preferred future",
+                "Resource and Strength Mapping"
+            ],
+            "Narrative Therapy": [
+                "Externalizing the problem",
+                "Mapping problem influence",
+                "Exploring dominant story effects",
+                "Double-listening (trauma + resilience)",
+                "Re-authoring preferred narratives",
+                "Therapeutic letter writing",
+                "Re-membering conversations",
+                "Identifying unique outcomes"
+            ],
+            "TF-CBT (Trauma-Focused Cognitive Behavioral Therapy)": [
+                "Psychoeducation about trauma",
+                "Feelings thermometer / emotion wheels",
+                "Relaxation techniques",
+                "Cognitive coping (CBT triangle, logs)",
+                "Trauma narrative (storytelling, drawing)",
+                "In vivo exposure",
+                "Caregiver-child conjoint sessions",
+                "Cognitive restructuring worksheets",
+                "Safety planning"
+            ],
+            "Behavioral Therapy": [
+                "Systematic desensitization",
+                "Counterconditioning",
+                "Reinforcement (positive/negative)",
+                "Punishment protocols",
+                "Behavioral activation",
+                "Graded exposure",
+                "Contingency management",
+                "Self-monitoring (ABC model, diaries)",
+                "Functional behavior analysis",
+                "Social skills training"
+            ],
+            "Motivational Interviewing (MI)": [
+                "OARS (Open questions, Affirmations, Reflective listening, Summarizing)",
+                "Confidence rulers / readiness rulers",
+                "Decisional balance",
+                "Exploring values-discrepancy",
+                "Change talk elicitation",
+                "Rolling with resistance",
+                "SMART goal setting"
+            ],
+            "Play Therapy": [
+                "Sand tray and miniatures",
+                "Puppets and symbolic play",
+                "Dollhouse / role play",
+                "Therapeutic board games",
+                "Emotion flashcards",
+                "Art therapy (drawing, clay)",
+                "Storytelling and narrative play",
+                "Co-regulation through grounding",
+                "Bibliotherapy",
+                "Processing trauma through play"
+            ],
+            "Gottman Method Couples Therapy": [
+                "Love Maps",
+                "Fondness and admiration exercises",
+                "Four Horsemen framework",
+                "Stress-reducing conversation",
+                "Positive Perspective",
+                "Managing conflict (soft start-up, repair attempts)",
+                "Creating shared meaning",
+                "5:1 interaction ratio",
+                "Dreams and values discussion"
+            ],
+            "Integrative Family and Couple Therapy (IFCT)": [
+                "Genograms and relational mapping",
+                "Identifying conflict cycles",
+                "Emotion-focused interventions",
+                "Structural techniques (boundary clarification)",
+                "Attachment-based psychoeducation",
+                "Reframing family narratives",
+                "Communication skill-building",
+                "Enactments and sculpting",
+                "Homework (e.g., empathy journals)"
+            ]
     ]
     
     init(prompt: Binding<String>, generateAction: @escaping () -> Void) {
