@@ -1,0 +1,224 @@
+{
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
+  "identifier" : "ClientNoteConfiguration",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "249.0",
+      "familyShareable" : false,
+      "internalID" : "fullUnlock",
+      "localizations" : [
+        {
+          "description" : "Use of all features for an unlimited time",
+          "displayName" : "One-Time Purchase",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "ai.tucuxi.ClientNote.fullUnlock",
+      "referenceName" : "One-Time Purchase",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "ai.tucuxi.ClientNote",
+    "_developerTeamID" : "YOURTEAMID",
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 726881166.04824603,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Purchase"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Verification"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Store Sync"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Subscription Status"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Transaction"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Manage Subscriptions Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Refund Request Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Offer Code Redeem Sheet"
+      }
+    ],
+    "_timeRate" : 0
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "21501634",
+      "localizations" : [
+        {
+          "description" : "Access to all ClientNote features",
+          "displayName" : "ClientNote Subscription",
+          "locale" : "en_US"
+        }
+      ],
+      "name" : "ClientNote Subscriptions",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "6.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "weekly",
+          "introductoryOffer" : {
+            "internalID" : "weekly_free_trial",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P3D"
+          },
+          "localizations" : [
+            {
+              "description" : "7 days, with 3-day free trial",
+              "displayName" : "1-Week Plan",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "ai.tucuxi.ClientNote.subscription.weekly",
+          "recurringSubscriptionPeriod" : "P1W",
+          "referenceName" : "Weekly Subscription",
+          "subscriptionGroupID" : "21501634",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "19.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "monthly",
+          "introductoryOffer" : {
+            "internalID" : "monthly_free_trial",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P7D"
+          },
+          "localizations" : [
+            {
+              "description" : "30 days, with 7-day free trial",
+              "displayName" : "1-Month Plan",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "ai.tucuxi.ClientNote.subscription.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Monthly Subscription",
+          "subscriptionGroupID" : "21501634",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "49.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "quarterly",
+          "introductoryOffer" : {
+            "internalID" : "quarterly_free_trial",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P7D"
+          },
+          "localizations" : [
+            {
+              "description" : "90 days, with 7-day free trial",
+              "displayName" : "3-Month Plan",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "ai.tucuxi.ClientNote.subscription.quarterly",
+          "recurringSubscriptionPeriod" : "P3M",
+          "referenceName" : "Quarterly Subscription",
+          "subscriptionGroupID" : "21501634",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "169.0",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "yearly",
+          "introductoryOffer" : {
+            "internalID" : "yearly_free_trial",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P7D"
+          },
+          "localizations" : [
+            {
+              "description" : "365 days, with 7-day free trial",
+              "displayName" : "1-Year Plan",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "ai.tucuxi.ClientNote.subscription.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Yearly Subscription",
+          "subscriptionGroupID" : "21501634",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}
