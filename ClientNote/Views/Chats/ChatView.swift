@@ -13,7 +13,6 @@ import ViewCondition
 import Speech
 import AVFoundation
 
-
 @Observable
 class SpeechRecognitionViewModel {
     private var speechRecognizer: SFSpeechRecognizer?
@@ -156,7 +155,7 @@ struct ChatView: View {
     @State private var isPreferencesPresented = false
     @State private var isEasyNotePresented = false
     @FocusState private var isFocused: Bool
-
+    
     init() {
         let baseURL = URL(string: Defaults[.defaultHost])!
         self._ollamaKit = State(initialValue: OllamaKit(baseURL: baseURL))
@@ -245,39 +244,49 @@ struct ChatView: View {
                     codeHighlighter.enabled = experimentalCodeHighlighting
                 }
             }
-            .navigationTitle(chatViewModel.activeChat?.name ?? "")
+            .navigationTitle(chatViewModel.selectedClient?.identifier ?? "No Client Selected")
             .toolbar {
+                // Centered app name
                 ToolbarItem(placement: .principal) {
-                    HStack {
-                        // Left side spacer
-                        Spacer()
-                        
-                        // Centered app name
-                        Text("Euni™ - Client Notes")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(Color.euniText)
-                        
-                        Spacer(minLength: 250)
-                        
-                        // Right-aligned model name
-                        HStack {
-                            if let model = chatViewModel.activeChat?.model, !model.isEmpty {
-                                Text(model)
-                                    .font(.headline)
-                                    .foregroundColor(Color.euniSecondary)
-                                    .lineLimit(1)
-                            } else {
-                                Text("") // Empty text to maintain layout when no model
-                            }
+                    Text("Euni™ - Client Notes")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(Color.euniText)
+                }
+                // Right: Activity and Assistant Name
+                ToolbarItem(placement: .automatic) {
+                    HStack(spacing: 24) {
+                        // Show selected activity title or type
+                        if let activity = chatViewModel.selectedActivity {
+                            Text(activity.displayTitle)
+                                .font(.headline)
+                                .foregroundColor(Color.euniSecondary)
+                                .layoutPriority(1)
+                        } else {
+                            // Show selected task type
+                            let taskType = chatViewModel.selectedTask.replacingOccurrences(of: "Create a ", with: "")
+                            Text(taskType)
+                                .font(.headline)
+                                .foregroundColor(Color.euniSecondary)
+                                .layoutPriority(1)
                         }
-                        .frame(width: 200, alignment: .trailing)
+                        // Assistant Name (right aligned, can truncate)
+                        if let model = chatViewModel.activeChat?.model, !model.isEmpty {
+                            Text(AssistantModel.nameFor(modelId: model))
+                                .font(.headline)
+                                .foregroundColor(Color.euniSecondary)
+                                .lineLimit(1)
+                                .frame(maxWidth: 200, alignment: .trailing)
+                        } else {
+                            Text("")
+                                .frame(maxWidth: 200, alignment: .trailing)
+                        }
                     }
                 }
-                
+                // Preferences button (sidebar.trailing icon)
                 ToolbarItem(placement: .primaryAction) {
-                    Button("Show Preferences", systemImage: "sidebar.trailing") {
-                        isPreferencesPresented.toggle()
+                    Button(action: { isPreferencesPresented.toggle() }) {
+                        Image(systemName: "sidebar.trailing")
                     }
                     .foregroundColor(Color.euniSecondary)
                 }

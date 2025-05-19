@@ -1,156 +1,256 @@
 import SwiftUI
 import Defaults
+import OllamaKit
 
 struct SplashScreen: View {
-    @State private var currentImageIndex = 0
-    @State private var opacity = 1.0
-    @State private var scale = 1.0
-    @State private var isFirstLaunch = !Defaults[.hasLaunchedBefore]
+    @Environment(ChatViewModel.self) private var chatViewModel
+    @Binding var isPresented: Bool
+    @State private var isOllamaInstalled: Bool = false
+    @State private var isCheckingOllama: Bool = true
+    @State private var isDownloadingFlash: Bool = false
+    @State private var downloadProgress: Double = 0.0
+    @State private var downloadStatus: String = ""
+    @State private var ollamaKit: OllamaKit
     
-    // First launch images
-    private let firstLaunchImages = [
-        "splash1",
-        "splash2",
-        "splash3",
-        "splash4"
-    ]
+    private let logoImage = "1_Eunitm-Client-Notes-Effortless-AI-Powered-Therapy-Documentation"
     
-    // Regular launch image
-    private let regularLaunchImage = "splash_logo"
-    
-    // Animation timing
-    private let imageTransitionDuration: Double = 0.5
-    private let imageDisplayDuration: Double = 2.0
-    private let finalDisplayDuration: Double = 1.5
+    init(isPresented: Binding<Bool>) {
+        self._isPresented = isPresented
+        let baseURL = URL(string: Defaults[.defaultHost])!
+        self._ollamaKit = State(initialValue: OllamaKit(baseURL: baseURL))
+    }
     
     var body: some View {
         ZStack {
             Color.euniBackground
                 .ignoresSafeArea()
             
-            if isFirstLaunch {
-                // First launch experience with multiple images
-                if let _ = UIImage(named: firstLaunchImages[currentImageIndex]) {
-                    // Use actual image if available
-                    Image(firstLaunchImages[currentImageIndex])
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 400, height: 400)
-                        .opacity(opacity)
-                        .scaleEffect(scale)
-                        .onAppear {
-                            animateFirstLaunch()
+            VStack(spacing: 20) {
+                Image(logoImage)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: 800, maxHeight: 800)
+                
+                if isCheckingOllama {
+                    ProgressView("Checking Ollama installation...")
+                        .progressViewStyle(.circular)
+                } else if !isOllamaInstalled {
+                    VStack(spacing: 16) {
+                        Text("Ollama Required")
+                            .font(.headline)
+                        
+                        Text("Please install Ollama to continue")
+                            .foregroundColor(.secondary)
+                        
+                        Button("Download Ollama") {
+                            if let url = URL(string: "https://ollama.com/download") {
+                                NSWorkspace.shared.open(url)
+                            }
                         }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Color.euniPrimary)
+                        
+                        Button("Check Again") {
+                            checkOllamaInstallation()
+                        }
+                    }
+                } else if isDownloadingFlash {
+                    VStack(spacing: 8) {
+                        ProgressView("Downloading Flash Assistant...", value: downloadProgress, total: 1.0)
+                        Text(downloadStatus)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 } else {
-                    // Use placeholder if image not found
-                    PlaceholderImageGenerator.generatePlaceholderImage(name: firstLaunchImages[currentImageIndex])
-                        .opacity(opacity)
-                        .scaleEffect(scale)
-                        .onAppear {
-                            animateFirstLaunch()
+                    Button("Get Started") {
+                        if !Defaults[.defaultHasLaunched] {
+                            downloadFlashAssistant()
+                        } else {
+                            dismissSplashScreen()
                         }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color.euniPrimary)
+                    .disabled(!isOllamaInstalled || isDownloadingFlash)
                 }
-            } else {
-                // Regular launch with single image
-                if let _ = UIImage(named: regularLaunchImage) {
-                    // Use actual image if available
-                    Image(regularLaunchImage)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 300, height: 300)
-                        .opacity(opacity)
-                        .scaleEffect(scale)
-                        .onAppear {
-                            animateRegularLaunch()
-                        }
-                } else {
-                    // Use placeholder if image not found
-                    PlaceholderImageGenerator.generatePlaceholderImage(name: regularLaunchImage, size: CGSize(width: 300, height: 300))
-                        .opacity(opacity)
-                        .scaleEffect(scale)
-                        .onAppear {
-                            animateRegularLaunch()
-                        }
+            }
+            .padding()
+        }
+        .onAppear {
+            checkOllamaInstallation()
+        }
+    }
+    
+    private func checkOllamaInstallation() {
+        isCheckingOllama = true
+        
+        Task {
+            let isReachable = await ollamaKit.reachable()
+            
+            await MainActor.run {
+                isOllamaInstalled = isReachable
+                isCheckingOllama = false
+                
+                // If Ollama is installed and this is not first launch, dismiss splash screen
+                if isReachable && Defaults[.defaultHasLaunched] {
+                    dismissSplashScreen()
                 }
             }
         }
     }
     
-    private func animateFirstLaunch() {
-        // Start with a fade-in and scale-up animation
-        withAnimation(.easeIn(duration: imageTransitionDuration)) {
-            opacity = 1.0
-            scale = 1.0
+    private func downloadFlashAssistant() {
+        isDownloadingFlash = true
+        downloadProgress = 0.0
+        downloadStatus = "Starting download..."
+        
+        Task {
+            await pullFlashModel()
+            await MainActor.run {
+                isDownloadingFlash = false
+                if downloadStatus == "success" {
+                    // Set default model to Flash
+                    Defaults[.defaultModel] = "qwen3:0.6b"
+                    // Mark as launched
+                    Defaults[.defaultHasLaunched] = true
+                    // Create initial chat with Flash
+                    chatViewModel.create(model: "qwen3:0.6b")
+                    // Dismiss splash screen
+                    dismissSplashScreen()
+                }
+            }
+        }
+    }
+    
+    private func pullFlashModel() async {
+        guard let url = URL(string: "\(Defaults[.defaultHost])/api/pull") else {
+            await MainActor.run {
+                downloadStatus = "Error: Invalid Ollama host URL"
+                isDownloadingFlash = false
+            }
+            return
         }
         
-        // After displaying the current image, transition to the next one
-        DispatchQueue.main.asyncAfter(deadline: .now() + imageDisplayDuration) {
-            // Fade out current image
-            withAnimation(.easeOut(duration: imageTransitionDuration)) {
-                opacity = 0.0
-                scale = 0.8
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let pullRequest: [String: Any] = ["model": "qwen3:0.6b", "stream": true]
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: pullRequest)
+            
+            let (data, response) = try await URLSession.shared.bytes(for: request)
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                if httpResponse.statusCode >= 400 {
+                    let errorMessage: String
+                    switch httpResponse.statusCode {
+                    case 404:
+                        errorMessage = "Ollama service not found. Is Ollama running?"
+                    case 500...599:
+                        errorMessage = "Ollama server error (HTTP \(httpResponse.statusCode))"
+                    default:
+                        errorMessage = "HTTP error \(httpResponse.statusCode)"
+                    }
+                    
+                    await MainActor.run {
+                        downloadStatus = "Error: \(errorMessage)"
+                        isDownloadingFlash = false
+                    }
+                    return
+                }
             }
             
-            // After fade out, change to next image
-            DispatchQueue.main.asyncAfter(deadline: .now() + imageTransitionDuration) {
-                if currentImageIndex < firstLaunchImages.count - 1 {
-                    // Move to next image
-                    currentImageIndex += 1
-                    
-                    // Fade in new image
-                    withAnimation(.easeIn(duration: imageTransitionDuration)) {
-                        opacity = 1.0
-                        scale = 1.0
-                    }
-                    
-                    // Continue the cycle
-                    DispatchQueue.main.asyncAfter(deadline: .now() + imageDisplayDuration) {
-                        animateFirstLaunch()
-                    }
-                } else {
-                    // We've shown all images, mark as launched
-                    Defaults[.hasLaunchedBefore] = true
-                    
-                    // Fade in the final image
-                    withAnimation(.easeIn(duration: imageTransitionDuration)) {
-                        opacity = 1.0
-                        scale = 1.0
-                    }
-                    
-                    // Dismiss after final display
-                    DispatchQueue.main.asyncAfter(deadline: .now() + finalDisplayDuration) {
-                        withAnimation(.easeOut(duration: imageTransitionDuration)) {
-                            opacity = 0.0
-                            scale = 0.8
+            var buffer = Data()
+            var completedSize: Int64 = 0
+            var totalSize: Int64 = 1
+            
+            for try await byte in data {
+                buffer.append(contentsOf: [byte])
+                
+                if byte == 10 {
+                    if let responseString = String(data: buffer, encoding: .utf8),
+                       let responseData = responseString.data(using: .utf8),
+                       let json = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any] {
+                        
+                        if let status = json["status"] as? String {
+                            await MainActor.run {
+                                downloadStatus = status
+                                
+                                if status == "success" {
+                                    downloadProgress = 1.0
+                                }
+                            }
+                            
+                            if let completed = json["completed"] as? Int64 {
+                                completedSize = completed
+                            }
+                            
+                            if let total = json["total"] as? Int64, total > 0 {
+                                totalSize = total
+                            }
+                            
+                            if completedSize > 0 && totalSize > 0 {
+                                let progress = Double(completedSize) / Double(totalSize)
+                                await MainActor.run {
+                                    downloadProgress = min(progress, 0.99)
+                                }
+                            }
+                        }
+                        
+                        if let errorMessage = json["error"] as? String {
+                            await MainActor.run {
+                                downloadStatus = "Error: \(errorMessage)"
+                                isDownloadingFlash = false
+                            }
+                            return
                         }
                     }
+                    
+                    buffer.removeAll()
                 }
+            }
+        } catch let urlError as URLError {
+            await MainActor.run {
+                let errorMessage: String
+                switch urlError.code {
+                case .notConnectedToInternet:
+                    errorMessage = "No internet connection"
+                case .timedOut:
+                    errorMessage = "Connection timed out"
+                case .cannotConnectToHost:
+                    errorMessage = "Cannot connect to Ollama. Is Ollama running?"
+                default:
+                    errorMessage = urlError.localizedDescription
+                }
+                
+                downloadStatus = "Error: \(errorMessage)"
+                isDownloadingFlash = false
+            }
+        } catch {
+            await MainActor.run {
+                downloadStatus = "Error: \(error.localizedDescription)"
+                isDownloadingFlash = false
             }
         }
     }
     
-    private func animateRegularLaunch() {
-        // Start with a fade-in and scale-up animation
-        withAnimation(.easeIn(duration: imageTransitionDuration)) {
-            opacity = 1.0
-            scale = 1.0
-        }
-        
-        // Dismiss after display duration
-        DispatchQueue.main.asyncAfter(deadline: .now() + finalDisplayDuration) {
-            withAnimation(.easeOut(duration: imageTransitionDuration)) {
-                opacity = 0.0
-                scale = 0.8
-            }
+    private func dismissSplashScreen() {
+        withAnimation(.easeOut(duration: 0.3)) {
+            isPresented = false
         }
     }
+}
+
+#Preview {
+    SplashScreen(isPresented: .constant(true))
+        .environment(ChatViewModel(modelContext: try! ModelContainer(for: Chat.self, Message.self).mainContext))
+        .environment(MessageViewModel(modelContext: try! ModelContainer(for: Chat.self, Message.self).mainContext))
 }
 
 // Extension to Defaults for tracking first launch
 extension DefaultsKey {
-    static let hasLaunchedBefore = Key<Bool>("hasLaunchedBefore", default: false)
-}
-
-#Preview {
-    SplashScreen()
+    static let defaultHasLaunched = Key<Bool>("defaultHasLaunched", default: false)
+} 
 } 

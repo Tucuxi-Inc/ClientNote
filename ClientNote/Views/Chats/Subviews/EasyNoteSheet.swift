@@ -4,13 +4,6 @@ import AVFoundation
 import OllamaKit
 import Defaults
 
-// MARK: - ICDResult Model
-struct ICDResult: Identifiable {
-    let id = UUID()
-    let code: String
-    let description: String
-}
-
 struct EasyNoteSheet: View {
     @Binding var prompt: String
     let generateAction: () -> Void
@@ -263,11 +256,12 @@ struct EasyNoteSheet: View {
             ]
     ]
     
+    private let easyNotePrompt = "You are a helpful assistant who responds to the user prompt"
+    
     init(prompt: Binding<String>, generateAction: @escaping () -> Void) {
         self._prompt = prompt
         self.generateAction = generateAction
         
-        // Initialize ollamaKit with the default host
         let baseURL = URL(string: Defaults[.defaultHost])!
         self._ollamaKit = State(initialValue: OllamaKit(baseURL: baseURL))
     }
@@ -668,14 +662,10 @@ struct EasyNoteSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Generate Note") {
                         generatePrompt()
-                        // Store the full prompt with PIRP instructions for the model
-                        let modelPrompt = fullPrompt
-                        
-                        // Call the generate action with the display prompt and model prompt
+                        // Call the generate action with the chat entry text
                         if let activeChat = chatViewModel.activeChat {
-                            messageViewModel.generate(ollamaKit, activeChat: activeChat, prompt: chatEntryText, modelPrompt: modelPrompt)
+                            messageViewModel.generate(ollamaKit, activeChat: activeChat, prompt: chatEntryText)
                         }
-                        
                         dismiss()
                     }
                     .buttonStyle(.borderedProminent)
@@ -966,106 +956,28 @@ struct EasyNoteSheet: View {
     }
     
     private func generatePrompt() {
-        // Format date and time
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateStyle = .medium
-        let formattedDate = dateFormatter.string(from: selectedDate)
+        // Store the chat entry text for display
+        chatEntryText = """
+            Session Date: \(selectedDate.formatted(date: .long, time: .omitted))
+            Session Time: \(selectedTime.formatted(date: .omitted, time: .shortened))
+            Location: \(selectedLocation)
+            Format: \(selectedNoteFormat)
+            Approach: \(selectedApproach)
+            Presenting Issue: \(presentingIssue)
+            Client Response: \(clientResponse)
+            Clinical Focus: \(clinicalFocus)
+            Treatment Goals: \(treatmentGoals)
+            Additional Notes: \(additionalNotes)
+            """
         
-        let timeFormatter = DateFormatter()
-        timeFormatter.timeStyle = .short
-        let formattedTime = timeFormatter.string(from: selectedTime)
-        
-        // Create the base prompt with date and time
-        var promptText = "Date: \(formattedDate)\nTime: \(formattedTime)\n\n"
-        
-        // Add location
-        promptText += "Location: \(selectedLocation)\n"
-        
-        // Add telehealth placeholder if needed
-        if selectedLocation == "First Telehealth Visit" {
-            promptText += "Telehealth Note: This was the client's first telehealth session. Document that informed consent for telehealth was obtained, that the client was informed of potential risks and limitations, that the therapists license or registration number was provided, and that the therapist made efforts to identify local emergency resources relevant to the client’s location.\n\n"
-        } else if selectedLocation == "Subsequent Telehealth Visit" {
-            promptText += "Telehealth Note: This was a subsequent telehealth session. Document that the therapist confirmed the client’s full name and present physical address, assessed the appropriateness of continuing via telehealth, and ensured confidentiality and safety using best practices for secure communication. \n\n"
+        // Set the system prompt to the Easy Note prompt
+        if let activeChat = chatViewModel.activeChat {
+            activeChat.systemPrompt = easyNotePrompt
         }
         
-        // Add note format
-        promptText += "Note Format: \(selectedNoteFormat == "Other" ? customNoteFormat : selectedNoteFormat)\n\n"
-        
-        // Add therapeutic approach
-        promptText += "Therapeutic Approach: \(selectedApproach == "Other" ? customApproach : selectedApproach)\n"
-        
-        // Add selected interventions
-        if !selectedInterventions.isEmpty {
-            promptText += "Interventions: \(selectedInterventions.joined(separator: ", "))\n"
-        }
-        
-        // Add presenting issue
-        promptText += "Presenting Issue: \(presentingIssue == "Other" ? customPresentingIssue : presentingIssue)\n"
-        
-        // Add client response
-        promptText += "Client Response: \(clientResponse == "Other" ? customClientResponse : clientResponse)\n"
-        
-        // Add clinical focus
-        promptText += "Clinical Focus: \(clinicalFocus == "Other" ? customClinicalFocus : clinicalFocus)\n"
-        
-        // Add treatment goals
-        promptText += "Treatment Goals: \(treatmentGoals == "Other" ? customTreatmentGoals : treatmentGoals)\n"
-        
-        // Add insurance code/diagnosis
-        if !insuranceQuery.isEmpty {
-            promptText += "Insurance Code/Diagnosis: \(insuranceQuery)\n"
-        }
-        
-        // Add additional notes
-        if !additionalNotes.isEmpty {
-            promptText += "\nAdditional Notes:\n\(additionalNotes)\n"
-        }
-        
-        // Add suicidal ideation/self-harm information if applicable
-        if hasSuicidalIdeation {
-            promptText += "\nClient Expressed Suicidal Ideation or Self-Harm"
-            
-            if suicidalIdeationPastSession {
-                promptText += " in a past session"
-            } else if suicidalIdeationCurrentSession {
-                promptText += " for the first time in the current session"
-            } else if suicidalIdeationBothSessions {
-                promptText += " in a past session and the current session"
-            }
-            
-            promptText += "\n\nif either (a) the client has expressed suicidal ideation or self harm for the first time during the session, or (b) the client has expressed suicidal ideation or self-harm previously and also in the current session, document this clearly and clinically. Include: (1) the client's specific statements or behaviors that prompted risk assessment, (2) identified risk and protective factors, (3) the outcome of any suicide risk assessment and rationale for the therapists clinical judgment, (4) any safety plan developed collaboratively with the client, and (5) follow-up arrangements. Use objective language and avoid vague phrasing. If the client has expressed suicidal ideation or self harm in a previous session, but has not in the current session, note that the client has previously expressed suicidal ideation, that there was no further expression during the current session, but note that the therapist reviewed the client's safety plan with them. If a formal assessment tool was used, reference it. Ensure the note reflects ethical care, clinical reasoning, and legal defensibility.\n"
-        }
-        
-        // Store the display prompt (without PIRP instructions)
-        chatEntryText = promptText
-        
-        // If PIRP format is selected, append the PIRP instructions to the full prompt
-        if selectedNoteFormat == "PIRP" {
-            fullPrompt = promptText + "\n\nFor your reference, here is how to structure PIRP Clinical Note Language:\n\n" +
-                "PIRP Clinical Note Language differs from BIRP in that it leads with the Presenting Problem, followed by the Intervention, then the Response, and finally the Plan. This format is particularly useful for documenting specific therapeutic interactions and their outcomes.\n\n" +
-                "Key therapeutic elements to include:\n" +
-                "- Presenting Problem: Client's current issue, symptoms, or concerns\n" +
-                "- Intervention: Specific therapeutic techniques or approaches used\n" +
-                "- Response: Client's reaction to the intervention\n" +
-                "- Plan: Next steps, homework, or follow-up actions\n\n" +
-                "PIRP Note Template:\n" +
-                "P: [Presenting Problem] - Describe the client's current issue or concern\n" +
-                "I: [Intervention] - Detail the specific therapeutic approach or technique used\n" +
-                "R: [Response] - Document the client's reaction or response to the intervention\n" +
-                "P: [Plan] - Outline the next steps, homework, or follow-up actions\n\n" +
-                "Example:\n" +
-                "P: Client reported increased anxiety related to work deadlines\n" +
-                "I: Utilized cognitive restructuring to identify and challenge negative thought patterns\n" +
-                "R: Client demonstrated good insight and was able to reframe two specific cognitive distortions\n" +
-                "P: Client will practice cognitive restructuring worksheet daily and monitor anxiety levels\n\n" +
-                "Additional plug-in language:\n" +
-                "- \"Client presented with...\"\n" +
-                "- \"Therapist utilized...\"\n" +
-                "- \"Client responded by...\"\n" +
-                "- \"Plan includes...\""
-        } else {
-            fullPrompt = promptText
-        }
+        // Store the full prompt with any additional instructions
+        fullPrompt = chatEntryText
+        prompt = fullPrompt
     }
 }
 

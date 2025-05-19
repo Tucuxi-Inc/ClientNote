@@ -6,109 +6,51 @@ struct SidebarView: View {
     @Environment(ChatViewModel.self) private var chatViewModel
     @Environment(MessageViewModel.self) private var messageViewModel
     
-    private var todayChats: [Chat] {
-        let calendar = Calendar.current
-        
-        return chatViewModel.chats
-            .filter { calendar.isDateInToday($0.modifiedAt) }
-            .sorted { $0.modifiedAt > $1.modifiedAt }
-    }
-    
-    private var yesterdayChats: [Chat] {
-        let calendar = Calendar.current
-        
-        return chatViewModel.chats
-            .filter { calendar.isDateInYesterday($0.modifiedAt) }
-            .sorted { $0.modifiedAt > $1.modifiedAt }
-    }
-    
-    private var previousDaysChats: [Chat] {
-        let calendar = Calendar.current
-        let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: Date()) ?? Date()
-        
-        return chatViewModel.chats
-            .filter { $0.modifiedAt < calendar.startOfDay(for: twoDaysAgo) }
-            .sorted { $0.modifiedAt > $1.modifiedAt }
-    }
-    
-    private var deleteConfirmationTitle: String {
-        if chatViewModel.selectedChats.count > 1 {
-            return "Delete Chats"
-        }
-        
-        return "Delete Chat"
-    }
-    
-    private var deleteConfirmationMessage: String {
-        if chatViewModel.selectedChats.count > 1 {
-            return "Are you sure you want to delete these chats?"
-        }
-        
-        return "Are you sure you want to delete this chat?"
-    }
-    
     var body: some View {
         @Bindable var chatViewModelBindable = chatViewModel
         
-        List(selection: $chatViewModelBindable.selectedChats) {
-            Section("Today") {
-                ForEach(todayChats) { chat in
-                    SidebarListItemView(chatViewModel: chatViewModel, name: chat.name, message: chat.firstMessage?.responseText)
-                        .tag(chat)
-                }
-            }
-            .hide(if: todayChats.isEmpty, removeCompletely: true)
+        VStack(spacing: 0) {
+            // Activity Type Label
+            Text("Activity Type")
+                .font(.headline)
+                .fontWeight(.bold)
+                .foregroundColor(Color.euniText)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+                .padding(.bottom, 4)
             
-            Section("Yesterday") {
-                ForEach(yesterdayChats) { chat in
-                    SidebarListItemView(chatViewModel: chatViewModel, name: chat.name, message: chat.firstMessage?.responseText)
-                        .tag(chat)
+            // Activity type segmented control
+            Picker("", selection: $chatViewModelBindable.selectedActivityType) {
+                ForEach(ActivityType.allCases) { type in
+                    Text(type.rawValue).tag(type)
                 }
             }
-            .hide(if: yesterdayChats.isEmpty, removeCompletely: true)
+            .pickerStyle(.segmented)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 12)
+            .background(Color.euniFieldBackground.opacity(0.5))
             
-            Section("Previous days") {
-                ForEach(previousDaysChats) { chat in
-                    SidebarListItemView(chatViewModel: chatViewModel, name: chat.name, message: chat.firstMessage?.responseText)
-                        .tag(chat)
+            Divider()
+            
+            // Activities list with selection
+            List(selection: $chatViewModelBindable.selectedActivityID) {
+                ForEach(chatViewModel.filteredActivities) { activity in
+                    SidebarListItemView(activity: activity)
+                        .tag(activity.id)
+                        .listRowBackground(Color.euniFieldBackground.opacity(0.5))
                 }
             }
-            .hide(if: previousDaysChats.isEmpty, removeCompletely: true)
-        }
-        .listStyle(.sidebar)
-        .background(Color.euniBackground)
-        .foregroundColor(Color.euniText)
-        .toolbar {
-            SidebarToolbarContent {
-                chatViewModel.create(model: Defaults[.defaultModel])
+            .listStyle(.sidebar)
+            .scrollContentBackground(.hidden)
+            .background(Color.euniFieldBackground.opacity(0.5))
+            .onChange(of: chatViewModelBindable.selectedActivityID) { _, _ in
+                chatViewModel.onActivitySelected()
+            }
+            .toolbar {
+                SidebarToolbarContent()
             }
         }
-        .alert("Rename Chat", isPresented: $chatViewModelBindable.isRenameChatPresented) {
-            TextField("Chat name", text: $chatViewModelBindable.chatNameTemp)
-            Button("Cancel", role: .cancel, action: {})
-            Button("Rename", action: chatViewModel.rename)
-        }
-        .confirmationDialog(deleteConfirmationTitle, isPresented: $chatViewModelBindable.isDeleteConfirmationPresented) {
-            Button("Cancel", role: .cancel, action: {})
-            Button("Delete", role: .destructive, action: chatViewModel.remove)
-        } message: {
-            Text(deleteConfirmationMessage)
-        }
-        .onAppear(perform: chatViewModel.load)
-        .onChange(of: chatViewModel.selectedChats) { oldSelectedChats, selectedChats in
-            if selectedChats.count > 1 {
-                chatViewModel.activeChat = nil
-                messageViewModel.messages = []
-            } else {
-                guard let oldActiveChat = oldSelectedChats.first else { return }
-                chatViewModel.removeTemporaryChat(chatToRemove: oldActiveChat)
-                
-                let selectedChatsArray = Array(selectedChats)
-                guard let activeChat = selectedChatsArray.first else { return }
-                
-                chatViewModel.activeChat = activeChat
-                messageViewModel.load(of: activeChat)
-            }
-        }
+        .background(Color.euniFieldBackground.opacity(0.5))
     }
 }

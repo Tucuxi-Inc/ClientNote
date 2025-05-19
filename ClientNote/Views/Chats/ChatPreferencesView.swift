@@ -19,10 +19,11 @@ struct ChatPreferencesView: View {
     @State private var isUpdateSystemPromptPresented: Bool = false
     @State private var showAdvancedSettings: Bool = false
     @State private var showModelInfoPopover: Bool = false
-    @State private var selectedDownloadModel: String = "gemma3:1b"
+    @State private var selectedDownloadModel: String = "qwen3:0.6b"
     @State private var isPullingModel: Bool = false
     @State private var pullProgress: Double = 0.0
     @State private var pullStatus: String = ""
+    @State private var showAddClientSheet: Bool = false
     
     @Default(.defaultModel) private var model: String
     @State private var host: String
@@ -31,12 +32,49 @@ struct ChatPreferencesView: View {
     @State private var topP: Double
     @State private var topK: Int
     
+    private let taskOptions = [
+        "Create a Treatment Plan",
+        "Create a Client Session Note",
+        "Brainstorm"
+    ]
+    
+    private struct SystemPrompts {
+        static let clientSessionNote = "You are a helpful assistant who responds to the user prompt"
+        static let treatmentPlan = "You are a helpful assistant who responds to the user prompt"
+        static let brainstorm = "You are a helpful assistant who always provides useful and helpful responses."
+        static let easyNote = "You are a helpful assistant who responds to the user prompt"
+        static let easyTreatmentPlan = "You are a helpful assistant who responds to the user prompt"
+    }
+    
+    private func updateSystemPrompt() {
+        switch chatViewModel.selectedTask {
+        case "Create a Client Session Note":
+            systemPrompt = SystemPrompts.clientSessionNote
+        case "Create a Treatment Plan":
+            systemPrompt = SystemPrompts.treatmentPlan
+        case "Brainstorm":
+            systemPrompt = SystemPrompts.brainstorm
+        default:
+            systemPrompt = SystemPrompts.clientSessionNote
+        }
+        
+        // Update the active chat's system prompt
+        self.chatViewModel.activeChat?.systemPrompt = systemPrompt
+    }
+    
     private let availableModels = [
+        "qwen3:0.6b",
         "gemma3:1b",
+        "qwen3:1.7b",
         "granite3.3:2b",
         "gemma3:4b",
-        "phi4-mini:3.8b",
         "granite3.3:8b"
+    ]
+    
+    // Temporary client list - will be replaced with actual client data
+    private let clients = [
+        "Select a Client",  // Placeholder client first
+        "Add New Client"
     ]
     
     init(ollamaKit: Binding<OllamaKit>) {
@@ -51,15 +89,66 @@ struct ChatPreferencesView: View {
     
     var body: some View {
         Form {
+            // Client Section
             Section {
-                Picker("Selected Model", selection: $model) {
-                    ForEach(chatViewModel.models, id: \.self) { model in
-                        Text(model).tag(model)
+                Picker("Choose Client", selection: Binding(
+                    get: { chatViewModel.selectedClientID ?? UUID() },
+                    set: { newValue in
+                        if newValue == UUID(uuidString: "00000000-0000-0000-0000-000000000000") {
+                            showAddClientSheet = true
+                        } else {
+                            chatViewModel.selectedClientID = newValue
+                        }
+                    }
+                )) {
+                    ForEach(chatViewModel.clients) { client in
+                        Text(client.identifier).tag(client.id)
+                    }
+                    // Add New Client option
+                    Text("Add New Client").tag(UUID(uuidString: "00000000-0000-0000-0000-000000000000")!)
+                }
+                .sheet(isPresented: $showAddClientSheet, onDismiss: {
+                    // After adding, select the last client (the new one)
+                    if let last = chatViewModel.clients.last {
+                        chatViewModel.selectedClientID = last.id
+                    }
+                }) {
+                    NavigationStack {
+                        AddClientView()
+                    }
+                    .frame(minWidth: 600, minHeight: 900)
+                }
+            } header: {
+                Text("Client")
+            }
+            
+            // Task Section
+            Section {
+                Picker("Choose Activity", selection: Binding(
+                    get: { chatViewModel.selectedTask },
+                    set: { chatViewModel.selectedTask = $0 }
+                )) {
+                    ForEach(taskOptions, id: \.self) { task in
+                        Text(task).tag(task)
+                    }
+                }
+            } header: {
+                Text("Activity")
+            }
+            .onChange(of: chatViewModel.selectedTask) { _, _ in
+                updateSystemPrompt()
+            }
+            
+            // Assistant Section
+            Section {
+                Picker("Choose an Assistant", selection: $model) {
+                    ForEach(chatViewModel.models, id: \.self) { modelId in
+                        Text(AssistantModel.nameFor(modelId: modelId)).tag(modelId)
                     }
                 }
             } header: {
                 HStack {
-                    Text("Choose Installed Model")
+                    Text("Your Assistant")
                     
                     Spacer()
                     
@@ -81,9 +170,9 @@ struct ChatPreferencesView: View {
             }
             
             Section {
-                Picker("Select Model to Download", selection: $selectedDownloadModel) {
-                    ForEach(availableModels, id: \.self) { model in
-                        Text(model).tag(model)
+                Picker("Choose Additional Assistant", selection: $selectedDownloadModel) {
+                    ForEach(AssistantModel.all, id: \.modelId) { assistant in
+                        Text(assistant.name).tag(assistant.modelId)
                     }
                 }
                 
@@ -95,7 +184,7 @@ struct ChatPreferencesView: View {
                             Text("Downloading... \(Int(pullProgress * 100))%")
                         }
                     } else {
-                        Text("Download Model")
+                        Text("Download Assistant")
                     }
                 }
                 .disabled(isPullingModel)
@@ -122,7 +211,7 @@ struct ChatPreferencesView: View {
                 }
             } header: {
                 HStack {
-                    Text("Download an AI Model")
+                    Text("Add an Assistant")
                     
                     Spacer()
                     
@@ -132,45 +221,55 @@ struct ChatPreferencesView: View {
                     }
                     .buttonStyle(.accessoryBar)
                     .popover(isPresented: $showModelInfoPopover) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("About AI Models")
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("Available Assistants")
                                 .font(.headline)
                                 .foregroundColor(Color.euniText)
-                                .padding(.bottom, 4)
+                                .padding(.bottom, 8)
                             
-                            Text("These models are optimized to work on most MacBooks with Apple Silicon and at least 8GB of memory.")
+                            Text("These Assistants use large language models optimized to work on most MacBooks with Apple Silicon and at least 8GB of memory.")
                                 .foregroundColor(Color.euniText)
                             
-                            Text("Model Information:")
+                            Text("Assistant Information:")
                                 .font(.subheadline)
                                 .fontWeight(.medium)
                                 .foregroundColor(Color.euniText)
-                                .padding(.top, 4)
+                                .padding(.top, 8)
                             
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("• gemma3:1b - Very lightweight model (~815MB)")
-                                    .foregroundColor(Color.euniText)
-                                Text("• granite3.3:2b - Compact model from Allen AI")
-                                    .foregroundColor(Color.euniText)
-                                Text("• gemma3:4b - Balanced model (~3.3GB)")
-                                    .foregroundColor(Color.euniText)
-                                Text("• phi4-mini:3.8b - Microsoft's compact model (~2.5GB)")
-                                    .foregroundColor(Color.euniText)
-                                Text("• granite3.3:8b - Larger model for better quality")
-                                    .foregroundColor(Color.euniText)
+                            // Column titles
+                            HStack {
+                                Text("Assistant")
+                                    .fontWeight(.bold)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                Text("Size / Context")
+                                    .fontWeight(.bold)
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                                Text("Model")
+                                    .fontWeight(.bold)
+                                    .frame(maxWidth: .infinity, alignment: .trailing)
                             }
+                            .foregroundColor(Color.euniText)
                             
-                            Text("You can download any other open-source model from ollama.com.")
-                                .foregroundColor(Color.euniSecondary)
-                                .padding(.top, 4)
+                            Divider()
+                            
+                            // Assistant rows
+                            Group {
+                                ForEach(AssistantModel.all, id: \.modelId) { assistant in
+                                    assistantRow(name: assistant.name, 
+                                               description: assistant.description, 
+                                               size: assistant.size, 
+                                               model: assistant.modelId)
+                                }
+                            }
                         }
                         .padding()
-                        .frame(width: 320)
-                        .background(Color.euniBackground)
+                        .frame(minWidth: 350, maxWidth: 500)
                     }
                 }
             }
             
+            // Commented out Advanced Settings
+            /*
             Section {
                 // Empty section for spacing
             }
@@ -231,7 +330,7 @@ struct ChatPreferencesView: View {
                     }
                 } footer: {
                     Button("Restore Default System Prompt") {
-                        systemPrompt = "You're Euni™ - Client Notes.  You are a clinical documentation assistant helping a therapist generate an insurance-ready psychotherapy progress note. You will use the information provided to you here to write a psychotherapy progress note using (unless otherwise instructed by the user) the BIRP format (Behavior, Intervention, Response, Plan). Requirements: Use clear, objective, and concise clinical language, Maintain gender-neutral pronouns, Do not make up quotes - only use exact quotes if and when provided by the user. Focus on observable behaviors, reported thoughts and feelings, therapist interventions, and clinical goals, Apply relevant approaches and techniques, including typical interventions and session themes, Use documentation language suitable for EHRs and insurance billing, If schemas, distortions, or core beliefs are addressed, name them using standard psychological terms, Conclude with a brief, action-oriented treatment plan. If this was the client's first telehealth session, document that informed consent for telehealth was obtained (verbal or written), that the client was informed of potential risks and limitations, that the therapists license or registration number was provided, and that the therapist made efforts to identify local emergency resources relevant to the client’s location. If this was a subsequent telehealth session, document that the therapist confirmed the client’s full name and present physical address, assessed the appropriateness of continuing via telehealth, and ensured confidentiality and safety using best practices for secure communication. If the client expressed suicidal ideation or self harm during the session, document this clearly and clinically. Include: (1) the client's specific statements or behaviors that prompted risk assessment, (2) identified risk and protective factors, (3) the outcome of any suicide risk assessment and rationale for the therapists clinical judgment, (4) any safety plan developed collaboratively with the client, and (5) follow-up arrangements. Use objective language and avoid vague phrasing. If a formal assessment tool was used, reference it. Ensure the note reflects ethical care, clinical reasoning, and legal defensibility."
+                        systemPrompt = "You're Euni™ - Client Notes.  You are a clinical documentation assistant helping a therapist generate an insurance-ready psychotherapy progress note. You will use the information provided to you here to write a psychotherapy progress note using (unless otherwise instructed by the user) the BIRP format (Behavior, Intervention, Response, Plan). Requirements: Use clear, objective, and concise clinical language, Maintain gender-neutral pronouns, Do not make up quotes - only use exact quotes if and when provided by the user. Focus on observable behaviors, reported thoughts and feelings, therapist interventions, and clinical goals, Apply relevant approaches and techniques, including typical interventions and session themes, Use documentation language suitable for EHRs and insurance billing, If schemas, distortions, or core beliefs are addressed, name them using standard psychological terms, Conclude with a brief, action-oriented treatment plan. If this was the client's first telehealth session, document that informed consent for telehealth was obtained (verbal or written), that the client was informed of potential risks and limitations, that the therapists license or registration number was provided, and that the therapist made efforts to identify local emergency resources relevant to the client's location. If this was a subsequent telehealth session, document that the therapist confirmed the client's full name and present physical address, assessed the appropriateness of continuing via telehealth, and ensured confidentiality and safety using best practices for secure communication. If the client expressed suicidal ideation or self harm during the session, document this clearly and clinically. Include: (1) the client's specific statements or behaviors that prompted risk assessment, (2) identified risk and protective factors, (3) the outcome of any suicide risk assessment and rationale for the therapists clinical judgment, (4) any safety plan developed collaboratively with the client, and (5) follow-up arrangements. Use objective language and avoid vague phrasing. If a formal assessment tool was used, reference it. Ensure the note reflects ethical care, clinical reasoning, and legal defensibility."
                     }
                     .buttonStyle(.link)
                     .font(.caption)
@@ -286,6 +385,7 @@ struct ChatPreferencesView: View {
                     self.chatViewModel.activeChat?.topK = newValue
                 }
             }
+            */
         }
         .onChange(of: self.chatViewModel.activeChat) { _, newValue in
             if let model = newValue?.model {
@@ -321,6 +421,9 @@ struct ChatPreferencesView: View {
             UpdateSystemPromptSheet(prompt: systemPrompt) { prompt in
                 self.systemPrompt = prompt
             }
+        }
+        .onAppear {
+            chatViewModel.fetchModels(ollamaKit)
         }
     }
     
@@ -476,6 +579,31 @@ struct ChatPreferencesView: View {
                 pullStatus = "Error: \(error.localizedDescription)"
                 isPullingModel = false
             }
+        }
+    }
+    
+    @ViewBuilder
+    func assistantRow(name: String, description: String, size: String, model: String) -> some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                    .fontWeight(.semibold)
+                Text(description)
+                    .font(.caption)
+                    .foregroundColor(Color.euniText.opacity(0.7))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            
+            Text(size)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .font(.caption)
+                .foregroundColor(Color.euniText)
+            
+            Text(model)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .font(.caption)
+                .foregroundColor(Color.euniText)
         }
     }
 }

@@ -14,17 +14,29 @@ import SwiftData
 final class MessageViewModel {
     private var modelContext: ModelContext
     private var generationTask: Task<Void, Never>?
+    private weak var chatViewModel: ChatViewModel?
     
     var messages: [Message] = []
     var tempResponse: String = ""
     var loading: MessageViewModelLoading? = nil
     var error: MessageViewModelError? = nil
     
-    init(modelContext: ModelContext) {
+    init(modelContext: ModelContext, chatViewModel: ChatViewModel? = nil) {
         self.modelContext = modelContext
+        self.chatViewModel = chatViewModel
+    }
+    
+    func setChatViewModel(_ viewModel: ChatViewModel) {
+        self.chatViewModel = viewModel
     }
     
     func load(of chat: Chat?) {
+        // Clear current messages and state
+        self.messages = []
+        self.tempResponse = ""
+        self.loading = nil
+        self.error = nil
+        
         guard let chat = chat else { return }
         
         let chatId = chat.id
@@ -72,6 +84,9 @@ final class MessageViewModel {
                         if messages.count == 1 {
                             self.generateTitle(ollamaKit, activeChat: activeChat)
                         }
+                        
+                        // Save chat content to activity
+                        chatViewModel?.saveActivityContent()
                     }
                 }
 

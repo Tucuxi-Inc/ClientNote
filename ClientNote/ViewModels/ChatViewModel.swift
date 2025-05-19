@@ -2,12 +2,14 @@ import Defaults
 import OllamaKit
 import SwiftData
 import SwiftUI
+import Foundation
 
 @MainActor
 @Observable
 final class ChatViewModel {
     private var modelContext: ModelContext
     private var _chatNameTemp: String = ""
+    private weak var messageViewModel: MessageViewModel?
     
     var models: [String] = []
     
@@ -24,6 +26,87 @@ final class ChatViewModel {
     var isRenameChatPresented = false
     var isDeleteConfirmationPresented = false
     
+    // Shared state for selected client and task
+    var selectedClientID: UUID? = nil
+    var selectedTask: String = "Create a Client Session Note"
+    
+    // File-based persistence for clients
+    var clients: [Client] = []
+    
+    // Activity type selection for filtering
+    var selectedActivityType: ActivityType = .sessionNote
+    
+    // Selected activity tracking
+    var selectedActivityID: UUID? = nil
+    
+    // Computed property: selected activity
+    var selectedActivity: ClientActivity? {
+        guard let selectedClientIndex = clients.firstIndex(where: { $0.id == selectedClientID }),
+              let selectedActivityID = selectedActivityID else {
+            return nil
+        }
+        return clients[selectedClientIndex].activities.first { $0.id == selectedActivityID }
+    }
+    
+    // Computed property: filtered and sorted activities for the selected client and activity type
+    var filteredActivities: [ClientActivity] {
+        guard let client = selectedClient else { return [] }
+        let activities = client.activities
+        
+        // If "All" is selected, return all activities
+        if selectedActivityType == .all {
+            return activities.sorted { $0.date > $1.date }
+        }
+        
+        // Otherwise filter by type
+        return activities
+            .filter { $0.type == selectedActivityType }
+            .sorted { $0.date > $1.date }
+    }
+    
+    private var clientsDirectory: URL {
+        let urls = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+        let dir = urls[0].appendingPathComponent("Clients", isDirectory: true)
+        if !FileManager.default.fileExists(atPath: dir.path) {
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        }
+        return dir
+    }
+    
+    func loadClients() {
+        let dir = clientsDirectory
+        let files = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
+        var loaded: [Client] = []
+        for file in files where file.pathExtension == "json" {
+            if let data = try? Data(contentsOf: file),
+               let client = try? JSONDecoder().decode(Client.self, from: data) {
+                loaded.append(client)
+            }
+        }
+        self.clients = loaded
+    }
+    
+    func saveClient(_ client: Client) {
+        let file = clientsDirectory.appendingPathComponent("client_\(client.identifier).json")
+        if let data = try? JSONEncoder().encode(client) {
+            try? data.write(to: file)
+        }
+    }
+    
+    func addClient(_ client: Client) {
+        clients.append(client)
+        saveClient(client)
+        selectedClientID = client.id
+    }
+    
+    func selectClient(by id: UUID) {
+        selectedClientID = id
+    }
+    
+    var selectedClient: Client? {
+        clients.first(where: { $0.id == selectedClientID })
+    }
+    
     var chatNameTemp: String {
         get {
             if isRenameChatPresented, let activeChat {
@@ -38,8 +121,14 @@ final class ChatViewModel {
         }
     }
     
-    init(modelContext: ModelContext) {
+    init(modelContext: ModelContext, messageViewModel: MessageViewModel? = nil) {
         self.modelContext = modelContext
+        self.messageViewModel = messageViewModel
+        loadClients()
+    }
+    
+    func setMessageViewModel(_ viewModel: MessageViewModel) {
+        self.messageViewModel = viewModel
     }
     
     func fetchModels(_ ollamaKit: OllamaKit) {
@@ -114,6 +203,197 @@ final class ChatViewModel {
         if (chatToRemove.name == Defaults[.defaultChatName] && chatToRemove.messages.isEmpty) {
             self.modelContext.delete(chatToRemove)
             self.chats.removeAll(where: { $0.id == chatToRemove.id })
+        }
+    }
+    
+    // Load chat history for a selected activity
+    func loadActivityChat(_ activity: ClientActivity) {
+        // Remove any existing chat
+        if let activeChat = activeChat {
+            modelContext.delete(activeChat)
+            chats.removeAll(where: { $0.id == activeChat.id })
+        }
+        
+        // Create a new chat with the activity's content
+        let chat = Chat(model: Defaults[.defaultModel])
+        chat.systemPrompt = getSystemPromptForActivityType(activity.type)
+        
+        // Add the activity's content as messages
+        if !activity.content.isEmpty {
+            let messages = activity.content.components(separatedBy: "\n\n")
+            var currentMessage: Message? = nil
+            
+            for (index, content) in messages.enumerated() {
+                if !content.isEmpty {
+                    if index % 2 == 0 {
+                        // User message
+                        currentMessage = Message(prompt: content)
+                        currentMessage?.chat = chat
+                        if let message = currentMessage {
+                            chat.messages.append(message)
+                        }
+                    } else {
+                        // Assistant response
+                        currentMessage?.response = content
+                    }
+                }
+            }
+        }
+        
+        modelContext.insert(chat)
+        chats.insert(chat, at: 0)
+        activeChat = chat
+        
+        // Tell MessageViewModel to load this chat's messages
+        messageViewModel?.load(of: chat)
+    }
+    
+    // Watch for activity selection changes
+    func onActivitySelected() {
+        if let activity = selectedActivity {
+            // Update the selected task to match the activity type
+            selectedTask = taskForActivityType(activity.type)
+            
+            // Clear current chat and create new one for this activity
+            loadActivityChat(activity)
+        }
+    }
+    
+    // Save chat content to activity
+    func saveActivityContent() {
+        guard let activity = selectedActivity,
+              let clientIndex = clients.firstIndex(where: { $0.id == selectedClientID }),
+              let activityIndex = clients[clientIndex].activities.firstIndex(where: { $0.id == activity.id }),
+              let chat = activeChat else {
+            return
+        }
+        
+        // Combine all messages into content
+        let content = chat.messages.map { message in
+            var messageContent = message.prompt
+            if let response = message.response {
+                messageContent += "\n\n" + response
+            }
+            return messageContent
+        }.joined(separator: "\n\n")
+        
+        clients[clientIndex].activities[activityIndex].content = content
+        saveClient(clients[clientIndex])
+    }
+    
+    // Create a new activity and associated chat
+    func createNewActivity() {
+        guard let clientIndex = clients.firstIndex(where: { $0.id == selectedClientID }) else { return }
+        
+        // Get activity type from selected task
+        let type = getActivityTypeFromTask(selectedTask)
+        
+        // Generate a unique title for the new activity
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateStyle = .medium
+        dateFormatter.timeStyle = .short
+        let defaultTitle = "\(type.rawValue) - \(dateFormatter.string(from: Date()))"
+        
+        // Count existing activities of this type today
+        let today = Calendar.current.startOfDay(for: Date())
+        let activitiesOfTypeToday = clients[clientIndex].activities.filter { activity in
+            activity.type == type && 
+            Calendar.current.isDate(activity.date, inSameDayAs: today)
+        }
+        
+        // If there are other activities today, append a number
+        let title = activitiesOfTypeToday.isEmpty ? defaultTitle :
+            "\(defaultTitle) (\(activitiesOfTypeToday.count + 1))"
+        
+        let newActivity = ClientActivity(
+            type: type,
+            date: Date(),
+            content: "",
+            title: title
+        )
+        
+        // Create a new chat for this activity
+        let chat = Chat(model: Defaults[.defaultModel])
+        chat.systemPrompt = getSystemPromptForActivityType(type)
+        modelContext.insert(chat)
+        chats.insert(chat, at: 0)
+        activeChat = chat
+        
+        // Add and select the new activity
+        clients[clientIndex].activities.insert(newActivity, at: 0)
+        saveClient(clients[clientIndex])
+        selectedActivityID = newActivity.id
+    }
+    
+    private func getActivityTypeFromTask(_ task: String) -> ActivityType {
+        switch task {
+        case "Create a Client Session Note":
+            return .sessionNote
+        case "Create a Treatment Plan":
+            return .treatmentPlan
+        case "Brainstorm":
+            return .brainstorm
+        default:
+            return .sessionNote
+        }
+    }
+    
+    private func taskForActivityType(_ type: ActivityType) -> String {
+        switch type {
+        case .sessionNote:
+            return "Create a Client Session Note"
+        case .treatmentPlan:
+            return "Create a Treatment Plan"
+        case .brainstorm:
+            return "Brainstorm"
+        case .all:
+            return "Create a Client Session Note"
+        }
+    }
+    
+    private func getSystemPromptForActivityType(_ type: ActivityType) -> String {
+        switch type {
+        case .sessionNote:
+            return """
+            You're Euni™ - Client Notes. You are a clinical documentation assistant helping a therapist generate an insurance-ready psychotherapy progress note. You will use the information provided to you here to write a psychotherapy progress note using (unless otherwise instructed by the user) the BIRP format (Behavior, Intervention, Response, Plan).
+            Requirements:
+            - Use clear, objective, and concise clinical language
+            - Maintain gender-neutral pronouns
+            - Do not make up quotes - only use exact quotes if and when provided by the user
+            - Focus on observable behaviors, reported thoughts and feelings, therapist interventions, and clinical goals
+            - Apply relevant approaches and techniques, including typical interventions and session themes
+            - Use documentation language suitable for EHRs and insurance billing
+            - If schemas, distortions, or core beliefs are addressed, name them using standard psychological terms
+            - Conclude with a brief, action-oriented treatment plan
+            """
+        case .treatmentPlan:
+            return """
+            You're Euni™ - Client Notes. You are a clinical documentation assistant helping a therapist generate a comprehensive treatment plan. Focus on creating a structured, goal-oriented treatment plan that meets clinical and insurance requirements.
+            Requirements:
+            - Include clear treatment goals and objectives
+            - Specify measurable outcomes
+            - List specific interventions and therapeutic techniques
+            - Include timeframes for goal achievement
+            - Address presenting problems identified in the assessment
+            - Consider client's strengths and resources
+            - Include both short-term and long-term goals
+            - Ensure goals are realistic and achievable
+            """
+        case .brainstorm:
+            return """
+            You're Euni™ - Client Notes. You are a clinical brainstorming assistant helping a therapist explore therapeutic approaches, interventions, and treatment strategies. Focus on generating creative yet evidence-based ideas while maintaining clinical appropriateness.
+            Requirements:
+            - Suggest evidence-based interventions
+            - Consider multiple therapeutic approaches
+            - Provide rationale for suggestions
+            - Keep client's specific needs in mind
+            - Include practical implementation steps
+            - Consider potential challenges and solutions
+            - Maintain clinical appropriateness
+            - Reference relevant research or theoretical frameworks when applicable
+            """
+        case .all:
+            return Defaults[.defaultSystemPrompt]
         }
     }
 }
