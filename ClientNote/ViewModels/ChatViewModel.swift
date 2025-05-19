@@ -208,6 +208,8 @@ final class ChatViewModel {
     
     // Load chat history for a selected activity
     func loadActivityChat(_ activity: ClientActivity) {
+        print("DEBUG: Loading chat for activity: \(activity.id)")
+        
         // Remove any existing chat
         if let activeChat = activeChat {
             modelContext.delete(activeChat)
@@ -218,25 +220,31 @@ final class ChatViewModel {
         let chat = Chat(model: Defaults[.defaultModel])
         chat.systemPrompt = getSystemPromptForActivityType(activity.type)
         
-        // Add the activity's content as messages
+        // Parse the stored content into messages
         if !activity.content.isEmpty {
-            let messages = activity.content.components(separatedBy: "\n\n")
-            var currentMessage: Message? = nil
-            
-            for (index, content) in messages.enumerated() {
-                if !content.isEmpty {
-                    if index % 2 == 0 {
-                        // User message
-                        currentMessage = Message(prompt: content)
-                        currentMessage?.chat = chat
-                        if let message = currentMessage {
-                            chat.messages.append(message)
-                        }
-                    } else {
-                        // Assistant response
-                        currentMessage?.response = content
+            do {
+                guard let contentData = activity.content.data(using: .utf8) else {
+                    print("DEBUG: Could not convert content to data")
+                    return
+                }
+                
+                let chatHistory = try JSONDecoder().decode([[String: String]].self, from: contentData)
+                print("DEBUG: Found \(chatHistory.count) messages in history")
+                
+                for messageData in chatHistory {
+                    if let prompt = messageData["prompt"] {
+                        let message = Message(prompt: prompt)
+                        message.chat = chat
+                        message.response = messageData["response"]
+                        chat.messages.append(message)
                     }
                 }
+            } catch {
+                print("DEBUG: Error parsing chat history: \(error)")
+                // Handle legacy content format or invalid data
+                let message = Message(prompt: activity.content)
+                message.chat = chat
+                chat.messages.append(message)
             }
         }
         
@@ -265,20 +273,29 @@ final class ChatViewModel {
               let clientIndex = clients.firstIndex(where: { $0.id == selectedClientID }),
               let activityIndex = clients[clientIndex].activities.firstIndex(where: { $0.id == activity.id }),
               let chat = activeChat else {
+            print("DEBUG: Cannot save activity content - missing required data")
             return
         }
         
-        // Combine all messages into content
-        let content = chat.messages.map { message in
-            var messageContent = message.prompt
+        // Create an array of message dictionaries
+        let messageHistory = chat.messages.map { message -> [String: String] in
+            var messageData: [String: String] = ["prompt": message.prompt]
             if let response = message.response {
-                messageContent += "\n\n" + response
+                messageData["response"] = response
             }
-            return messageContent
-        }.joined(separator: "\n\n")
+            return messageData
+        }
         
-        clients[clientIndex].activities[activityIndex].content = content
-        saveClient(clients[clientIndex])
+        do {
+            let jsonData = try JSONEncoder().encode(messageHistory)
+            if let jsonString = String(data: jsonData, encoding: .utf8) {
+                print("DEBUG: Saving chat history with \(messageHistory.count) messages")
+                clients[clientIndex].activities[activityIndex].content = jsonString
+                saveClient(clients[clientIndex])
+            }
+        } catch {
+            print("DEBUG: Error saving chat history: \(error)")
+        }
     }
     
     // Create a new activity and associated chat

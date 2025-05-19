@@ -736,8 +736,10 @@ struct EasyNoteSheet: View {
     }
     
     private func cleanupResources() {
+        print("DEBUG: EasyNote - Cleaning up resources")
         // Stop recording if active
         if isRecording {
+            print("DEBUG: EasyNote - Stopping active recording")
             stopRecording()
         }
         recognitionTask?.cancel()
@@ -956,106 +958,121 @@ struct EasyNoteSheet: View {
     }
     
     private func generatePrompt() {
-        // Before generating the prompt, ensure we're set to Session Note
-        chatViewModel.selectedTask = "Create a Client Session Note"
+        print("DEBUG: EasyNote - Starting generatePrompt()")
         
-        var prompt = ""
+        // Set activity type to Session Note
+        chatViewModel.selectedTask = "Create a Client Session Note"
+        print("DEBUG: EasyNote - Set task to Session Note")
+        
+        var notePrompt = ""
         
         // Format date and time
         let dateFormatter = DateFormatter()
         dateFormatter.dateStyle = .long
         dateFormatter.timeStyle = .short
-        prompt += "Date: \(dateFormatter.string(from: selectedDate))\n\n"
+        notePrompt += "Date: \(dateFormatter.string(from: selectedDate))\n\n"
         
         // Add session location
-        prompt += "Session Location: \(selectedLocation)\n\n"
+        notePrompt += "Session Location: \(selectedLocation)\n\n"
         
         // Add presenting issue if custom
         if presentingIssue == "Other" && !customPresentingIssue.isEmpty {
-            prompt += "Presenting Issue: \(customPresentingIssue)\n\n"
+            notePrompt += "Presenting Issue: \(customPresentingIssue)\n\n"
         } else if presentingIssue != "Other" {
-            prompt += "Presenting Issue: \(presentingIssue)\n\n"
+            notePrompt += "Presenting Issue: \(presentingIssue)\n\n"
         }
         
         // Add client response if custom
         if clientResponse == "Other" && !customClientResponse.isEmpty {
-            prompt += "Client Response: \(customClientResponse)\n\n"
+            notePrompt += "Client Response: \(customClientResponse)\n\n"
         } else if clientResponse != "Other" {
-            prompt += "Client Response: \(clientResponse)\n\n"
+            notePrompt += "Client Response: \(clientResponse)\n\n"
         }
         
         // Add clinical focus if custom
         if clinicalFocus == "Other" && !customClinicalFocus.isEmpty {
-            prompt += "Clinical Focus: \(customClinicalFocus)\n\n"
+            notePrompt += "Clinical Focus: \(customClinicalFocus)\n\n"
         } else if clinicalFocus != "Other" {
-            prompt += "Clinical Focus: \(clinicalFocus)\n\n"
+            notePrompt += "Clinical Focus: \(clinicalFocus)\n\n"
         }
         
         // Add treatment goals if custom
         if treatmentGoals == "Other" && !customTreatmentGoals.isEmpty {
-            prompt += "Treatment Goals: \(customTreatmentGoals)\n\n"
+            notePrompt += "Treatment Goals: \(customTreatmentGoals)\n\n"
         } else if treatmentGoals != "Other" {
-            prompt += "Treatment Goals: \(treatmentGoals)\n\n"
+            notePrompt += "Treatment Goals: \(treatmentGoals)\n\n"
         }
         
         // Add therapeutic approach and interventions
-        prompt += "Therapeutic Approach: \(selectedApproach)\n"
+        notePrompt += "Therapeutic Approach: \(selectedApproach)\n"
         if !selectedInterventions.isEmpty {
-            prompt += "Interventions Used:\n"
+            notePrompt += "Interventions Used:\n"
             for intervention in selectedInterventions {
-                prompt += "- \(intervention)\n"
+                notePrompt += "- \(intervention)\n"
             }
-            prompt += "\n"
+            notePrompt += "\n"
         }
         
         // Add additional notes if any
         if !additionalNotes.isEmpty {
-            prompt += "Additional Notes:\n\(additionalNotes)\n\n"
+            notePrompt += "Additional Notes:\n\(additionalNotes)\n\n"
         }
         
         // Add insurance diagnosis if provided
         if !insuranceQuery.isEmpty {
-            prompt += "Insurance Diagnosis: \(insuranceQuery)"
+            notePrompt += "Insurance Diagnosis: \(insuranceQuery)"
             if !selectedICDCode.isEmpty {
-                prompt += " (\(selectedICDCode))"
+                notePrompt += " (\(selectedICDCode))"
             }
-            prompt += "\n\n"
+            notePrompt += "\n\n"
         }
         
         // Add suicidal ideation assessment if applicable
         if hasSuicidalIdeation {
-            prompt += "Suicidal Ideation Assessment:\n"
+            notePrompt += "Suicidal Ideation Assessment:\n"
             if suicidalIdeationPastSession {
-                prompt += "- Reported in past session\n"
+                notePrompt += "- Reported in past session\n"
             }
             if suicidalIdeationCurrentSession {
-                prompt += "- Present in current session\n"
+                notePrompt += "- Present in current session\n"
             }
             if suicidalIdeationBothSessions {
-                prompt += "- Present in both past and current sessions\n"
+                notePrompt += "- Present in both past and current sessions\n"
             }
-            prompt += "\n"
+            notePrompt += "\n"
         }
         
         // Add note format instructions
         if selectedNoteFormat == "Other" && !customNoteFormat.isEmpty {
-            prompt += "Please format this note using the \(customNoteFormat) format.\n\n"
+            notePrompt += "Please format this note using the \(customNoteFormat) format.\n\n"
         } else if selectedNoteFormat != "Other" {
-            prompt += "Please format this note using the \(selectedNoteFormat) format.\n\n"
+            notePrompt += "Please format this note using the \(selectedNoteFormat) format.\n\n"
         }
         
-        // Set the prompt
-        self.prompt = prompt
+        print("DEBUG: EasyNote - Generated prompt content: \(notePrompt.prefix(100))...")
         
-        // Create a new session note activity
-        chatViewModel.selectedTask = "Create a Client Session Note"
+        // Create new activity first
+        print("DEBUG: EasyNote - Creating new activity")
         chatViewModel.createNewActivity()
         
-        // Generate the response
-        generateAction()
+        // Store the prompt locally to ensure it's not lost
+        let finalPrompt = notePrompt
         
-        // Close the sheet
-        dismiss()
+        print("DEBUG: EasyNote - Setting prompt and triggering generation")
+        // Update the prompt binding and trigger generation
+        DispatchQueue.main.async {
+            // Set the prompt
+            self.prompt = finalPrompt
+            print("DEBUG: EasyNote - Prompt set, length: \(finalPrompt.count)")
+            
+            // Trigger generation
+            print("DEBUG: EasyNote - Calling generateAction")
+            self.generateAction()
+            
+            // Dismiss the sheet
+            print("DEBUG: EasyNote - Dismissing sheet")
+            self.dismiss()
+        }
     }
 }
 

@@ -176,6 +176,25 @@ struct ChatView: View {
             regenerateAction: regenerateAction,
             onActiveChatChanged: onActiveChatChanged
         )
+        .sheet(isPresented: $isEasyNotePresented, onDismiss: {
+            print("DEBUG: ChatView - EasyNote sheet dismissed")
+        }) {
+            NavigationView {
+                EasyNoteSheet(prompt: $prompt, generateAction: {
+                    print("DEBUG: ChatView - EasyNote generateAction called")
+                    if !prompt.isEmpty {
+                        print("DEBUG: ChatView - Processing EasyNote prompt, length: \(prompt.count)")
+                        DispatchQueue.main.async {
+                            generateAction()
+                        }
+                    } else {
+                        print("DEBUG: ChatView - Empty prompt from EasyNote")
+                    }
+                })
+            }
+            .frame(minWidth: 1000, minHeight: 800)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
     }
     
     // MARK: - Helper Views
@@ -229,78 +248,77 @@ struct ChatView: View {
                 .onAppear {
                     self.scrollProxy = proxy
                 }
-                .onChange(of: chatViewModel.activeChat?.id, initial: true) {
+                .onChange(of: chatViewModel.activeChat?.id) { _, _ in
                     onActiveChatChanged()
                 }
-                .onChange(of: messageViewModel.tempResponse) {
+                .onChange(of: messageViewModel.tempResponse) { _, _ in
                     if let proxy = scrollProxy {
                         scrollToBottom(proxy: proxy, messages: messageViewModel.messages)
                     }
                 }
-                .onChange(of: fontSize, initial: true) {
+                .onChange(of: fontSize) { _, _ in
                     codeHighlighter.fontSize = fontSize
                 }
-                .onChange(of: experimentalCodeHighlighting) {
+                .onChange(of: experimentalCodeHighlighting) { _, _ in
                     codeHighlighter.enabled = experimentalCodeHighlighting
                 }
             }
             .navigationTitle(chatViewModel.selectedClient?.identifier ?? "No Client Selected")
             .toolbar {
-                // Centered app name
-                ToolbarItem(placement: .principal) {
-                    Text("Euni™ - Client Notes")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(Color.euniText)
-                }
-                // Right: Activity and Assistant Name
-                ToolbarItem(placement: .automatic) {
-                    HStack(spacing: 24) {
-                        // Show selected activity title or type
-                        if let activity = chatViewModel.selectedActivity {
-                            Text(activity.displayTitle)
-                                .font(.headline)
-                                .foregroundColor(Color.euniSecondary)
-                                .layoutPriority(1)
-                        } else {
-                            // Show selected task type
-                            let taskType = chatViewModel.selectedTask.replacingOccurrences(of: "Create a ", with: "")
-                            Text(taskType)
-                                .font(.headline)
-                                .foregroundColor(Color.euniSecondary)
-                                .layoutPriority(1)
-                        }
-                        // Assistant Name (right aligned, can truncate)
-                        if let model = chatViewModel.activeChat?.model, !model.isEmpty {
-                            Text(AssistantModel.nameFor(modelId: model))
-                                .font(.headline)
-                                .foregroundColor(Color.euniSecondary)
-                                .lineLimit(1)
-                                .frame(maxWidth: 200, alignment: .trailing)
-                        } else {
-                            Text("")
-                                .frame(maxWidth: 200, alignment: .trailing)
+                Group {
+                    // Centered app name
+                    ToolbarItem(placement: .principal) {
+                        Text("Euni™ - Client Notes")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(Color.euniText)
+                    }
+                    // Right: Activity and Assistant Name
+                    ToolbarItem(placement: .automatic) {
+                        HStack(spacing: 24) {
+                            // Show selected activity title or type
+                            if let activity = chatViewModel.selectedActivity {
+                                Text(activity.displayTitle)
+                                    .font(.headline)
+                                    .foregroundColor(Color.euniSecondary)
+                                    .layoutPriority(1)
+                            } else {
+                                // Show selected task type
+                                let taskType = chatViewModel.selectedTask.replacingOccurrences(of: "Create a ", with: "")
+                                Text(taskType)
+                                    .font(.headline)
+                                    .foregroundColor(Color.euniSecondary)
+                                    .layoutPriority(1)
+                            }
+                            // Assistant Name (right aligned, can truncate)
+                            if let model = chatViewModel.activeChat?.model, !model.isEmpty {
+                                Text(AssistantModel.nameFor(modelId: model))
+                                    .font(.headline)
+                                    .foregroundColor(Color.euniSecondary)
+                                    .lineLimit(1)
+                                    .frame(maxWidth: 200, alignment: .trailing)
+                            } else {
+                                Text("")
+                                    .frame(maxWidth: 200, alignment: .trailing)
+                            }
                         }
                     }
-                }
-                // Preferences button (sidebar.trailing icon)
-                ToolbarItem(placement: .primaryAction) {
-                    Button(action: { isPreferencesPresented.toggle() }) {
-                        Image(systemName: "sidebar.trailing")
+                    // Preferences button (sidebar.trailing icon)
+                    ToolbarItem(placement: .primaryAction) {
+                        Button(action: { isPreferencesPresented.toggle() }) {
+                            Image(systemName: "sidebar.trailing")
+                        }
+                        .foregroundColor(Color.euniSecondary)
                     }
-                    .foregroundColor(Color.euniSecondary)
                 }
             }
             .inspector(isPresented: $isPreferencesPresented) {
                 ChatPreferencesView(ollamaKit: $ollamaKit)
                     .inspectorColumnWidth(min: 320, ideal: 320)
             }
-            .sheet(isPresented: $isEasyNotePresented) {
-                NavigationView {
-                    EasyNoteSheet(prompt: $prompt, generateAction: generateAction)
-                }
-                .frame(minWidth: 1000, minHeight: 800)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onChange(of: chatViewModel.activeChat?.id) { oldValue, newValue in
+                print("DEBUG: ChatView - Active chat changed: \(oldValue?.uuidString ?? "nil") -> \(newValue?.uuidString ?? "nil")")
+                onActiveChatChanged()
             }
         }
         
@@ -386,6 +404,7 @@ struct ChatView: View {
     // MARK: - Helper Methods
     
     private func onActiveChatChanged() {
+        print("DEBUG: ChatView - onActiveChatChanged called")
         self.prompt = ""
         if chatViewModel.shouldFocusPrompt {
             chatViewModel.shouldFocusPrompt = false
@@ -397,7 +416,10 @@ struct ChatView: View {
             }
         }
 
-        if let activeChat = chatViewModel.activeChat, let host = activeChat.host, let baseURL = URL(string: host) {
+        if let activeChat = chatViewModel.activeChat, 
+           let host = activeChat.host, 
+           let baseURL = URL(string: host) {
+            print("DEBUG: ChatView - Updating OllamaKit with host: \(host)")
             self.ollamaKit = OllamaKit(baseURL: baseURL)
             self.chatViewModel.fetchModels(self.ollamaKit)
         }
@@ -409,22 +431,29 @@ struct ChatView: View {
     }
     
     private func generateAction() {
-        guard let activeChat = chatViewModel.activeChat, !activeChat.model.isEmpty, chatViewModel.isHostReachable else { return }
+        print("DEBUG: ChatView - generateAction called")
+        guard let activeChat = chatViewModel.activeChat, 
+              !activeChat.model.isEmpty, 
+              chatViewModel.isHostReachable else {
+            print("DEBUG: ChatView - Cannot generate: activeChat=\(chatViewModel.activeChat != nil), model=\(chatViewModel.activeChat?.model ?? "nil"), reachable=\(chatViewModel.isHostReachable)")
+            return
+        }
 
         if messageViewModel.loading == .generate {
+            print("DEBUG: ChatView - Cancelling existing generation")
             messageViewModel.cancelGeneration()
         } else {
-            let prompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !prompt.isEmpty else {
+            let promptToSend = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !promptToSend.isEmpty else {
+                print("DEBUG: ChatView - Empty prompt, clearing")
                 self.prompt = ""
                 return
             }
 
-            guard let activeChat = chatViewModel.activeChat else { return }
+            print("DEBUG: ChatView - Generating with prompt length: \(promptToSend.count)")
+            print("DEBUG: ChatView - Prompt preview: \(String(promptToSend.prefix(100)))...")
             
-            // Create a message with the display prompt (without PIRP instructions)
-            let displayPrompt = prompt.components(separatedBy: "\n\nFor your reference, here is how to structure PIRP Clinical Note Language.")[0]
-            messageViewModel.generate(ollamaKit, activeChat: activeChat, prompt: displayPrompt)
+            messageViewModel.generate(ollamaKit, activeChat: activeChat, prompt: promptToSend)
         }
         
         self.prompt = ""
