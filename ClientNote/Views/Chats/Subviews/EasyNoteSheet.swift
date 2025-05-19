@@ -956,28 +956,106 @@ struct EasyNoteSheet: View {
     }
     
     private func generatePrompt() {
-        // Store the chat entry text for display
-        chatEntryText = """
-            Session Date: \(selectedDate.formatted(date: .long, time: .omitted))
-            Session Time: \(selectedTime.formatted(date: .omitted, time: .shortened))
-            Location: \(selectedLocation)
-            Format: \(selectedNoteFormat)
-            Approach: \(selectedApproach)
-            Presenting Issue: \(presentingIssue)
-            Client Response: \(clientResponse)
-            Clinical Focus: \(clinicalFocus)
-            Treatment Goals: \(treatmentGoals)
-            Additional Notes: \(additionalNotes)
-            """
+        // Before generating the prompt, ensure we're set to Session Note
+        chatViewModel.selectedTask = "Create a Client Session Note"
         
-        // Set the system prompt to the Easy Note prompt
-        if let activeChat = chatViewModel.activeChat {
-            activeChat.systemPrompt = easyNotePrompt
+        var prompt = ""
+        
+        // Format date and time
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateStyle = .long
+        dateFormatter.timeStyle = .short
+        prompt += "Date: \(dateFormatter.string(from: selectedDate))\n\n"
+        
+        // Add session location
+        prompt += "Session Location: \(selectedLocation)\n\n"
+        
+        // Add presenting issue if custom
+        if presentingIssue == "Other" && !customPresentingIssue.isEmpty {
+            prompt += "Presenting Issue: \(customPresentingIssue)\n\n"
+        } else if presentingIssue != "Other" {
+            prompt += "Presenting Issue: \(presentingIssue)\n\n"
         }
         
-        // Store the full prompt with any additional instructions
-        fullPrompt = chatEntryText
-        prompt = fullPrompt
+        // Add client response if custom
+        if clientResponse == "Other" && !customClientResponse.isEmpty {
+            prompt += "Client Response: \(customClientResponse)\n\n"
+        } else if clientResponse != "Other" {
+            prompt += "Client Response: \(clientResponse)\n\n"
+        }
+        
+        // Add clinical focus if custom
+        if clinicalFocus == "Other" && !customClinicalFocus.isEmpty {
+            prompt += "Clinical Focus: \(customClinicalFocus)\n\n"
+        } else if clinicalFocus != "Other" {
+            prompt += "Clinical Focus: \(clinicalFocus)\n\n"
+        }
+        
+        // Add treatment goals if custom
+        if treatmentGoals == "Other" && !customTreatmentGoals.isEmpty {
+            prompt += "Treatment Goals: \(customTreatmentGoals)\n\n"
+        } else if treatmentGoals != "Other" {
+            prompt += "Treatment Goals: \(treatmentGoals)\n\n"
+        }
+        
+        // Add therapeutic approach and interventions
+        prompt += "Therapeutic Approach: \(selectedApproach)\n"
+        if !selectedInterventions.isEmpty {
+            prompt += "Interventions Used:\n"
+            for intervention in selectedInterventions {
+                prompt += "- \(intervention)\n"
+            }
+            prompt += "\n"
+        }
+        
+        // Add additional notes if any
+        if !additionalNotes.isEmpty {
+            prompt += "Additional Notes:\n\(additionalNotes)\n\n"
+        }
+        
+        // Add insurance diagnosis if provided
+        if !insuranceQuery.isEmpty {
+            prompt += "Insurance Diagnosis: \(insuranceQuery)"
+            if !selectedICDCode.isEmpty {
+                prompt += " (\(selectedICDCode))"
+            }
+            prompt += "\n\n"
+        }
+        
+        // Add suicidal ideation assessment if applicable
+        if hasSuicidalIdeation {
+            prompt += "Suicidal Ideation Assessment:\n"
+            if suicidalIdeationPastSession {
+                prompt += "- Reported in past session\n"
+            }
+            if suicidalIdeationCurrentSession {
+                prompt += "- Present in current session\n"
+            }
+            if suicidalIdeationBothSessions {
+                prompt += "- Present in both past and current sessions\n"
+            }
+            prompt += "\n"
+        }
+        
+        // Add note format instructions
+        if selectedNoteFormat == "Other" && !customNoteFormat.isEmpty {
+            prompt += "Please format this note using the \(customNoteFormat) format.\n\n"
+        } else if selectedNoteFormat != "Other" {
+            prompt += "Please format this note using the \(selectedNoteFormat) format.\n\n"
+        }
+        
+        // Set the prompt
+        self.prompt = prompt
+        
+        // Create a new session note activity
+        chatViewModel.selectedTask = "Create a Client Session Note"
+        chatViewModel.createNewActivity()
+        
+        // Generate the response
+        generateAction()
+        
+        // Close the sheet
+        dismiss()
     }
 }
 
