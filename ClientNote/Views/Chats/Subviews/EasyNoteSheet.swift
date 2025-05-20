@@ -256,8 +256,6 @@ struct EasyNoteSheet: View {
             ]
     ]
     
-    private let easyNotePrompt = "You are a helpful assistant who responds to the user prompt"
-    
     init(prompt: Binding<String>, generateAction: @escaping () -> Void) {
         self._prompt = prompt
         self.generateAction = generateAction
@@ -960,9 +958,13 @@ struct EasyNoteSheet: View {
     private func generatePrompt() {
         print("DEBUG: EasyNote - Starting generatePrompt()")
         
-        // Set activity type to Session Note
+        // Set activity type to Session Note and create new activity
         chatViewModel.selectedTask = "Create a Client Session Note"
         print("DEBUG: EasyNote - Set task to Session Note")
+        
+        // Create new activity first with EasyNote flag
+        print("DEBUG: EasyNote - Creating new activity")
+        chatViewModel.createNewActivity(isEasyNote: true)
         
         var notePrompt = ""
         
@@ -1050,10 +1052,6 @@ struct EasyNoteSheet: View {
         }
         
         print("DEBUG: EasyNote - Generated prompt content: \(notePrompt.prefix(100))...")
-        
-        // Create new activity first
-        print("DEBUG: EasyNote - Creating new activity")
-        chatViewModel.createNewActivity()
         
         // Store the prompt locally to ensure it's not lost
         let finalPrompt = notePrompt

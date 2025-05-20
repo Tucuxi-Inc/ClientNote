@@ -19,18 +19,18 @@ struct ChatPreferencesView: View {
     @State private var isUpdateSystemPromptPresented: Bool = false
     @State private var showAdvancedSettings: Bool = false
     @State private var showModelInfoPopover: Bool = false
+    @State private var showingNoteFormatInfo: Bool = false
     @State private var selectedDownloadModel: String = "qwen3:0.6b"
     @State private var isPullingModel: Bool = false
     @State private var pullProgress: Double = 0.0
     @State private var pullStatus: String = ""
     @State private var showAddClientSheet: Bool = false
     
-    @Default(.defaultModel) private var model: String
-    @State private var host: String
-    @State private var systemPrompt: String
-    @State private var temperature: Double
-    @State private var topP: Double
-    @State private var topK: Int
+    @Default(.defaultHost) private var host
+    @Default(.defaultSystemPrompt) private var systemPrompt
+    @Default(.defaultTemperature) private var temperature
+    @Default(.defaultTopP) private var topP
+    @Default(.defaultTopK) private var topK
     
     private let taskOptions = [
         "Create a Treatment Plan",
@@ -38,25 +38,10 @@ struct ChatPreferencesView: View {
         "Brainstorm"
     ]
     
-    private struct SystemPrompts {
-        static let clientSessionNote = "You are a helpful assistant who responds to the user prompt"
-        static let treatmentPlan = "You are a helpful assistant who responds to the user prompt"
-        static let brainstorm = "You are a helpful assistant who always provides useful and helpful responses."
-        static let easyNote = "You are a helpful assistant who responds to the user prompt"
-        static let easyTreatmentPlan = "You are a helpful assistant who responds to the user prompt"
-    }
-    
     private func updateSystemPrompt() {
-        switch chatViewModel.selectedTask {
-        case "Create a Client Session Note":
-            systemPrompt = SystemPrompts.clientSessionNote
-        case "Create a Treatment Plan":
-            systemPrompt = SystemPrompts.treatmentPlan
-        case "Brainstorm":
-            systemPrompt = SystemPrompts.brainstorm
-        default:
-            systemPrompt = SystemPrompts.clientSessionNote
-        }
+        // Get the appropriate system prompt from ChatViewModel
+        let type = chatViewModel.getActivityTypeFromTask(chatViewModel.selectedTask)
+        systemPrompt = chatViewModel.getSystemPromptForActivityType(type)
         
         // Update the active chat's system prompt
         self.chatViewModel.activeChat?.systemPrompt = systemPrompt
@@ -77,49 +62,41 @@ struct ChatPreferencesView: View {
         "Add New Client"
     ]
     
+    private func showNoteFormatInfo() {
+        showingNoteFormatInfo = true
+    }
+    
     init(ollamaKit: Binding<OllamaKit>) {
         self._ollamaKit = ollamaKit
-        
-        self.host = Defaults[.defaultHost]
-        self.systemPrompt = Defaults[.defaultSystemPrompt]
-        self.temperature = Defaults[.defaultTemperature]
-        self.topP = Defaults[.defaultTopP]
-        self.topK = Defaults[.defaultTopK]
     }
     
     var body: some View {
+        @Bindable var bindableChatViewModel = chatViewModel
+        
         Form {
             // Client Section
             Section {
-                Picker("Choose Client", selection: Binding(
-                    get: { chatViewModel.selectedClientID ?? UUID() },
-                    set: { newValue in
-                        if newValue == UUID(uuidString: "00000000-0000-0000-0000-000000000000") {
-                            showAddClientSheet = true
-                        } else {
-                            chatViewModel.selectedClientID = newValue
-                        }
-                    }
-                )) {
-                    ForEach(chatViewModel.clients) { client in
-                        Text(client.identifier).tag(client.id)
-                    }
-                    // Add New Client option
-                    Text("Add New Client").tag(UUID(uuidString: "00000000-0000-0000-0000-000000000000")!)
-                }
-                .sheet(isPresented: $showAddClientSheet, onDismiss: {
-                    // After adding, select the last client (the new one)
-                    if let last = chatViewModel.clients.last {
-                        chatViewModel.selectedClientID = last.id
-                    }
-                }) {
-                    NavigationStack {
-                        AddClientView()
-                    }
-                    .frame(minWidth: 600, minHeight: 900)
-                }
+                clientPicker
             } header: {
                 Text("Client")
+            }
+            
+            // Note Format Section
+            Section {
+                noteFormatView
+            } header: {
+                Text("Note Format")
+            }
+            
+            // Template Section
+            Section {
+                noteTemplateView
+            } header: {
+                Text("Additional Note Format Template/Information")
+            } footer: {
+                Text("Enter or paste a sample note format that you'd like the system to reference when generating notes.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
             
             // Task Section
@@ -141,36 +118,7 @@ struct ChatPreferencesView: View {
             
             // Assistant Section
             Section {
-                Picker("Choose an Assistant", selection: $model) {
-                    ForEach(chatViewModel.models, id: \.self) { modelId in
-                        Text(AssistantModel.nameFor(modelId: modelId)).tag(modelId)
-                    }
-                }
-            } header: {
-                HStack {
-                    Text("Your Assistant")
-                    
-                    Spacer()
-                    
-                    Button(action: { chatViewModel.fetchModels(ollamaKit) }) {
-                        if chatViewModel.loading == .fetchModels {
-                            ProgressView()
-                                .controlSize(.small)
-                        } else {
-                            Text("Refresh")
-                                .foregroundColor(Color.euniPrimary)
-                        }
-                    }
-                    .buttonStyle(.accessoryBar)
-                    .disabled(chatViewModel.loading == .fetchModels)
-                }
-            }
-            .onChange(of: model) { _, newValue in
-                self.chatViewModel.activeChat?.model = newValue
-            }
-            
-            Section {
-                Picker("Choose Additional Assistant", selection: $selectedDownloadModel) {
+                Picker("Choose an Assistant", selection: $selectedDownloadModel) {
                     ForEach(AssistantModel.all, id: \.modelId) { assistant in
                         Text(assistant.name).tag(assistant.modelId)
                     }
@@ -389,7 +337,7 @@ struct ChatPreferencesView: View {
         }
         .onChange(of: self.chatViewModel.activeChat) { _, newValue in
             if let model = newValue?.model {
-                self.model = model
+                self.selectedDownloadModel = model
             }
             
             if let host = newValue?.host {
@@ -427,6 +375,89 @@ struct ChatPreferencesView: View {
         }
     }
     
+    private var clientPicker: some View {
+        Picker("Choose Client", selection: Binding(
+            get: { chatViewModel.selectedClientID ?? UUID() },
+            set: { newValue in
+                if newValue == UUID(uuidString: "00000000-0000-0000-0000-000000000000") {
+                    showAddClientSheet = true
+                } else {
+                    chatViewModel.selectedClientID = newValue
+                }
+            }
+        )) {
+            ForEach(chatViewModel.clients) { client in
+                Text(client.identifier).tag(client.id)
+            }
+            Text("Add New Client").tag(UUID(uuidString: "00000000-0000-0000-0000-000000000000")!)
+        }
+        .sheet(isPresented: $showAddClientSheet, onDismiss: {
+            if let last = chatViewModel.clients.last {
+                chatViewModel.selectedClientID = last.id
+            }
+        }) {
+            NavigationStack {
+                AddClientView()
+            }
+            .frame(minWidth: 600, minHeight: 900)
+        }
+    }
+    
+    private var noteFormatView: some View {
+        HStack {
+            Picker("Note Format", selection: Binding(
+                get: { chatViewModel.selectedNoteFormat },
+                set: { chatViewModel.selectedNoteFormat = $0 }
+            )) {
+                ForEach(chatViewModel.availableNoteFormats) { format in
+                    Text(format.id).tag(format.id)
+                }
+            }
+            
+            Button(action: { showNoteFormatInfo() }) {
+                Image(systemName: "info.circle")
+                    .foregroundColor(Color.euniPrimary)
+            }
+            .buttonStyle(.borderless)
+            .popover(isPresented: $showingNoteFormatInfo) {
+                noteFormatInfoPopover
+            }
+        }
+    }
+    
+    private var noteFormatInfoPopover: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Note Format Information")
+                .font(.headline)
+                .padding(.bottom, 8)
+            
+            ForEach(chatViewModel.availableNoteFormats) { format in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("**\(format.id)** - \(format.name)")
+                        .font(.subheadline)
+                    Text(format.focus)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text(format.description)
+                        .font(.caption)
+                        .padding(.top, 4)
+                }
+                .padding(.bottom, 12)
+            }
+        }
+        .padding()
+        .frame(width: 400)
+    }
+    
+    private var noteTemplateView: some View {
+        TextEditor(text: Binding(
+            get: { chatViewModel.noteFormatTemplate },
+            set: { chatViewModel.noteFormatTemplate = $0 }
+        ))
+        .frame(height: 100)
+        .font(.system(.body, design: .monospaced))
+    }
+    
     func pullModel(_ modelName: String) {
         guard !isPullingModel else { return }
         
@@ -448,7 +479,7 @@ struct ChatPreferencesView: View {
                     Task {
                         try? await Task.sleep(for: .seconds(1))
                         if chatViewModel.models.contains(modelName) {
-                            model = modelName
+                            selectedDownloadModel = modelName
                             // Also update the active chat's model
                             chatViewModel.activeChat?.model = modelName
                         }
