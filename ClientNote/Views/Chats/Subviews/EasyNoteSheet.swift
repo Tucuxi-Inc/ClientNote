@@ -22,9 +22,9 @@ struct EasyNoteSheet: View {
     @State private var selectedDate = Date()
     @State private var selectedTime = Date()
     
-    // Note Format
-    @State private var selectedNoteFormat = "BIRP"
-    @State private var customNoteFormat = ""
+    // Note Format - REMOVED as it's managed in settings
+    // @State private var selectedNoteFormat = "BIRP"
+    // @State private var customNoteFormat = ""
     
     // Therapeutic Approach
     @State private var selectedApproach = "CBT (Cognitive Behavioral Therapy)"
@@ -70,7 +70,6 @@ struct EasyNoteSheet: View {
     @State private var suicidalIdeationCurrentSession = false
     @State private var suicidalIdeationBothSessions = false
     
-    private let noteFormats = ["BIRP", "PIRP", "SOAP", "DAP", "Other"]
     private let approaches = [
         "CBT (Cognitive Behavioral Therapy)",
         "DBT (Dialectical Behavior Therapy)",
@@ -305,34 +304,7 @@ struct EasyNoteSheet: View {
                             .padding()
                         }
                         
-                        // Note Format Section
-                        GroupBox {
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("Note Format")
-                                    .font(.title3)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(.primary)
-                                
-                                HStack {
-                                    Text("Note Format")
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(Color.euniText)
-                                    
-                                    Picker("Format", selection: $selectedNoteFormat) {
-                                        ForEach(noteFormats, id: \.self) { format in
-                                            Text(format).tag(format)
-                                        }
-                                    }
-                                    .pickerStyle(.segmented)
-                                }
-                                
-                                if selectedNoteFormat == "Other" {
-                                    TextField("Custom Note Format", text: $customNoteFormat)
-                                        .textFieldStyle(.roundedBorder)
-                                }
-                            }
-                            .padding()
-                        }
+                        // Note Format Section - REMOVED as it's managed in settings
                         
                         // Therapeutic Approach Section
                         GroupBox {
@@ -700,8 +672,8 @@ struct EasyNoteSheet: View {
         // Reset all state variables to their initial values
         selectedDate = Date()
         selectedTime = Date()
-        selectedNoteFormat = "BIRP"
-        customNoteFormat = ""
+        // selectedNoteFormat = "BIRP" - REMOVED
+        // customNoteFormat = "" - REMOVED
         selectedApproach = "CBT (Cognitive Behavioral Therapy)"
         customApproach = ""
         selectedInterventions = []
@@ -1005,14 +977,10 @@ struct EasyNoteSheet: View {
             notePrompt += "Treatment Goals: \(treatmentGoals)\n\n"
         }
         
-        // Add therapeutic approach and interventions
-        notePrompt += "Therapeutic Approach: \(selectedApproach)\n"
+        // Collect selected modalities and interventions
+        var selectedModalitiesMap: [String: [String]] = [:]
         if !selectedInterventions.isEmpty {
-            notePrompt += "Interventions Used:\n"
-            for intervention in selectedInterventions {
-                notePrompt += "- \(intervention)\n"
-            }
-            notePrompt += "\n"
+            selectedModalitiesMap[selectedApproach] = Array(selectedInterventions)
         }
         
         // Add additional notes if any
@@ -1044,32 +1012,36 @@ struct EasyNoteSheet: View {
             notePrompt += "\n"
         }
         
-        // Add note format instructions
-        if selectedNoteFormat == "Other" && !customNoteFormat.isEmpty {
-            notePrompt += "Please format this note using the \(customNoteFormat) format.\n\n"
-        } else if selectedNoteFormat != "Other" {
-            notePrompt += "Please format this note using the \(selectedNoteFormat) format.\n\n"
-        }
-        
         print("DEBUG: EasyNote - Generated prompt content: \(notePrompt.prefix(100))...")
         
         // Store the prompt locally to ensure it's not lost
         let finalPrompt = notePrompt
         
         print("DEBUG: EasyNote - Setting prompt and triggering generation")
-        // Update the prompt binding and trigger generation
-        DispatchQueue.main.async {
-            // Set the prompt
-            self.prompt = finalPrompt
-            print("DEBUG: EasyNote - Prompt set, length: \(finalPrompt.count)")
+        
+        // Use the two-pass system with our structured data
+        Task {
+            await chatViewModel.enhanceSessionNoteGeneration(
+                transcript: finalPrompt,
+                ollamaKit: ollamaKit,
+                isEasyNote: true,
+                providedModalities: selectedModalitiesMap
+            )
             
-            // Trigger generation
-            print("DEBUG: EasyNote - Calling generateAction")
-            self.generateAction()
-            
-            // Dismiss the sheet
-            print("DEBUG: EasyNote - Dismissing sheet")
-            self.dismiss()
+            // Update the prompt binding and trigger generation
+            DispatchQueue.main.async {
+                // Set the prompt
+                self.prompt = finalPrompt
+                print("DEBUG: EasyNote - Prompt set, length: \(finalPrompt.count)")
+                
+                // Trigger generation
+                print("DEBUG: EasyNote - Calling generateAction")
+                self.generateAction()
+                
+                // Dismiss the sheet
+                print("DEBUG: EasyNote - Dismissing sheet")
+                self.dismiss()
+            }
         }
     }
 }

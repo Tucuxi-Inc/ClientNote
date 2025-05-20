@@ -183,6 +183,16 @@ final class ChatViewModel {
             }
         }
         self.clients = loaded
+        
+        // Validate selections after loading
+        validateClientSelection()
+        if let selectedID = selectedActivityID {
+            // Check if the selected activity is still valid
+            if !filteredActivities.contains(where: { $0.id == selectedID }) {
+                print("DEBUG: Selected activity \(selectedID) no longer valid after loading clients")
+                selectedActivityID = filteredActivities.first?.id
+            }
+        }
     }
     
     func saveClient(_ client: Client) {
@@ -321,14 +331,16 @@ final class ChatViewModel {
         
         // Parse the stored content into messages
         if !activity.content.isEmpty {
+            print("DEBUG: Raw content: \(activity.content)")
+            guard let contentData = activity.content.data(using: .utf8) else {
+                print("DEBUG: Could not convert content to data")
+                return
+            }
+            
+            // Try to decode as JSON array first
             do {
-                guard let contentData = activity.content.data(using: .utf8) else {
-                    print("DEBUG: Could not convert content to data")
-                    return
-                }
-                
                 let chatHistory = try JSONDecoder().decode([[String: String]].self, from: contentData)
-                print("DEBUG: Found \(chatHistory.count) messages in history")
+                print("DEBUG: Successfully decoded JSON chat history with \(chatHistory.count) messages")
                 
                 for messageData in chatHistory {
                     if let prompt = messageData["prompt"] {
@@ -339,8 +351,8 @@ final class ChatViewModel {
                     }
                 }
             } catch {
-                print("DEBUG: Error parsing chat history: \(error)")
-                // Handle legacy content format or invalid data
+                print("DEBUG: JSON parsing failed, treating as legacy content: \(error)")
+                // Handle legacy content format or invalid data by creating a single message
                 let message = Message(prompt: activity.content)
                 message.chat = chat
                 chat.messages.append(message)
@@ -357,12 +369,45 @@ final class ChatViewModel {
     
     // Watch for activity selection changes
     func onActivitySelected() {
-        if let activity = selectedActivity {
+        if let selectedID = selectedActivityID {
+            // Validate that the selected activity exists
+            guard let activity = filteredActivities.first(where: { $0.id == selectedID }) else {
+                print("DEBUG: Invalid activity selection: \(selectedID)")
+                // Reset to first available activity or clear selection
+                if let firstActivity = filteredActivities.first {
+                    selectedActivityID = firstActivity.id
+                    print("DEBUG: Reset to first available activity: \(firstActivity.id)")
+                } else {
+                    selectedActivityID = nil
+                    print("DEBUG: No valid activities available")
+                }
+                return
+            }
+            
+            print("DEBUG: Valid activity selected: \(activity.id)")
             // Update the selected task to match the activity type
             selectedTask = taskForActivityType(activity.type)
             
             // Clear current chat and create new one for this activity
             loadActivityChat(activity)
+        }
+    }
+    
+    // Validate client selection
+    func validateClientSelection() {
+        if let selectedID = selectedClientID {
+            // Check if the selected client still exists
+            if !clients.contains(where: { $0.id == selectedID }) {
+                print("DEBUG: Invalid client selection: \(selectedID)")
+                // Reset to first available client or clear selection
+                if let firstClient = clients.first {
+                    selectedClientID = firstClient.id
+                    print("DEBUG: Reset to first available client: \(firstClient.id)")
+                } else {
+                    selectedClientID = nil
+                    print("DEBUG: No valid clients available")
+                }
+            }
         }
     }
     
@@ -386,11 +431,17 @@ final class ChatViewModel {
         }
         
         do {
-            let jsonData = try JSONEncoder().encode(messageHistory)
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let jsonData = try encoder.encode(messageHistory)
+            
             if let jsonString = String(data: jsonData, encoding: .utf8) {
                 print("DEBUG: Saving chat history with \(messageHistory.count) messages")
+                print("DEBUG: JSON preview: \(String(jsonString.prefix(200)))...")
                 clients[clientIndex].activities[activityIndex].content = jsonString
                 saveClient(clients[clientIndex])
+            } else {
+                print("DEBUG: Failed to convert JSON data to string")
             }
         } catch {
             print("DEBUG: Error saving chat history: \(error)")
@@ -494,15 +545,40 @@ final class ChatViewModel {
         You are a clinical documentation assistant helping a therapist generate an insurance-ready psychotherapy progress note. 
         Focus on creating a structured, objective note that meets clinical and insurance requirements.
 
+        You will use:
+        1. The session transcript provided
+        2. The modalities analysis provided (which identifies therapeutic techniques used)
+        3. The client's treatment plan (if provided)
+        4. Recent session notes (if provided)
+        5. Any other client context provided
+
         Requirements:
         1. Use clear, objective, and concise clinical language
-        2. Maintain gender-neutral pronouns
+        2. Maintain gender-neutral pronouns ("they/them")
         3. Only use quotes if explicitly provided
-        4. Focus on observable behaviors and clinical interventions
-        5. Use standard psychological terms
-        6. Include a clear treatment plan
+        4. Focus on observable behaviors, reported thoughts/feelings, therapist interventions, and progress toward clinical goals
+        5. Applies relevant modalities and interventions (e.g., CBT, DBT, ACT, Psychodynamic), naming them when appropriate
+        6. References any schemas, cognitive distortions, or core beliefs using standard psychological terminology
+        7. Concludes with a brief, action-oriented treatment plan
+        8. If suicidal ideation or self-harm arises, include:
+           a. Client statements or behaviors prompting risk assessment
+           b. Identified risk and protective factors
+           c. Outcome of suicide risk assessment with clinical rationale
+           d. Any collaboratively developed safety plan
+           e. Follow-up arrangements
+        9. If a formal assessment tool was used, reference it by name
+        10. Reflects clinical reasoning, ethical care, and legal defensibility
+        11. Shows progression and connection to previous sessions when context is available
+        12. Integrates treatment plan goals and tracks progress toward them
+        13. Notes any significant changes in presentation or circumstances since last session
+        14. Documents any coordination of care or external referrals
+        15. For telehealth sessions:
+            • First session: Document informed consent, risks/limitations discussed, license number, emergency resources
+            • Subsequent sessions: Document identity confirmation, appropriateness, confidentiality measures
 
-        [Placeholder for full Session Note prompt]
+        Structure the output according to the specified note format, using appropriate headings.
+        Ensure continuity with previous sessions when that context is available.
+        Focus on demonstrating progress and clinical decision-making.
         """
         
         // EasyNote prompt - used when the form is used
@@ -933,130 +1009,221 @@ final class ChatViewModel {
         return prompt
     }
     
-    // Function to get note generation prompt
-    func getNoteGenerationPrompt(
-        format: String,
-        template: String?,
-        modalitiesAnalysis: String,
-        treatmentPlan: String?,
-        recentNotes: [String]?,
-        isFirstTelehealth: Bool = false,
-        isSubsequentTelehealth: Bool = false
-    ) -> String {
+    // Client Engagement Pattern structures
+    struct ClientEngagementExample: Identifiable {
+        let id = UUID()
+        let description: String
+        let category: String
+        let tone: EngagementTone
+    }
+    
+    enum EngagementTone {
+        case positive
+        case negative
+        case neutral
+    }
+    
+    struct ClientEngagementCategory {
+        let name: String
+        let examples: [ClientEngagementExample]
+    }
+    
+    // Comprehensive client engagement patterns reference
+    private let clientEngagementPatterns: [ClientEngagementCategory] = [
+        ClientEngagementCategory(
+            name: "General Receptiveness",
+            examples: [
+                ClientEngagementExample(
+                    description: "The client was open and engaged, participating actively throughout the session.",
+                    category: "General Receptiveness",
+                    tone: .positive
+                ),
+                ClientEngagementExample(
+                    description: "The client demonstrated a willingness to explore new perspectives and engage in the conversation.",
+                    category: "General Receptiveness",
+                    tone: .positive
+                ),
+                ClientEngagementExample(
+                    description: "The client seemed disengaged and offered minimal verbal feedback during the session.",
+                    category: "General Receptiveness",
+                    tone: .negative
+                )
+            ]
+        ),
+        ClientEngagementCategory(
+            name: "Active Listening",
+            examples: [
+                ClientEngagementExample(
+                    description: "The client listened attentively and responded thoughtfully to prompts.",
+                    category: "Active Listening",
+                    tone: .positive
+                ),
+                ClientEngagementExample(
+                    description: "The client showed a high level of engagement by reflecting on key points discussed.",
+                    category: "Active Listening",
+                    tone: .positive
+                ),
+                ClientEngagementExample(
+                    description: "The client appeared distant and unresponsive to discussion points.",
+                    category: "Active Listening",
+                    tone: .negative
+                )
+            ]
+        ),
+        ClientEngagementCategory(
+            name: "Response to Interventions",
+            examples: [
+                ClientEngagementExample(
+                    description: "The client responded positively to the interventions, showing clear interest and engagement in the strategies discussed.",
+                    category: "Response to Interventions",
+                    tone: .positive
+                ),
+                ClientEngagementExample(
+                    description: "The client appeared resistant to feedback and became defensive when suggestions were offered.",
+                    category: "Response to Interventions",
+                    tone: .negative
+                ),
+                ClientEngagementExample(
+                    description: "The client demonstrated a willingness to apply the interventions, expressing interest in integrating them into their routine.",
+                    category: "Response to Interventions",
+                    tone: .positive
+                )
+            ]
+        ),
+        ClientEngagementCategory(
+            name: "Nonverbal Communication",
+            examples: [
+                ClientEngagementExample(
+                    description: "The client's body language indicated receptiveness, with consistent eye contact and positive posture.",
+                    category: "Nonverbal Communication",
+                    tone: .positive
+                ),
+                ClientEngagementExample(
+                    description: "The client exhibited closed body language, such as crossed arms or avoiding eye contact.",
+                    category: "Nonverbal Communication",
+                    tone: .negative
+                )
+            ]
+        ),
+        ClientEngagementCategory(
+            name: "Commitment to Practice",
+            examples: [
+                ClientEngagementExample(
+                    description: "The client has committed to practicing their healthy coping skills and self-care activities between sessions.",
+                    category: "Commitment to Practice",
+                    tone: .positive
+                ),
+                ClientEngagementExample(
+                    description: "The client expressed reluctance to engage in between-session practice or homework.",
+                    category: "Commitment to Practice",
+                    tone: .negative
+                )
+            ]
+        )
+    ]
+    
+    // Function to get engagement patterns analysis prompt
+    private func getEngagementPatternsPrompt() -> String {
         var prompt = """
-        You are a clinical documentation assistant. You will use:
-        1. The session transcript provided
-        2. The modalities analysis: \(modalitiesAnalysis)
+        Consider these common patterns of client engagement and responsiveness when analyzing the session:
+        
         """
         
-        if let plan = treatmentPlan {
-            prompt += "\n3. Recent treatment plan: \(plan)"
-        }
-        
-        if let notes = recentNotes, !notes.isEmpty {
-            prompt += "\n4. Recent session notes:\n"
-            for note in notes {
-                prompt += "- \(note)\n"
+        for category in clientEngagementPatterns {
+            prompt += "\n\n\(category.name):\n"
+            
+            // Add positive examples
+            prompt += "Positive Indicators:\n"
+            for example in category.examples.filter({ $0.tone == .positive }) {
+                prompt += "- \(example.description)\n"
+            }
+            
+            // Add negative examples
+            prompt += "\nChallenging Indicators:\n"
+            for example in category.examples.filter({ $0.tone == .negative }) {
+                prompt += "- \(example.description)\n"
             }
         }
         
-        prompt += "\n\nNote Format: \(format)"
-        
-        if let template = template, !template.isEmpty {
-            prompt += "\nTemplate Reference: \(template)"
-        }
-        
         prompt += """
         
-        Produce an insurance-ready psychotherapy progress note that:
-
-        1. Uses clear, objective, and concise clinical language
-        2. Maintains gender-neutral pronouns ("they/them")
-        3. Quotes verbatim only when exact client statements are provided
-        4. Focuses on observable behaviors, reported thoughts/feelings, therapist interventions, and progress toward clinical goals
-        5. Applies relevant modalities and interventions (e.g., CBT, DBT, ACT, Psychodynamic), naming them when appropriate
-        6. References any schemas, cognitive distortions, or core beliefs using standard psychological terminology
-        7. Concludes with a brief, action-oriented treatment plan
-        """
+        Please analyze the client's engagement and responsiveness, considering:
+        1. Overall level of engagement and receptiveness
+        2. Specific responses to interventions and suggestions
+        3. Notable nonverbal communication
+        4. Commitment to between-session practice
+        5. Any significant changes in engagement during the session
         
-        if isFirstTelehealth {
-            prompt += """
-            
-            8. Document for first telehealth session:
-               • Informed consent obtained (verbal or written)
-               • Disclosed risks and limitations
-               • Therapist license/registration number provided
-               • Confirmation of client's location-based emergency resources
-            """
-        } else if isSubsequentTelehealth {
-            prompt += """
-            
-            8. Document for subsequent telehealth session:
-               • Confirmed client's full name and current physical address
-               • Assessed appropriateness of telehealth
-               • Ensured confidentiality and secure communication practices
-            """
-        }
-        
-        prompt += """
-        
-        9. If suicidal ideation or self-harm arises, include:
-           a. Client statements or behaviors prompting risk assessment
-           b. Identified risk and protective factors
-           c. Outcome of suicide risk assessment with clinical rationale
-           d. Any collaboratively developed safety plan
-           e. Follow-up arrangements
-        
-        10. If a formal assessment tool was used, reference it by name
-        11. Reflects clinical reasoning, ethical care, and legal defensibility
-
-        Structure the output strictly according to the \(format) format, using the appropriate headings. Do not add any sections beyond those required by the format.
+        Format your response as a structured analysis focusing on these aspects.
         """
         
         return prompt
     }
     
-    // Two-pass process for session notes
-    private func performModalitiesAnalysis(
+    // Modify the performModalitiesAnalysis to include engagement patterns
+    private func performSessionAnalysis(
         transcript: String,
-        ollamaKit: OllamaKit
-    ) async throws -> String {
-        guard let activeChat = activeChat else {
+        ollamaKit: OllamaKit,
+        isEasyNote: Bool = false,
+        providedModalities: [String: [String]]? = nil
+    ) async throws -> (modalities: String, engagement: String) {
+        guard messageViewModel != nil else {
+            throw ChatViewModelError.generate("MessageViewModel not available")
+        }
+        
+        // Get modalities analysis
+        let modalitiesAnalysis: String
+        if isEasyNote, let modalities = providedModalities {
+            var analysis = "Therapeutic Modalities Analysis:\n\n"
+            for (modality, interventions) in modalities {
+                analysis += "\(modality):\n"
+                for intervention in interventions {
+                    analysis += "- \(intervention)\n"
+                }
+                analysis += "\n"
+            }
+            modalitiesAnalysis = analysis
+        } else {
+            let analysisPrompt = getModalitiesAnalysisPrompt() + "\n\nSession Transcript:\n" + transcript
+            modalitiesAnalysis = try await generateAnalysis(prompt: analysisPrompt, ollamaKit: ollamaKit)
+        }
+        
+        // Get engagement patterns analysis
+        let engagementPrompt = getEngagementPatternsPrompt() + "\n\nSession Transcript:\n" + transcript
+        let engagementAnalysis = try await generateAnalysis(prompt: engagementPrompt, ollamaKit: ollamaKit)
+        
+        return (modalities: modalitiesAnalysis, engagement: engagementAnalysis)
+    }
+    
+    // Helper function for generating analysis
+    private func generateAnalysis(prompt: String, ollamaKit: OllamaKit) async throws -> String {
+        guard let messageViewModel = self.messageViewModel else {
+            throw ChatViewModelError.generate("MessageViewModel not available")
+        }
+        
+        guard let activeChat = self.activeChat else {
             throw ChatViewModelError.generate("No active chat available")
         }
         
-        // Create analysis message
-        let analysisPrompt = getModalitiesAnalysisPrompt() + "\n\nSession Transcript:\n" + transcript
-        let analysisMessage = Message(prompt: analysisPrompt)
+        let analysisMessage = Message(prompt: prompt)
         analysisMessage.chat = activeChat
         
-        // Use existing message generation through MessageViewModel
         return try await withCheckedThrowingContinuation { continuation in
             Task {
                 do {
-                    if let messageViewModel = messageViewModel {
-                        // Store current state
-                        let currentMessages = messageViewModel.messages
-                        
-                        // Generate modalities analysis
-                        messageViewModel.generate(ollamaKit, activeChat: activeChat, prompt: analysisPrompt)
-                        
-                        // Wait for response
-                        while messageViewModel.loading == .generate {
-                            try await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
-                        }
-                        
-                        // Get the analysis result
-                        if let lastMessage = messageViewModel.messages.last,
-                           let response = lastMessage.response {
-                            // Restore previous state
-                            messageViewModel.messages = currentMessages
-                            continuation.resume(returning: response)
-                        } else {
-                            continuation.resume(throwing: ChatViewModelError.generate("Failed to generate modalities analysis"))
-                        }
+                    let currentMessages = messageViewModel.messages
+                    messageViewModel.generate(ollamaKit, activeChat: activeChat, prompt: prompt)
+                    
+                    while messageViewModel.loading == .generate {
+                        try await Task.sleep(nanoseconds: 100_000_000)
+                    }
+                    
+                    if let lastMessage = messageViewModel.messages.last,
+                       let response = lastMessage.response {
+                        messageViewModel.messages = currentMessages
+                        continuation.resume(returning: response)
                     } else {
-                        continuation.resume(throwing: ChatViewModelError.generate("MessageViewModel not available"))
+                        continuation.resume(throwing: ChatViewModelError.generate("Failed to generate analysis"))
                     }
                 } catch {
                     continuation.resume(throwing: error)
@@ -1065,33 +1232,39 @@ final class ChatViewModel {
         }
     }
     
-    // Function to enhance session note generation with modalities analysis
+    // Update enhanceSessionNoteGeneration to use the new analysis
     func enhanceSessionNoteGeneration(
         transcript: String,
-        ollamaKit: OllamaKit
+        ollamaKit: OllamaKit,
+        isEasyNote: Bool = false,
+        providedModalities: [String: [String]]? = nil
     ) async {
         do {
-            // First pass: Analyze modalities
-            let modalitiesAnalysis = try await performModalitiesAnalysis(
+            let analysis = try await performSessionAnalysis(
                 transcript: transcript,
-                ollamaKit: ollamaKit
+                ollamaKit: ollamaKit,
+                isEasyNote: isEasyNote,
+                providedModalities: providedModalities
             )
             
-            // Enhance the system prompt with modalities analysis
             if let activeChat = activeChat {
                 let currentPrompt = activeChat.systemPrompt ?? getSystemPromptForActivityType(.sessionNote)
                 activeChat.systemPrompt = """
                     \(currentPrompt)
                     
-                    Consider the following analysis of therapeutic modalities and interventions used in this session:
-                    \(modalitiesAnalysis)
+                    Consider the following analyses for this session:
                     
-                    Incorporate these identified modalities and interventions into your note, ensuring proper clinical terminology and context.
+                    THERAPEUTIC MODALITIES AND INTERVENTIONS:
+                    \(analysis.modalities)
+                    
+                    CLIENT ENGAGEMENT AND RESPONSIVENESS:
+                    \(analysis.engagement)
+                    
+                    \(isEasyNote ? "Use the provided structured form data to generate the note." : "Analyze the transcript to generate the note.")
+                    Incorporate these analyses into your note, ensuring proper clinical terminology and context.
+                    Pay particular attention to accurately describing the client's engagement and response to interventions.
                     """
             }
-            
-            // The actual note generation will proceed through the normal flow,
-            // using the enhanced system prompt
         } catch {
             self.error = .generate(error.localizedDescription)
         }
