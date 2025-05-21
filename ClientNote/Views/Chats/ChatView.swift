@@ -524,40 +524,98 @@ struct ChatFieldView: View {
     @State private var speechRecognitionVM = SpeechRecognitionViewModel()
     @State private var textHeight: CGFloat = 40
     
+    // Add state for tracking which easy sheet to show
+    @State private var activeEasySheet: EasySheetType = .none
+    @State private var showEasySheet = false
+    
+    // Enum to track which sheet to show
+    private enum EasySheetType {
+        case note
+        case treatmentPlan
+        case none
+    }
+    
+    private var showEasyButton: Bool {
+        chatViewModel.selectedTask.contains("Session Note") ||
+        chatViewModel.selectedTask.contains("Treatment Plan")
+    }
+    
+    private var easyButtonIcon: String {
+        switch chatViewModel.selectedTask {
+        case "Create a Client Session Note":
+            return "note.text.badge.plus"
+        case "Create a Treatment Plan":
+            return "checklist.checked"
+        default:
+            return "note.text.badge.plus"
+        }
+    }
+    
+    private var easyButtonLabel: String {
+        switch chatViewModel.selectedTask {
+        case "Create a Client Session Note":
+            return "Easy Note"
+        case "Create a Treatment Plan":
+            return "Easy Plan"
+        default:
+            return "Easy Note"
+        }
+    }
+    
+    private func handleEasyButtonTap() {
+        print("DEBUG: Easy button clicked for task: \(chatViewModel.selectedTask)")
+        switch chatViewModel.selectedTask {
+        case "Create a Client Session Note":
+            print("DEBUG: Setting activeEasySheet to .note")
+            activeEasySheet = .note
+        case "Create a Treatment Plan":
+            print("DEBUG: Setting activeEasySheet to .treatmentPlan")
+            activeEasySheet = .treatmentPlan
+        default:
+            print("DEBUG: Setting activeEasySheet to .none")
+            activeEasySheet = .none
+        }
+        showEasySheet = true
+        print("DEBUG: showEasySheet set to true")
+    }
+    
     var body: some View {
         VStack {
             HStack(alignment: .top, spacing: 8) {
-                // Left column with Easy Note Button and Microphone Button
-                VStack(spacing: 8) {
-                    // Easy Note Button
-                    Button(action: { isEasyNotePresented = true }) {
-                        Image(systemName: "note.text.badge.plus")
-                            .foregroundStyle(.white)
-                            .fontWeight(.bold)
-                            .padding(8)
-                    }
-                    .background(Color.euniPrimary)
-                    .buttonStyle(.borderless)
-                    .clipShape(.circle)
-                    
-                    // Microphone Button
-                    Button {
-                        if speechRecognitionVM.isRecording {
-                            speechRecognitionVM.stopRecording()
-                        } else {
-                            speechRecognitionVM.startRecording { transcribedText in
-                                prompt = transcribedText
-                            }
+                // Left column with Easy Button and Microphone Button
+                if showEasyButton {
+                    VStack(spacing: 8) {
+                        // Easy Button
+                        Button(action: handleEasyButtonTap) {
+                            Image(systemName: easyButtonIcon)
+                                .foregroundStyle(.white)
+                                .fontWeight(.bold)
+                                .padding(8)
                         }
-                    } label: {
-                        Image(systemName: speechRecognitionVM.isRecording ? "stop.circle.fill" : "mic.circle")
-                            .foregroundStyle(Color.euniText)
-                            .fontWeight(.bold)
-                            .padding(8)
+                        .help(easyButtonLabel)
+                        .background(Color.euniPrimary)
+                        .buttonStyle(.borderless)
+                        .clipShape(.circle)
+                        
+                        // Microphone Button
+                        Button {
+                            if speechRecognitionVM.isRecording {
+                                speechRecognitionVM.stopRecording()
+                            } else {
+                                speechRecognitionVM.startRecording { transcribedText in
+                                    prompt = transcribedText
+                                }
+                            }
+                        } label: {
+                            Image(systemName: speechRecognitionVM.isRecording ? "stop.circle.fill" : "mic.circle")
+                                .foregroundStyle(Color.euniText)
+                                .fontWeight(.bold)
+                                .padding(8)
+                        }
+                        .background(speechRecognitionVM.isRecording ? Color.euniError : Color.euniSecondary)
+                        .buttonStyle(.borderless)
+                        .clipShape(.circle)
                     }
-                    .background(speechRecognitionVM.isRecording ? Color.euniError : Color.euniSecondary)
-                    .buttonStyle(.borderless)
-                    .clipShape(.circle)
                 }
                 
                 // Chat Field
@@ -646,6 +704,28 @@ struct ChatFieldView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text(speechRecognitionVM.errorMessage)
+        }
+        .sheet(isPresented: $showEasySheet, onDismiss: {
+            print("DEBUG: Sheet dismissed, activeEasySheet was: \(activeEasySheet)")
+            activeEasySheet = .none
+            print("DEBUG: Reset activeEasySheet to .none")
+        }) {
+            switch activeEasySheet {
+            case .note:
+                NavigationView {
+                    EasyNoteSheet(prompt: $prompt, generateAction: generateAction)
+                }
+                .frame(minWidth: 1000, minHeight: 800)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            case .treatmentPlan:
+                NavigationView {
+                    EasyTreatmentPlanSheet(prompt: $prompt, generateAction: generateAction)
+                }
+                .frame(minWidth: 1000, minHeight: 800)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            case .none:
+                EmptyView()
+            }
         }
     }
 }

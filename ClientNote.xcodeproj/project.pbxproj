@@ -54,6 +54,7 @@
 		0AFC5AA92C66A20C00A148A2 /* CodeBlockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AFC5AA82C66A20C00A148A2 /* CodeBlockView.swift */; };
 		175D318C2C64ADF9009B58E0 /* DefaultFontSizeField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 175D318B2C64ADF9009B58E0 /* DefaultFontSizeField.swift */; };
 		4A4A8EBE2D5047590065A5EC /* String+ReplaceAndTrim.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A4A8EBD2D5047590065A5EC /* String+ReplaceAndTrim.swift */; };
+		8804D7B42DDD6C2B00616BC3 /* EasyTreatmentPlanSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8804D7B32DDD6C2B00616BC3 /* EasyTreatmentPlanSheet.swift */; };
 		8807AC192DACBBC600C3D195 /* EasyNoteSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8807AC182DACBBC600C3D195 /* EasyNoteSheet.swift */; };
 		8807ADD12DB30C5400C3D195 /* Color+ClientNoteCustom.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8807ADD02DB30C5400C3D195 /* Color+ClientNoteCustom.swift */; };
 		8807B1122DB6F6C300C3D195 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8807B1112DB6F6C300C3D195 /* StoreKit.framework */; };
@@ -111,6 +112,7 @@
 		0AFC5AA82C66A20C00A148A2 /* CodeBlockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeBlockView.swift; sourceTree = "<group>"; };
 		175D318B2C64ADF9009B58E0 /* DefaultFontSizeField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultFontSizeField.swift; sourceTree = "<group>"; };
 		4A4A8EBD2D5047590065A5EC /* String+ReplaceAndTrim.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+ReplaceAndTrim.swift"; sourceTree = "<group>"; };
+		8804D7B32DDD6C2B00616BC3 /* EasyTreatmentPlanSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EasyTreatmentPlanSheet.swift; sourceTree = "<group>"; };
 		8807AC182DACBBC600C3D195 /* EasyNoteSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EasyNoteSheet.swift; sourceTree = "<group>"; };
 		8807ADD02DB30C5400C3D195 /* Color+ClientNoteCustom.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+ClientNoteCustom.swift"; sourceTree = "<group>"; };
 		8807B1112DB6F6C300C3D195 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
@@ -202,7 +204,6 @@
 			isa = PBXGroup;
 			children = (
 				88C4AF142DD984BF002DF4DC /* Clients */,
-				8807B1152DB6FA1A00C3D195 /* AccessControlView.swift */,
 				0A4D35982AF5425900846890 /* AppView.swift */,
 				0ADB95E92C5D41B600EB0C60 /* Chats */,
 				0A6E85212C5E98A40030A4AA /* Settings */,
@@ -267,6 +268,7 @@
 		0A6E852C2C5EAA510030A4AA /* Subviews */ = {
 			isa = PBXGroup;
 			children = (
+				8804D7B32DDD6C2B00616BC3 /* EasyTreatmentPlanSheet.swift */,
 				0ADB95EE2C5D42FF00EB0C60 /* AssistantMessageView.swift */,
 				0A6E85332C5F9DA00030A4AA /* ChatFieldFooterView.swift */,
 				0A6E852D2C5EAA750030A4AA /* ChatPreferencesFooterView.swift */,
@@ -347,6 +349,7 @@
 			isa = PBXGroup;
 			children = (
 				88C4AF132DD984BF002DF4DC /* AddClientView.swift */,
+				8807B1152DB6FA1A00C3D195 /* AccessControlView.swift */,
 			);
 			path = Clients;
 			sourceTree = "<group>";
@@ -477,6 +480,7 @@
 				0AFC5AA92C66A20C00A148A2 /* CodeBlockView.swift in Sources */,
 				0ADB95EB2C5D41DF00EB0C60 /* ChatView.swift in Sources */,
 				0ADB95E42C5D34B200EB0C60 /* SidebarListItemView.swift in Sources */,
+				8804D7B42DDD6C2B00616BC3 /* EasyTreatmentPlanSheet.swift in Sources */,
 				0A4D35992AF5425900846890 /* AppView.swift in Sources */,
 				0A6E852E2C5EAA750030A4AA /* ChatPreferencesFooterView.swift in Sources */,
 				8807AC192DACBBC600C3D195 /* EasyNoteSheet.swift in Sources */,
