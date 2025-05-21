@@ -564,6 +564,12 @@ struct ChatFieldView: View {
     
     private func handleEasyButtonTap() {
         print("DEBUG: Easy button clicked for task: \(chatViewModel.selectedTask)")
+        updateActiveEasySheet()
+        showEasySheet = true
+        print("DEBUG: showEasySheet set to true")
+    }
+    
+    private func updateActiveEasySheet() {
         switch chatViewModel.selectedTask {
         case "Create a Client Session Note":
             print("DEBUG: Setting activeEasySheet to .note")
@@ -575,8 +581,6 @@ struct ChatFieldView: View {
             print("DEBUG: Setting activeEasySheet to .none")
             activeEasySheet = .none
         }
-        showEasySheet = true
-        print("DEBUG: showEasySheet set to true")
     }
     
     var body: some View {
@@ -704,6 +708,14 @@ struct ChatFieldView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text(speechRecognitionVM.errorMessage)
+        }
+        .onAppear {
+            // Initialize the activeEasySheet based on the default task
+            updateActiveEasySheet()
+        }
+        .onChange(of: chatViewModel.selectedTask) { oldValue, newValue in
+            // Update activeEasySheet whenever the task changes
+            updateActiveEasySheet()
         }
         .sheet(isPresented: $showEasySheet, onDismiss: {
             print("DEBUG: Sheet dismissed, activeEasySheet was: \(activeEasySheet)")

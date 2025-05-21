@@ -118,6 +118,24 @@ struct ChatPreferencesView: View {
             
             // Assistant Section
             Section {
+                // Picker for choosing from downloaded models
+                Picker("Choose an Assistant", selection: Binding(
+                    get: { chatViewModel.activeChat?.model ?? "" },
+                    set: { newModel in
+                        chatViewModel.activeChat?.model = newModel
+                    }
+                )) {
+                    ForEach(chatViewModel.models, id: \.self) { model in
+                        Text(AssistantModel.nameFor(modelId: model)).tag(model)
+                    }
+                }
+            } header: {
+                Text("Assistant")
+            }
+            
+            // Additional Assistants Section
+            Section {
+                // Picker for selecting model to download
                 Picker("Choose an Assistant", selection: $selectedDownloadModel) {
                     ForEach(AssistantModel.all, id: \.modelId) { assistant in
                         Text(assistant.name).tag(assistant.modelId)
@@ -159,7 +177,7 @@ struct ChatPreferencesView: View {
                 }
             } header: {
                 HStack {
-                    Text("Add an Assistant")
+                    Text("Additional Assistants")
                     
                     Spacer()
                     
