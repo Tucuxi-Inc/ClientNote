@@ -1,22 +1,33 @@
 import SwiftUI
 
 struct SidebarToolbarContent: ToolbarContent {
-    private let addAction: () -> Void
+    @Environment(ChatViewModel.self) private var chatViewModel
     
-    init(addAction: @escaping () -> Void) {
-        self.addAction = addAction
+    private func getActivityTypeFromTask(_ task: String) -> ActivityType {
+        switch task {
+        case "Create a Client Session Note":
+            return .sessionNote
+        case "Create a Treatment Plan":
+            return .treatmentPlan
+        case "Brainstorm":
+            return .brainstorm
+        default:
+            return .sessionNote
+        }
     }
     
     var body: some ToolbarContent {
         ToolbarItemGroup {
             Spacer()
             
-            Button(action: addAction) {
-                Label("New Chat", systemImage: "square.and.pencil")
+            Button(action: {
+                chatViewModel.createNewActivity()
+            }) {
+                Label("New Activity", systemImage: "square.and.pencil")
                     .foregroundColor(Color.euniPrimary)
             }
             .keyboardShortcut("n")
-            .help("New Chat")
+            .help("Create new activity")
         }
     }
 }

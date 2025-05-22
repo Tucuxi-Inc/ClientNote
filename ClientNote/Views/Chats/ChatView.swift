@@ -13,7 +13,6 @@ import ViewCondition
 import Speech
 import AVFoundation
 
-
 @Observable
 class SpeechRecognitionViewModel {
     private var speechRecognizer: SFSpeechRecognizer?
@@ -155,11 +154,27 @@ struct ChatView: View {
     @State private var scrollProxy: ScrollViewProxy? = nil
     @State private var isPreferencesPresented = false
     @State private var isEasyNotePresented = false
+    @State private var showAddClientSheet = false
     @FocusState private var isFocused: Bool
-
+    
+    private let taskOptions = [
+        "Create a Treatment Plan",
+        "Create a Client Session Note",
+        "Brainstorm"
+    ]
+    
     init() {
         let baseURL = URL(string: Defaults[.defaultHost])!
         self._ollamaKit = State(initialValue: OllamaKit(baseURL: baseURL))
+    }
+    
+    private func updateSystemPrompt() {
+        // Get the appropriate system prompt from ChatViewModel
+        let type = chatViewModel.getActivityTypeFromTask(chatViewModel.selectedTask)
+        let systemPrompt = chatViewModel.getSystemPromptForActivityType(type)
+        
+        // Update the active chat's system prompt
+        chatViewModel.activeChat?.systemPrompt = systemPrompt
     }
     
     var body: some View {
@@ -171,12 +186,34 @@ struct ChatView: View {
             isFocused: _isFocused,
             isEasyNotePresented: $isEasyNotePresented,
             isPreferencesPresented: $isPreferencesPresented,
+            showAddClientSheet: $showAddClientSheet,
             ollamaKit: $ollamaKit,
+            taskOptions: taskOptions,
             copyAction: copyAction,
             generateAction: generateAction,
             regenerateAction: regenerateAction,
-            onActiveChatChanged: onActiveChatChanged
+            onActiveChatChanged: onActiveChatChanged,
+            updateSystemPrompt: updateSystemPrompt
         )
+        .sheet(isPresented: $isEasyNotePresented, onDismiss: {
+            print("DEBUG: ChatView - EasyNote sheet dismissed")
+        }) {
+            NavigationView {
+                EasyNoteSheet(prompt: $prompt, generateAction: {
+                    print("DEBUG: ChatView - EasyNote generateAction called")
+                    if !prompt.isEmpty {
+                        print("DEBUG: ChatView - Processing EasyNote prompt, length: \(prompt.count)")
+                        DispatchQueue.main.async {
+                            generateAction()
+                        }
+                    } else {
+                        print("DEBUG: ChatView - Empty prompt from EasyNote")
+                    }
+                })
+            }
+            .frame(minWidth: 1000, minHeight: 800)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
     }
     
     // MARK: - Helper Views
@@ -189,11 +226,14 @@ struct ChatView: View {
         @FocusState var isFocused: Bool
         @Binding var isEasyNotePresented: Bool
         @Binding var isPreferencesPresented: Bool
+        @Binding var showAddClientSheet: Bool
         @Binding var ollamaKit: OllamaKit
+        let taskOptions: [String]
         let copyAction: (_ content: String) -> Void
         let generateAction: () -> Void
         let regenerateAction: () -> Void
         let onActiveChatChanged: () -> Void
+        let updateSystemPrompt: () -> Void
         
         @State private var scrollProxy: ScrollViewProxy? = nil
         @Environment(CodeHighlighter.self) private var codeHighlighter
@@ -230,68 +270,120 @@ struct ChatView: View {
                 .onAppear {
                     self.scrollProxy = proxy
                 }
-                .onChange(of: chatViewModel.activeChat?.id, initial: true) {
+                .onChange(of: chatViewModel.activeChat?.id) { _, _ in
                     onActiveChatChanged()
                 }
-                .onChange(of: messageViewModel.tempResponse) {
+                .onChange(of: messageViewModel.tempResponse) { _, _ in
                     if let proxy = scrollProxy {
                         scrollToBottom(proxy: proxy, messages: messageViewModel.messages)
                     }
                 }
-                .onChange(of: fontSize, initial: true) {
+                .onChange(of: fontSize) { _, _ in
                     codeHighlighter.fontSize = fontSize
                 }
-                .onChange(of: experimentalCodeHighlighting) {
+                .onChange(of: experimentalCodeHighlighting) { _, _ in
                     codeHighlighter.enabled = experimentalCodeHighlighting
                 }
             }
-            .navigationTitle(chatViewModel.activeChat?.name ?? "")
+            .navigationTitle("")
             .toolbar {
-                ToolbarItem(placement: .principal) {
-                    HStack {
-                        // Left side spacer
-                        Spacer()
-                        
-                        // Centered app name
-                        Text("Euni™ - Client Notes")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(Color.euniText)
-                        
-                        Spacer(minLength: 250)
-                        
-                        // Right-aligned model name
-                        HStack {
-                            if let model = chatViewModel.activeChat?.model, !model.isEmpty {
-                                Text(model)
-                                    .font(.headline)
-                                    .foregroundColor(Color.euniSecondary)
-                                    .lineLimit(1)
-                            } else {
-                                Text("") // Empty text to maintain layout when no model
+                Group {
+                    // Left: Activity Picker
+                    ToolbarItem(placement: .navigation) {
+                        VStack(spacing: 4) {
+                            Text("Activity")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Color.euniSecondary)
+                            Picker("Choose Activity", selection: Binding(
+                                get: { chatViewModel.selectedTask },
+                                set: { chatViewModel.selectedTask = $0 }
+                            )) {
+                                ForEach(taskOptions, id: \.self) { task in
+                                    Text(task).tag(task)
+                                }
+                            }
+                            .frame(width: 200)
+                            .onChange(of: chatViewModel.selectedTask) { _, _ in
+                                updateSystemPrompt()
                             }
                         }
-                        .frame(width: 200, alignment: .trailing)
+                        .padding(.vertical, 8)
+                    }
+
+                    // Center: Client Picker
+                    ToolbarItem(placement: .principal) {
+                        VStack(spacing: 4) {
+                            Text("Client")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Color.euniSecondary)
+                            Picker("Choose Client", selection: Binding(
+                                get: { chatViewModel.selectedClientID ?? UUID(uuidString: "00000000-0000-0000-0000-000000000001")! },
+                                set: { newValue in
+                                    if newValue == UUID(uuidString: "00000000-0000-0000-0000-000000000000") {
+                                        showAddClientSheet = true
+                                    } else if newValue != UUID(uuidString: "00000000-0000-0000-0000-000000000001") {
+                                        chatViewModel.selectedClientID = newValue
+                                    }
+                                }
+                            )) {
+                                Text("Choose Client").tag(UUID(uuidString: "00000000-0000-0000-0000-000000000001")!)
+                                ForEach(chatViewModel.clients) { client in
+                                    Text(client.identifier).tag(client.id)
+                                }
+                                Text("Add New Client").tag(UUID(uuidString: "00000000-0000-0000-0000-000000000000")!)
+                            }
+                            .frame(width: 200)
+                        }
+                        .padding(.vertical, 8)
+                    }
+
+                    // Right side items
+                    ToolbarItem(placement: .automatic) {
+                        HStack(spacing: 16) {
+                            VStack(spacing: 4) {
+                                Text("Assistant")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(Color.euniSecondary)
+                                Picker("Choose an Assistant", selection: Binding(
+                                    get: { chatViewModel.activeChat?.model ?? "" },
+                                    set: { newModel in
+                                        chatViewModel.activeChat?.model = newModel
+                                    }
+                                )) {
+                                    ForEach(chatViewModel.models, id: \.self) { model in
+                                        Text(AssistantModel.nameFor(modelId: model)).tag(model)
+                                    }
+                                }
+                                .frame(width: 200)
+                            }
+                            
+                            // Preferences button
+                            Button(action: { isPreferencesPresented.toggle() }) {
+                                Image(systemName: "sidebar.trailing")
+                            }
+                            .foregroundColor(Color.euniSecondary)
+                        }
+                        .padding(.vertical, 8)
                     }
                 }
-                
-                ToolbarItem(placement: .primaryAction) {
-                    Button("Show Preferences", systemImage: "sidebar.trailing") {
-                        isPreferencesPresented.toggle()
-                    }
-                    .foregroundColor(Color.euniSecondary)
+            }
+            .sheet(isPresented: $showAddClientSheet, onDismiss: {
+                if let last = chatViewModel.clients.last {
+                    chatViewModel.selectedClientID = last.id
                 }
+            }) {
+                NavigationStack {
+                    AddClientView()
+                }
+                .frame(minWidth: 600, minHeight: 900)
             }
             .inspector(isPresented: $isPreferencesPresented) {
                 ChatPreferencesView(ollamaKit: $ollamaKit)
                     .inspectorColumnWidth(min: 320, ideal: 320)
             }
-            .sheet(isPresented: $isEasyNotePresented) {
-                NavigationView {
-                    EasyNoteSheet(prompt: $prompt, generateAction: generateAction)
-                }
-                .frame(minWidth: 1000, minHeight: 800)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onChange(of: chatViewModel.activeChat?.id) { oldValue, newValue in
+                print("DEBUG: ChatView - Active chat changed: \(oldValue?.uuidString ?? "nil") -> \(newValue?.uuidString ?? "nil")")
+                onActiveChatChanged()
             }
         }
         
@@ -377,6 +469,7 @@ struct ChatView: View {
     // MARK: - Helper Methods
     
     private func onActiveChatChanged() {
+        print("DEBUG: ChatView - onActiveChatChanged called")
         self.prompt = ""
         if chatViewModel.shouldFocusPrompt {
             chatViewModel.shouldFocusPrompt = false
@@ -388,9 +481,50 @@ struct ChatView: View {
             }
         }
 
-        if let activeChat = chatViewModel.activeChat, let host = activeChat.host, let baseURL = URL(string: host) {
+        if let activeChat = chatViewModel.activeChat, 
+           let host = activeChat.host, 
+           let baseURL = URL(string: host) {
+            print("DEBUG: ChatView - Updating OllamaKit with host: \(host)")
             self.ollamaKit = OllamaKit(baseURL: baseURL)
-            self.chatViewModel.fetchModels(self.ollamaKit)
+            
+            // Check Ollama connection with retry
+            Task {
+                var retryCount = 0
+                let maxRetries = 3
+                
+                while retryCount < maxRetries {
+                    do {
+                        let isReachable = await ollamaKit.reachable()
+                        if isReachable {
+                            print("DEBUG: ChatView - Successfully connected to Ollama")
+                            self.chatViewModel.isHostReachable = true
+                            self.chatViewModel.fetchModels(self.ollamaKit)
+                            break
+                        } else {
+                            print("DEBUG: ChatView - Ollama not reachable, attempt \(retryCount + 1) of \(maxRetries)")
+                            self.chatViewModel.isHostReachable = false
+                            retryCount += 1
+                            if retryCount < maxRetries {
+                                try await Task.sleep(for: .seconds(2))
+                            }
+                        }
+                    } catch {
+                        print("DEBUG: ChatView - Error connecting to Ollama: \(error)")
+                        retryCount += 1
+                        if retryCount < maxRetries {
+                            try await Task.sleep(for: .seconds(2))
+                        }
+                    }
+                }
+                
+                if retryCount >= maxRetries {
+                    print("DEBUG: ChatView - Failed to connect to Ollama after \(maxRetries) attempts")
+                    // Update UI to show connection error
+                    DispatchQueue.main.async {
+                        self.chatViewModel.error = .fetchModels("Unable to connect to Ollama server after multiple attempts. Please verify that Ollama is running and accessible at \(host)")
+                    }
+                }
+            }
         }
     }
     
@@ -400,22 +534,29 @@ struct ChatView: View {
     }
     
     private func generateAction() {
-        guard let activeChat = chatViewModel.activeChat, !activeChat.model.isEmpty, chatViewModel.isHostReachable else { return }
+        print("DEBUG: ChatView - generateAction called")
+        guard let activeChat = chatViewModel.activeChat, 
+              !activeChat.model.isEmpty, 
+              chatViewModel.isHostReachable else {
+            print("DEBUG: ChatView - Cannot generate: activeChat=\(chatViewModel.activeChat != nil), model=\(chatViewModel.activeChat?.model ?? "nil"), reachable=\(chatViewModel.isHostReachable)")
+            return
+        }
 
         if messageViewModel.loading == .generate {
+            print("DEBUG: ChatView - Cancelling existing generation")
             messageViewModel.cancelGeneration()
         } else {
-            let prompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !prompt.isEmpty else {
+            let promptToSend = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !promptToSend.isEmpty else {
+                print("DEBUG: ChatView - Empty prompt, clearing")
                 self.prompt = ""
                 return
             }
 
-            guard let activeChat = chatViewModel.activeChat else { return }
+            print("DEBUG: ChatView - Generating with prompt length: \(promptToSend.count)")
+            print("DEBUG: ChatView - Prompt preview: \(String(promptToSend.prefix(100)))...")
             
-            // Create a message with the display prompt (without PIRP instructions)
-            let displayPrompt = prompt.components(separatedBy: "\n\nFor your reference, here is how to structure PIRP Clinical Note Language.")[0]
-            messageViewModel.generate(ollamaKit, activeChat: activeChat, prompt: displayPrompt)
+            messageViewModel.generate(ollamaKit, activeChat: activeChat, prompt: promptToSend)
         }
         
         self.prompt = ""
@@ -448,40 +589,102 @@ struct ChatFieldView: View {
     @State private var speechRecognitionVM = SpeechRecognitionViewModel()
     @State private var textHeight: CGFloat = 40
     
+    // Add state for tracking which easy sheet to show
+    @State private var activeEasySheet: EasySheetType = .none
+    @State private var showEasySheet = false
+    
+    // Enum to track which sheet to show
+    private enum EasySheetType {
+        case note
+        case treatmentPlan
+        case none
+    }
+    
+    private var showEasyButton: Bool {
+        chatViewModel.selectedTask.contains("Session Note") ||
+        chatViewModel.selectedTask.contains("Treatment Plan")
+    }
+    
+    private var easyButtonIcon: String {
+        switch chatViewModel.selectedTask {
+        case "Create a Client Session Note":
+            return "note.text.badge.plus"
+        case "Create a Treatment Plan":
+            return "checklist.checked"
+        default:
+            return "note.text.badge.plus"
+        }
+    }
+    
+    private var easyButtonLabel: String {
+        switch chatViewModel.selectedTask {
+        case "Create a Client Session Note":
+            return "Easy Note"
+        case "Create a Treatment Plan":
+            return "Easy Plan"
+        default:
+            return "Easy Note"
+        }
+    }
+    
+    private func handleEasyButtonTap() {
+        print("DEBUG: Easy button clicked for task: \(chatViewModel.selectedTask)")
+        updateActiveEasySheet()
+        showEasySheet = true
+        print("DEBUG: showEasySheet set to true")
+    }
+    
+    private func updateActiveEasySheet() {
+        switch chatViewModel.selectedTask {
+        case "Create a Client Session Note":
+            print("DEBUG: Setting activeEasySheet to .note")
+            activeEasySheet = .note
+        case "Create a Treatment Plan":
+            print("DEBUG: Setting activeEasySheet to .treatmentPlan")
+            activeEasySheet = .treatmentPlan
+        default:
+            print("DEBUG: Setting activeEasySheet to .none")
+            activeEasySheet = .none
+        }
+    }
+    
     var body: some View {
         VStack {
             HStack(alignment: .top, spacing: 8) {
-                // Left column with Easy Note Button and Microphone Button
-                VStack(spacing: 8) {
-                    // Easy Note Button
-                    Button(action: { isEasyNotePresented = true }) {
-                        Image(systemName: "note.text.badge.plus")
-                            .foregroundStyle(.white)
-                            .fontWeight(.bold)
-                            .padding(8)
-                    }
-                    .background(Color.euniPrimary)
-                    .buttonStyle(.borderless)
-                    .clipShape(.circle)
-                    
-                    // Microphone Button
-                    Button {
-                        if speechRecognitionVM.isRecording {
-                            speechRecognitionVM.stopRecording()
-                        } else {
-                            speechRecognitionVM.startRecording { transcribedText in
-                                prompt = transcribedText
-                            }
+                // Left column with Easy Button and Microphone Button
+                if showEasyButton {
+                    VStack(spacing: 8) {
+                        // Easy Button
+                        Button(action: handleEasyButtonTap) {
+                            Image(systemName: easyButtonIcon)
+                                .foregroundStyle(.white)
+                                .fontWeight(.bold)
+                                .padding(8)
                         }
-                    } label: {
-                        Image(systemName: speechRecognitionVM.isRecording ? "stop.circle.fill" : "mic.circle")
-                            .foregroundStyle(Color.euniText)
-                            .fontWeight(.bold)
-                            .padding(8)
+                        .help(easyButtonLabel)
+                        .background(Color.euniPrimary)
+                        .buttonStyle(.borderless)
+                        .clipShape(.circle)
+                        
+                        // Microphone Button
+                        Button {
+                            if speechRecognitionVM.isRecording {
+                                speechRecognitionVM.stopRecording()
+                            } else {
+                                speechRecognitionVM.startRecording { transcribedText in
+                                    prompt = transcribedText
+                                }
+                            }
+                        } label: {
+                            Image(systemName: speechRecognitionVM.isRecording ? "stop.circle.fill" : "mic.circle")
+                                .foregroundStyle(Color.euniText)
+                                .fontWeight(.bold)
+                                .padding(8)
+                        }
+                        .background(speechRecognitionVM.isRecording ? Color.euniError : Color.euniSecondary)
+                        .buttonStyle(.borderless)
+                        .clipShape(.circle)
                     }
-                    .background(speechRecognitionVM.isRecording ? Color.euniError : Color.euniSecondary)
-                    .buttonStyle(.borderless)
-                    .clipShape(.circle)
                 }
                 
                 // Chat Field
@@ -570,6 +773,36 @@ struct ChatFieldView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text(speechRecognitionVM.errorMessage)
+        }
+        .onAppear {
+            // Initialize the activeEasySheet based on the default task
+            updateActiveEasySheet()
+        }
+        .onChange(of: chatViewModel.selectedTask) { oldValue, newValue in
+            // Update activeEasySheet whenever the task changes
+            updateActiveEasySheet()
+        }
+        .sheet(isPresented: $showEasySheet, onDismiss: {
+            print("DEBUG: Sheet dismissed, activeEasySheet was: \(activeEasySheet)")
+            activeEasySheet = .none
+            print("DEBUG: Reset activeEasySheet to .none")
+        }) {
+            switch activeEasySheet {
+            case .note:
+                NavigationView {
+                    EasyNoteSheet(prompt: $prompt, generateAction: generateAction)
+                }
+                .frame(minWidth: 1000, minHeight: 800)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            case .treatmentPlan:
+                NavigationView {
+                    EasyTreatmentPlanSheet(prompt: $prompt, generateAction: generateAction)
+                }
+                .frame(minWidth: 1000, minHeight: 800)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            case .none:
+                EmptyView()
+            }
         }
     }
 }

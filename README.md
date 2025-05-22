@@ -1,71 +1,111 @@
-<div>
-  <div align="center">
-    <img alt="app icon" src="./Ollamac/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon_256x256.png" width="128px" height="128px">
-    <h1>Ollamac - Mac app for <a href="https://github.com/ollama/ollama">Ollama</a></h1>
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="./assets/banner-night.jpg">
-      <img alt="banner" src="./assets/banner.jpg">
-    </picture>
-  </div>
-<div>
+# Euni™ - Client Notes
 
-## ⚠️ Important Notice
+Euni™ - Client Notes is a powerful macOS application designed for mental health professionals to streamline their clinical documentation process. Using advanced AI technology, the app helps clinicians generate comprehensive, insurance-ready psychotherapy notes while maintaining professional standards and clinical accuracy.
 
-> Ollamac is always free and open-source. You can only download Ollamac from this official repository. Any commercial apps that use the name Ollamac are not affiliated with or endorsed by me, the original creator.
+## Key Features
 
-## Prerequisites
+- **AI-Powered Note Generation**: Leverages advanced language models to create detailed clinical notes
+- **Multiple Input Methods**: Choose between traditional free-form entry or structured EasyNote forms
+- **Professional Clinical Language**: Ensures proper terminology and formatting for insurance requirements
+- **Secure Local Processing**: All processing happens locally on your machine using Ollama
+- **Customizable Note Formats**: Supports various note formats (SOAP, BIRP, DAP, etc.)
+- **Voice Input Support**: Dictate your notes using built-in speech recognition
+- **ICD-10 Code Integration**: Quick access to diagnostic codes
+- **Client Management**: Organize notes by client and session
 
-- macOS 14.0 Sonoma or later.
-- Ollama should be installed on your Mac and ensure you have at least one Ollama model pulled.
+## Session Note Generation Process
 
-## Installation
+Euni™ uses a sophisticated two-pass analysis system to generate high-quality clinical notes. Here's how it works:
 
-### Using Homebrew
+### Input Methods
 
-```bash
-brew install --cask ollamac
-```
+1. **Traditional Entry**
+   - Type or dictate your session notes freely
+   - Include any relevant observations, interventions, and client responses
+   - Natural language processing identifies therapeutic techniques and client engagement
 
-### Download from GitHub
+2. **EasyNote Form**
+   - Structured form for quick, guided input
+   - Select specific therapeutic approaches and interventions
+   - Document client responses and engagement
+   - Add additional notes through typing or dictation
+   - Includes fields for:
+     - Session information (date, time, location)
+     - Therapeutic approaches used
+     - Specific interventions applied
+     - Client response and engagement
+     - Treatment goals and progress
+     - Risk assessments when applicable
 
-You can download the latest version of Ollamac from the [releases page](https://github.com/kevinhermawan/Ollamac/releases).
+### Smart Analysis System
 
-## Features
+The app performs two intelligent analyses on your input:
 
-- Works with all Ollama models.
-- Customizable host.
-- Syntax highlighting.
-- Simple and easy to use.
-- Free and open source.
-- Native.
+1. **Therapeutic Modalities Analysis**
+   - Identifies therapeutic techniques and interventions used
+   - Recognizes evidence-based practices (CBT, DBT, ACT, etc.)
+   - Maps specific interventions to therapeutic approaches
+   - Ensures accurate clinical terminology
 
-And more...
+2. **Client Engagement Analysis**
+   - Evaluates client responsiveness and participation
+   - Assesses engagement across multiple dimensions:
+     - General receptiveness
+     - Active listening
+     - Response to interventions
+     - Nonverbal communication
+     - Commitment to treatment
+   - Provides professional descriptions of client engagement
 
-## Screenshot
+### Note Generation
 
-<div align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./assets/screenshot-dark.png">
-    <img alt="screenshot" src="./assets/screenshot.png">
-  </picture>
-</div>
+The app combines these analyses with your input to generate a comprehensive clinical note that:
 
-## Supporters
+- Uses proper clinical terminology and phrasing
+- Follows your chosen note format
+- Integrates therapeutic techniques appropriately
+- Describes client engagement professionally
+- Maintains insurance-ready documentation standards
+- Includes relevant diagnostic codes
+- Documents risk assessments when needed
 
-I'm grateful for the support from the community that enables me to continue developing open-source tools. Among these supporters is [BoltAI](https://boltai.com?ref=ollamac), another ChatGPT app for Mac that excels in both design and functionality. Like Ollamac, [BoltAI](https://boltai.com?ref=ollamac) offers offline capabilities through Ollama, providing a seamless experience even without internet access. If you value reliable and elegant tools, [BoltAI](https://boltai.com?ref=ollamac) is definitely worth exploring.
+### Professional Standards
 
-## Acknowledgements
+All generated notes adhere to:
+- Insurance documentation requirements
+- Clinical best practices
+- Professional documentation standards
+- Proper clinical terminology
+- Appropriate level of detail
 
-- [ChatField by @kevinhermawan](https://github.com/kevinhermawan/ChatField)
-- [Defaults by @sindresorhus](https://github.com/sindresorhus/Defaults)
-- [Highlightr by @raspu](https://github.com/raspu/Highlightr)
-- [OllamaKit by @kevinhermawan](https://github.com/kevinhermawan/OllamaKit)
-- [Sparkle by @sparkle-project](https://github.com/sparkle-project/Sparkle)
-- [swift-markdown-ui by @gonzalezreal](https://github.com/gonzalezreal/swift-markdown-ui)
-- [ViewCondition by @kevinhermawan](https://github.com/kevinhermawan/ViewCondition)
-- [ViewState by @kevinhermawan](https://github.com/kevinhermawan/ViewState)
-- [swiftui-introspect by @siteline](https://github.com/siteline/swiftui-introspect)
+## Getting Started
+
+1. Install Ollama on your Mac
+2. Launch Euni™ - Client Notes
+3. Configure your preferred note format in settings
+4. Add your first client
+5. Start creating professional clinical notes
+
+## Requirements
+
+- macOS 14.0 or later
+- Ollama installed and running
+- Internet connection (for ICD-10 code lookup only)
+
+## Privacy and Security
+
+- All note generation happens locally on your machine
+- No clinical data is sent to external servers
+- Client data is stored securely on your device
+- Compliant with clinical documentation standards
+
+## Support
+
+For support, questions, or feedback, please contact [support email/link]
 
 ## License
 
-This repository is available under the [Apache License 2.0](/LICENSE), with a few additional restrictions.
+[License information]
+
+---
+© 2024 [Company Name]. Euni™ is a trademark of [Company Name]. All rights reserved.

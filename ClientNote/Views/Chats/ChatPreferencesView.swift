@@ -19,71 +19,63 @@ struct ChatPreferencesView: View {
     @State private var isUpdateSystemPromptPresented: Bool = false
     @State private var showAdvancedSettings: Bool = false
     @State private var showModelInfoPopover: Bool = false
-    @State private var selectedDownloadModel: String = "gemma3:1b"
+    @State private var showingNoteFormatInfo: Bool = false
+    @State private var selectedDownloadModel: String = "qwen3:0.6b"
     @State private var isPullingModel: Bool = false
     @State private var pullProgress: Double = 0.0
     @State private var pullStatus: String = ""
+    @State private var showAddClientSheet: Bool = false
+    @State private var clientToDelete: UUID? = nil
+    @State private var showDeleteClientConfirmation = false
+    @State private var showFinalDeleteConfirmation = false
     
-    @Default(.defaultModel) private var model: String
-    @State private var host: String
-    @State private var systemPrompt: String
-    @State private var temperature: Double
-    @State private var topP: Double
-    @State private var topK: Int
+    @Default(.defaultHost) private var host
+    @Default(.defaultSystemPrompt) private var systemPrompt
+    @Default(.defaultTemperature) private var temperature
+    @Default(.defaultTopP) private var topP
+    @Default(.defaultTopK) private var topK
     
     private let availableModels = [
+        "qwen3:0.6b",
         "gemma3:1b",
+        "qwen3:1.7b",
         "granite3.3:2b",
         "gemma3:4b",
-        "phi4-mini:3.8b",
         "granite3.3:8b"
     ]
     
     init(ollamaKit: Binding<OllamaKit>) {
         self._ollamaKit = ollamaKit
-        
-        self.host = Defaults[.defaultHost]
-        self.systemPrompt = Defaults[.defaultSystemPrompt]
-        self.temperature = Defaults[.defaultTemperature]
-        self.topP = Defaults[.defaultTopP]
-        self.topK = Defaults[.defaultTopK]
     }
     
     var body: some View {
+        @Bindable var bindableChatViewModel = chatViewModel
+        
         Form {
+            // Note Format Section
             Section {
-                Picker("Selected Model", selection: $model) {
-                    ForEach(chatViewModel.models, id: \.self) { model in
-                        Text(model).tag(model)
-                    }
-                }
+                noteFormatView
             } header: {
-                HStack {
-                    Text("Choose Installed Model")
-                    
-                    Spacer()
-                    
-                    Button(action: { chatViewModel.fetchModels(ollamaKit) }) {
-                        if chatViewModel.loading == .fetchModels {
-                            ProgressView()
-                                .controlSize(.small)
-                        } else {
-                            Text("Refresh")
-                                .foregroundColor(Color.euniPrimary)
-                        }
-                    }
-                    .buttonStyle(.accessoryBar)
-                    .disabled(chatViewModel.loading == .fetchModels)
-                }
-            }
-            .onChange(of: model) { _, newValue in
-                self.chatViewModel.activeChat?.model = newValue
+                Text("Note Format")
             }
             
+            // Template Section
             Section {
-                Picker("Select Model to Download", selection: $selectedDownloadModel) {
-                    ForEach(availableModels, id: \.self) { model in
-                        Text(model).tag(model)
+                noteTemplateView
+            } header: {
+                Text("Additional Note Format Template/Information")
+            } footer: {
+                Text("Enter or paste a sample note format that you'd like the system to reference when generating notes.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            // Additional Assistants Section
+            Section {
+                // Picker for selecting model to download
+                Picker("Choose an Assistant", selection: $selectedDownloadModel) {
+                    ForEach(AssistantModel.all, id: \.modelId) { assistant in
+                        Text(assistant.name).tag(assistant.modelId)
                     }
                 }
                 
@@ -95,7 +87,7 @@ struct ChatPreferencesView: View {
                             Text("Downloading... \(Int(pullProgress * 100))%")
                         }
                     } else {
-                        Text("Download Model")
+                        Text("Download Assistant")
                     }
                 }
                 .disabled(isPullingModel)
@@ -122,7 +114,7 @@ struct ChatPreferencesView: View {
                 }
             } header: {
                 HStack {
-                    Text("Download an AI Model")
+                    Text("Additional Assistants")
                     
                     Spacer()
                     
@@ -132,164 +124,97 @@ struct ChatPreferencesView: View {
                     }
                     .buttonStyle(.accessoryBar)
                     .popover(isPresented: $showModelInfoPopover) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("About AI Models")
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("Available Assistants")
                                 .font(.headline)
                                 .foregroundColor(Color.euniText)
-                                .padding(.bottom, 4)
+                                .padding(.bottom, 8)
                             
-                            Text("These models are optimized to work on most MacBooks with Apple Silicon and at least 8GB of memory.")
+                            Text("These Assistants use large language models optimized to work on most MacBooks with Apple Silicon and at least 8GB of memory.")
                                 .foregroundColor(Color.euniText)
                             
-                            Text("Model Information:")
+                            Text("Assistant Information:")
                                 .font(.subheadline)
                                 .fontWeight(.medium)
                                 .foregroundColor(Color.euniText)
-                                .padding(.top, 4)
+                                .padding(.top, 8)
                             
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("• gemma3:1b - Very lightweight model (~815MB)")
-                                    .foregroundColor(Color.euniText)
-                                Text("• granite3.3:2b - Compact model from Allen AI")
-                                    .foregroundColor(Color.euniText)
-                                Text("• gemma3:4b - Balanced model (~3.3GB)")
-                                    .foregroundColor(Color.euniText)
-                                Text("• phi4-mini:3.8b - Microsoft's compact model (~2.5GB)")
-                                    .foregroundColor(Color.euniText)
-                                Text("• granite3.3:8b - Larger model for better quality")
-                                    .foregroundColor(Color.euniText)
+                            // Column titles
+                            HStack {
+                                Text("Assistant")
+                                    .fontWeight(.bold)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                Text("Size / Context")
+                                    .fontWeight(.bold)
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                                Text("Model")
+                                    .fontWeight(.bold)
+                                    .frame(maxWidth: .infinity, alignment: .trailing)
                             }
+                            .foregroundColor(Color.euniText)
                             
-                            Text("You can download any other open-source model from ollama.com.")
-                                .foregroundColor(Color.euniSecondary)
-                                .padding(.top, 4)
+                            Divider()
+                            
+                            // Assistant rows
+                            Group {
+                                ForEach(AssistantModel.all, id: \.modelId) { assistant in
+                                    assistantRow(name: assistant.name, 
+                                               description: assistant.description, 
+                                               size: assistant.size, 
+                                               model: assistant.modelId)
+                                }
+                            }
                         }
                         .padding()
-                        .frame(width: 320)
-                        .background(Color.euniBackground)
+                        .frame(minWidth: 350, maxWidth: 500)
                     }
                 }
             }
             
+            // Client Removal Section
             Section {
-                // Empty section for spacing
-            }
-            
-            Section {
-                Button(action: {
-                    withAnimation {
-                        showAdvancedSettings.toggle()
-                    }
-                }) {
-                    HStack {
-                        Text("Advanced Settings")
-                        Spacer()
-                        Image(systemName: showAdvancedSettings ? "chevron.up" : "chevron.down")
-                            .font(.caption)
-                    }
-                }
-                .buttonStyle(.plain)
-            }
-            
-            if showAdvancedSettings {
-                Section {
-                    Text(host)
-                        .help(host)
-                        .lineLimit(1)
-                } header: {
-                    HStack {
-                        Text("Host")
-                        
-                        Spacer()
-                        
-                        Button("Change", action: { isUpdateOllamaHostPresented = true })
-                            .buttonStyle(.accessoryBar)
-                            .foregroundColor(Color.euniPrimary)
-                    }
-                }
-                .onChange(of: host) { _, newValue in
-                    self.chatViewModel.activeChat?.host = newValue
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Remove a client and all associated records")
+                        .foregroundColor(Color.euniError)
+                        .font(.caption)
                     
-                    if let baseURL = URL(string: newValue) {
-                        self.ollamaKit = OllamaKit(baseURL: baseURL)
+                    Picker("Select Client to Remove", selection: $clientToDelete) {
+                        Text("Select a Client").tag(nil as UUID?)
+                        ForEach(chatViewModel.clients) { client in
+                            Text(client.identifier).tag(client.id as UUID?)
+                        }
+                    }
+                    
+                    if clientToDelete != nil {
+                        Button(role: .destructive) {
+                            showDeleteClientConfirmation = true
+                        } label: {
+                            Label("Delete Selected Client", systemImage: "trash")
+                                .foregroundColor(.red)
+                        }
+                        .buttonStyle(.borderless)
+                        .padding(.top, 4)
                     }
                 }
-                
-                Section {
-                    Text(systemPrompt)
-                        .help(systemPrompt)
-                        .lineLimit(3)
-                } header: {
-                    HStack {
-                        Text("System Prompt")
-                        
-                        Spacer()
-                        
-                        Button("Change", action: { isUpdateSystemPromptPresented = true })
-                            .buttonStyle(.accessoryBar)
-                            .foregroundColor(Color.euniPrimary)
-                    }
-                } footer: {
-                    Button("Restore Default System Prompt") {
-                        systemPrompt = "You're Euni™ - Client Notes.  You are a clinical documentation assistant helping a therapist generate an insurance-ready psychotherapy progress note. You will use the information provided to you here to write a psychotherapy progress note using (unless otherwise instructed by the user) the BIRP format (Behavior, Intervention, Response, Plan). Requirements: Use clear, objective, and concise clinical language, Maintain gender-neutral pronouns, Do not make up quotes - only use exact quotes if and when provided by the user. Focus on observable behaviors, reported thoughts and feelings, therapist interventions, and clinical goals, Apply relevant approaches and techniques, including typical interventions and session themes, Use documentation language suitable for EHRs and insurance billing, If schemas, distortions, or core beliefs are addressed, name them using standard psychological terms, Conclude with a brief, action-oriented treatment plan. If this was the client's first telehealth session, document that informed consent for telehealth was obtained (verbal or written), that the client was informed of potential risks and limitations, that the therapists license or registration number was provided, and that the therapist made efforts to identify local emergency resources relevant to the client’s location. If this was a subsequent telehealth session, document that the therapist confirmed the client’s full name and present physical address, assessed the appropriateness of continuing via telehealth, and ensured confidentiality and safety using best practices for secure communication. If the client expressed suicidal ideation or self harm during the session, document this clearly and clinically. Include: (1) the client's specific statements or behaviors that prompted risk assessment, (2) identified risk and protective factors, (3) the outcome of any suicide risk assessment and rationale for the therapists clinical judgment, (4) any safety plan developed collaboratively with the client, and (5) follow-up arrangements. Use objective language and avoid vague phrasing. If a formal assessment tool was used, reference it. Ensure the note reflects ethical care, clinical reasoning, and legal defensibility."
-                    }
-                    .buttonStyle(.link)
+            } header: {
+                Text("Remove Client")
+            } footer: {
+                Text("Warning: This will permanently delete the client and all their session notes, treatment plans, and brainstorm sessions.")
+                    .foregroundColor(Color.euniError)
+            }
+            
+            // Copyright section at the bottom
+            Section {
+                Text("Euni™ - Client Notes © 2025 Tucuxi, Inc.")
                     .font(.caption)
-                    .foregroundColor(Color.euniPrimary)
-                }
-                .onChange(of: systemPrompt) { _, newValue in
-                    self.chatViewModel.activeChat?.systemPrompt = newValue
-                }
-                
-                Section {
-                    Slider(value: $temperature, in: 0...1, step: 0.1) {
-                        Text(temperature.formatted())
-                    } minimumValueLabel: {
-                        Text("0")
-                    } maximumValueLabel: {
-                        Text("1")
-                    }
-                } header: {
-                    Text("Temperature")
-                } footer: {
-                    ChatPreferencesFooterView("Controls randomness. Higher values increase creativity, lower values are more focused.")
-                }
-                .onChange(of: temperature) { _, newValue in
-                    self.chatViewModel.activeChat?.temperature = newValue
-                }
-                
-                Section {
-                    Slider(value: $topP, in: 0...1, step: 0.1) {
-                        Text(topP.formatted())
-                    } minimumValueLabel: {
-                        Text("0")
-                    } maximumValueLabel: {
-                        Text("1")
-                    }
-                } header: {
-                    Text("Top P")
-                } footer: {
-                    ChatPreferencesFooterView("Affects diversity. Higher values increase variety, lower values are more conservative.")
-                }
-                .onChange(of: topP) { _, newValue in
-                    self.chatViewModel.activeChat?.topP = newValue
-                }
-                
-                Section {
-                    Stepper(topK.formatted(), value: $topK)
-                } header: {
-                    Text("Top K")
-                } footer: {
-                    ChatPreferencesFooterView("Limits token pool. Higher values increase diversity, lower values are more focused.")
-                }
-                .onChange(of: topK) { _, newValue in
-                    self.chatViewModel.activeChat?.topK = newValue
-                }
+                    .foregroundColor(Color.euniSecondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 8)
             }
         }
         .onChange(of: self.chatViewModel.activeChat) { _, newValue in
             if let model = newValue?.model {
-                self.model = model
+                self.selectedDownloadModel = model
             }
             
             if let host = newValue?.host {
@@ -322,8 +247,97 @@ struct ChatPreferencesView: View {
                 self.systemPrompt = prompt
             }
         }
+        .onAppear {
+            chatViewModel.fetchModels(ollamaKit)
+        }
+        .alert("Delete Client?", isPresented: $showDeleteClientConfirmation) {
+            Button("Cancel", role: .cancel) {
+                clientToDelete = nil
+            }
+            Button("Proceed", role: .destructive) {
+                showFinalDeleteConfirmation = true
+            }
+        } message: {
+            if let clientID = clientToDelete,
+               let client = chatViewModel.clients.first(where: { $0.id == clientID }) {
+                Text("Are you sure you want to delete the client '\(client.identifier)' and all their associated records?")
+            }
+        }
+        .alert("Final Confirmation", isPresented: $showFinalDeleteConfirmation) {
+            Button("Cancel", role: .cancel) {
+                clientToDelete = nil
+            }
+            Button("Yes, Delete Everything", role: .destructive) {
+                deleteSelectedClient()
+            }
+        } message: {
+            if let clientID = clientToDelete,
+               let client = chatViewModel.clients.first(where: { $0.id == clientID }) {
+                Text("This will permanently delete '\(client.identifier)' and ALL their records. This action cannot be undone.\n\nAre you absolutely sure?")
+            }
+        }
     }
     
+    private var noteFormatView: some View {
+        HStack {
+            Picker("Note Format", selection: Binding(
+                get: { chatViewModel.selectedNoteFormat },
+                set: { chatViewModel.selectedNoteFormat = $0 }
+            )) {
+                ForEach(chatViewModel.availableNoteFormats) { format in
+                    Text(format.id).tag(format.id)
+                }
+            }
+            
+            Button(action: { showNoteFormatInfo() }) {
+                Image(systemName: "info.circle")
+                    .foregroundColor(Color.euniPrimary)
+            }
+            .buttonStyle(.borderless)
+            .popover(isPresented: $showingNoteFormatInfo) {
+                noteFormatInfoPopover
+            }
+        }
+    }
+    
+    private var noteFormatInfoPopover: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Note Format Information")
+                .font(.headline)
+                .padding(.bottom, 8)
+            
+            ForEach(chatViewModel.availableNoteFormats) { format in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("**\(format.id)** - \(format.name)")
+                        .font(.subheadline)
+                    Text(format.focus)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text(format.description)
+                        .font(.caption)
+                        .padding(.top, 4)
+                }
+                .padding(.bottom, 12)
+            }
+        }
+        .padding()
+        .frame(width: 400)
+    }
+    
+    private var noteTemplateView: some View {
+        TextEditor(text: Binding(
+            get: { chatViewModel.noteFormatTemplate },
+            set: { chatViewModel.noteFormatTemplate = $0 }
+        ))
+        .frame(height: 100)
+        .font(.system(.body, design: .monospaced))
+    }
+    
+    private func showNoteFormatInfo() {
+        showingNoteFormatInfo = true
+    }
+    
+    // Keep the model pulling functionality
     func pullModel(_ modelName: String) {
         guard !isPullingModel else { return }
         
@@ -345,7 +359,7 @@ struct ChatPreferencesView: View {
                     Task {
                         try? await Task.sleep(for: .seconds(1))
                         if chatViewModel.models.contains(modelName) {
-                            model = modelName
+                            selectedDownloadModel = modelName
                             // Also update the active chat's model
                             chatViewModel.activeChat?.model = modelName
                         }
@@ -477,5 +491,40 @@ struct ChatPreferencesView: View {
                 isPullingModel = false
             }
         }
+    }
+    
+    @ViewBuilder
+    func assistantRow(name: String, description: String, size: String, model: String) -> some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                    .fontWeight(.semibold)
+                Text(description)
+                    .font(.caption)
+                    .foregroundColor(Color.euniText.opacity(0.7))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            
+            Text(size)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .font(.caption)
+                .foregroundColor(Color.euniText)
+            
+            Text(model)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .font(.caption)
+                .foregroundColor(Color.euniText)
+        }
+    }
+    
+    private func deleteSelectedClient() {
+        guard let clientID = clientToDelete else { return }
+        
+        // Use the ChatViewModel method to delete the client
+        chatViewModel.deleteClient(clientID)
+        
+        // Reset our local state
+        clientToDelete = nil
     }
 }

@@ -54,6 +54,7 @@
 		0AFC5AA92C66A20C00A148A2 /* CodeBlockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AFC5AA82C66A20C00A148A2 /* CodeBlockView.swift */; };
 		175D318C2C64ADF9009B58E0 /* DefaultFontSizeField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 175D318B2C64ADF9009B58E0 /* DefaultFontSizeField.swift */; };
 		4A4A8EBE2D5047590065A5EC /* String+ReplaceAndTrim.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A4A8EBD2D5047590065A5EC /* String+ReplaceAndTrim.swift */; };
+		8804D7B42DDD6C2B00616BC3 /* EasyTreatmentPlanSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8804D7B32DDD6C2B00616BC3 /* EasyTreatmentPlanSheet.swift */; };
 		8807AC192DACBBC600C3D195 /* EasyNoteSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8807AC182DACBBC600C3D195 /* EasyNoteSheet.swift */; };
 		8807ADD12DB30C5400C3D195 /* Color+ClientNoteCustom.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8807ADD02DB30C5400C3D195 /* Color+ClientNoteCustom.swift */; };
 		8807B1122DB6F6C300C3D195 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8807B1112DB6F6C300C3D195 /* StoreKit.framework */; };
@@ -62,6 +63,11 @@
 		8807B11D2DB6FA4000C3D195 /* SplashScreenManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8807B11B2DB6FA4000C3D195 /* SplashScreenManager.swift */; };
 		8807B11E2DB6FA4000C3D195 /* IAPManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8807B1192DB6FA4000C3D195 /* IAPManager.swift */; };
 		8807B1202DB6FA7200C3D195 /* PurchaseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8807B11F2DB6FA7200C3D195 /* PurchaseView.swift */; };
+		88C4AF122DD93613002DF4DC /* AssistantModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C4AF112DD93612002DF4DC /* AssistantModel.swift */; };
+		88C4AF152DD984BF002DF4DC /* AddClientView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C4AF132DD984BF002DF4DC /* AddClientView.swift */; };
+		88C4B07F2DDA8123002DF4DC /* ICDResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C4B07E2DDA8123002DF4DC /* ICDResult.swift */; };
+		88C4B0882DDA8A4B002DF4DC /* ClientActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C4B0872DDA8A4B002DF4DC /* ClientActivity.swift */; };
+		88C4B0892DDA8A4B002DF4DC /* Client.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C4B0862DDA8A4B002DF4DC /* Client.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -101,12 +107,12 @@
 		0AF566312C65582300D6E01A /* MessageButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageButton.swift; sourceTree = "<group>"; };
 		0AF5664B2C65A2B400D6E01A /* SectionFooter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SectionFooter.swift; sourceTree = "<group>"; };
 		0AF5CB612C62B0B600DF8DA8 /* UpdateOllamaHostSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateOllamaHostSheet.swift; sourceTree = "<group>"; };
-		0AF5CB632C62B7E100DF8DA8 /* GeneralBox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralBox.swift; sourceTree = "<group>"; };
 		0AFC5AA42C6694F400A148A2 /* ExperimentalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExperimentalView.swift; sourceTree = "<group>"; };
 		0AFC5AA62C6695CF00A148A2 /* Box.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Box.swift; sourceTree = "<group>"; };
 		0AFC5AA82C66A20C00A148A2 /* CodeBlockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeBlockView.swift; sourceTree = "<group>"; };
 		175D318B2C64ADF9009B58E0 /* DefaultFontSizeField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultFontSizeField.swift; sourceTree = "<group>"; };
 		4A4A8EBD2D5047590065A5EC /* String+ReplaceAndTrim.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+ReplaceAndTrim.swift"; sourceTree = "<group>"; };
+		8804D7B32DDD6C2B00616BC3 /* EasyTreatmentPlanSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EasyTreatmentPlanSheet.swift; sourceTree = "<group>"; };
 		8807AC182DACBBC600C3D195 /* EasyNoteSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EasyNoteSheet.swift; sourceTree = "<group>"; };
 		8807ADD02DB30C5400C3D195 /* Color+ClientNoteCustom.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+ClientNoteCustom.swift"; sourceTree = "<group>"; };
 		8807B1112DB6F6C300C3D195 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
@@ -115,6 +121,11 @@
 		8807B1192DB6FA4000C3D195 /* IAPManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IAPManager.swift; sourceTree = "<group>"; };
 		8807B11B2DB6FA4000C3D195 /* SplashScreenManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashScreenManager.swift; sourceTree = "<group>"; };
 		8807B11F2DB6FA7200C3D195 /* PurchaseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PurchaseView.swift; sourceTree = "<group>"; };
+		88C4AF112DD93612002DF4DC /* AssistantModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantModel.swift; sourceTree = "<group>"; };
+		88C4AF132DD984BF002DF4DC /* AddClientView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddClientView.swift; sourceTree = "<group>"; };
+		88C4B07E2DDA8123002DF4DC /* ICDResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICDResult.swift; sourceTree = "<group>"; };
+		88C4B0862DDA8A4B002DF4DC /* Client.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Client.swift; sourceTree = "<group>"; };
+		88C4B0872DDA8A4B002DF4DC /* ClientActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClientActivity.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -192,7 +203,7 @@
 		0A4D35962AF5422A00846890 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				8807B1152DB6FA1A00C3D195 /* AccessControlView.swift */,
+				88C4AF142DD984BF002DF4DC /* Clients */,
 				0A4D35982AF5425900846890 /* AppView.swift */,
 				0ADB95E92C5D41B600EB0C60 /* Chats */,
 				0A6E85212C5E98A40030A4AA /* Settings */,
@@ -223,6 +234,10 @@
 		0A6E85122C5E98580030A4AA /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				88C4B0862DDA8A4B002DF4DC /* Client.swift */,
+				88C4B0872DDA8A4B002DF4DC /* ClientActivity.swift */,
+				88C4B07E2DDA8123002DF4DC /* ICDResult.swift */,
+				88C4AF112DD93612002DF4DC /* AssistantModel.swift */,
 				0A6E85132C5E98620030A4AA /* Chat.swift */,
 				0A6E85142C5E98620030A4AA /* Message.swift */,
 			);
@@ -245,7 +260,6 @@
 			isa = PBXGroup;
 			children = (
 				0AFC5AA62C6695CF00A148A2 /* Box.swift */,
-				0AF5CB632C62B7E100DF8DA8 /* GeneralBox.swift */,
 				175D318B2C64ADF9009B58E0 /* DefaultFontSizeField.swift */,
 			);
 			path = Subviews;
@@ -254,6 +268,7 @@
 		0A6E852C2C5EAA510030A4AA /* Subviews */ = {
 			isa = PBXGroup;
 			children = (
+				8804D7B32DDD6C2B00616BC3 /* EasyTreatmentPlanSheet.swift */,
 				0ADB95EE2C5D42FF00EB0C60 /* AssistantMessageView.swift */,
 				0A6E85332C5F9DA00030A4AA /* ChatFieldFooterView.swift */,
 				0A6E852D2C5EAA750030A4AA /* ChatPreferencesFooterView.swift */,
@@ -328,6 +343,15 @@
 				0AF5CB612C62B0B600DF8DA8 /* UpdateOllamaHostSheet.swift */,
 			);
 			path = Sheets;
+			sourceTree = "<group>";
+		};
+		88C4AF142DD984BF002DF4DC /* Clients */ = {
+			isa = PBXGroup;
+			children = (
+				88C4AF132DD984BF002DF4DC /* AddClientView.swift */,
+				8807B1152DB6FA1A00C3D195 /* AccessControlView.swift */,
+			);
+			path = Clients;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -424,17 +448,21 @@
 			buildActionMask = 2147483647;
 			files = (
 				8807B11D2DB6FA4000C3D195 /* SplashScreenManager.swift in Sources */,
+				88C4AF152DD984BF002DF4DC /* AddClientView.swift in Sources */,
 				8807B11E2DB6FA4000C3D195 /* IAPManager.swift in Sources */,
 				0ADB95E62C5D3BAD00EB0C60 /* SidebarToolbarContent.swift in Sources */,
 				0ADB95E22C5D345100EB0C60 /* SidebarView.swift in Sources */,
 				0ADB95ED2C5D42E200EB0C60 /* UserMessageView.swift in Sources */,
 				8807B1202DB6FA7200C3D195 /* PurchaseView.swift in Sources */,
+				88C4B0882DDA8A4B002DF4DC /* ClientActivity.swift in Sources */,
+				88C4B0892DDA8A4B002DF4DC /* Client.swift in Sources */,
 				0ADB95EF2C5D42FF00EB0C60 /* AssistantMessageView.swift in Sources */,
 				0A6E85302C5EB5F90030A4AA /* UpdateSystemPromptSheet.swift in Sources */,
 				8807ADD12DB30C5400C3D195 /* Color+ClientNoteCustom.swift in Sources */,
 				0A6E85152C5E98620030A4AA /* Message.swift in Sources */,
 				0A6E85162C5E98620030A4AA /* Chat.swift in Sources */,
 				0A6E85262C5E98B20030A4AA /* SettingsView.swift in Sources */,
+				88C4B07F2DDA8123002DF4DC /* ICDResult.swift in Sources */,
 				0A6E85272C5E98B20030A4AA /* GeneralView.swift in Sources */,
 				8807B1162DB6FA1A00C3D195 /* AccessControlView.swift in Sources */,
 				0A6E852B2C5E9A250030A4AA /* ChatPreferencesView.swift in Sources */,
@@ -442,6 +470,7 @@
 				0A6E851E2C5E98770030A4AA /* String+IsValidURL.swift in Sources */,
 				0A6E851F2C5E98770030A4AA /* Defaults+Keys.swift in Sources */,
 				0AFC5AA72C6695CF00A148A2 /* Box.swift in Sources */,
+				88C4AF122DD93613002DF4DC /* AssistantModel.swift in Sources */,
 				0A6E85202C5E98770030A4AA /* Optional+Utils.swift in Sources */,
 				0AF566322C65582300D6E01A /* MessageButton.swift in Sources */,
 				0AF5662E2C6431FB00D6E01A /* CircleButton.swift in Sources */,
@@ -451,6 +480,7 @@
 				0AFC5AA92C66A20C00A148A2 /* CodeBlockView.swift in Sources */,
 				0ADB95EB2C5D41DF00EB0C60 /* ChatView.swift in Sources */,
 				0ADB95E42C5D34B200EB0C60 /* SidebarListItemView.swift in Sources */,
+				8804D7B42DDD6C2B00616BC3 /* EasyTreatmentPlanSheet.swift in Sources */,
 				0A4D35992AF5425900846890 /* AppView.swift in Sources */,
 				0A6E852E2C5EAA750030A4AA /* ChatPreferencesFooterView.swift in Sources */,
 				8807AC192DACBBC600C3D195 /* EasyNoteSheet.swift in Sources */,
@@ -621,7 +651,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.4;
+				MARKETING_VERSION = 1.0.5;
 				PRODUCT_BUNDLE_IDENTIFIER = ai.tucuxi.ClientNote;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -658,7 +688,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.4;
+				MARKETING_VERSION = 1.0.5;
 				PRODUCT_BUNDLE_IDENTIFIER = ai.tucuxi.ClientNote;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

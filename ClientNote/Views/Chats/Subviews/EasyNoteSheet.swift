@@ -4,13 +4,6 @@ import AVFoundation
 import OllamaKit
 import Defaults
 
-// MARK: - ICDResult Model
-struct ICDResult: Identifiable {
-    let id = UUID()
-    let code: String
-    let description: String
-}
-
 struct EasyNoteSheet: View {
     @Binding var prompt: String
     let generateAction: () -> Void
@@ -29,9 +22,9 @@ struct EasyNoteSheet: View {
     @State private var selectedDate = Date()
     @State private var selectedTime = Date()
     
-    // Note Format
-    @State private var selectedNoteFormat = "BIRP"
-    @State private var customNoteFormat = ""
+    // Note Format - REMOVED as it's managed in settings
+    // @State private var selectedNoteFormat = "BIRP"
+    // @State private var customNoteFormat = ""
     
     // Therapeutic Approach
     @State private var selectedApproach = "CBT (Cognitive Behavioral Therapy)"
@@ -77,7 +70,6 @@ struct EasyNoteSheet: View {
     @State private var suicidalIdeationCurrentSession = false
     @State private var suicidalIdeationBothSessions = false
     
-    private let noteFormats = ["BIRP", "PIRP", "SOAP", "DAP", "Other"]
     private let approaches = [
         "CBT (Cognitive Behavioral Therapy)",
         "DBT (Dialectical Behavior Therapy)",
@@ -267,7 +259,6 @@ struct EasyNoteSheet: View {
         self._prompt = prompt
         self.generateAction = generateAction
         
-        // Initialize ollamaKit with the default host
         let baseURL = URL(string: Defaults[.defaultHost])!
         self._ollamaKit = State(initialValue: OllamaKit(baseURL: baseURL))
     }
@@ -313,34 +304,7 @@ struct EasyNoteSheet: View {
                             .padding()
                         }
                         
-                        // Note Format Section
-                        GroupBox {
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("Note Format")
-                                    .font(.title3)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(.primary)
-                                
-                                HStack {
-                                    Text("Note Format")
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(Color.euniText)
-                                    
-                                    Picker("Format", selection: $selectedNoteFormat) {
-                                        ForEach(noteFormats, id: \.self) { format in
-                                            Text(format).tag(format)
-                                        }
-                                    }
-                                    .pickerStyle(.segmented)
-                                }
-                                
-                                if selectedNoteFormat == "Other" {
-                                    TextField("Custom Note Format", text: $customNoteFormat)
-                                        .textFieldStyle(.roundedBorder)
-                                }
-                            }
-                            .padding()
-                        }
+                        // Note Format Section - REMOVED as it's managed in settings
                         
                         // Therapeutic Approach Section
                         GroupBox {
@@ -668,14 +632,10 @@ struct EasyNoteSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Generate Note") {
                         generatePrompt()
-                        // Store the full prompt with PIRP instructions for the model
-                        let modelPrompt = fullPrompt
-                        
-                        // Call the generate action with the display prompt and model prompt
+                        // Call the generate action with the chat entry text
                         if let activeChat = chatViewModel.activeChat {
-                            messageViewModel.generate(ollamaKit, activeChat: activeChat, prompt: chatEntryText, modelPrompt: modelPrompt)
+                            messageViewModel.generate(ollamaKit, activeChat: activeChat, prompt: chatEntryText)
                         }
-                        
                         dismiss()
                     }
                     .buttonStyle(.borderedProminent)
@@ -712,8 +672,8 @@ struct EasyNoteSheet: View {
         // Reset all state variables to their initial values
         selectedDate = Date()
         selectedTime = Date()
-        selectedNoteFormat = "BIRP"
-        customNoteFormat = ""
+        // selectedNoteFormat = "BIRP" - REMOVED
+        // customNoteFormat = "" - REMOVED
         selectedApproach = "CBT (Cognitive Behavioral Therapy)"
         customApproach = ""
         selectedInterventions = []
@@ -746,8 +706,10 @@ struct EasyNoteSheet: View {
     }
     
     private func cleanupResources() {
+        print("DEBUG: EasyNote - Cleaning up resources")
         // Stop recording if active
         if isRecording {
+            print("DEBUG: EasyNote - Stopping active recording")
             stopRecording()
         }
         recognitionTask?.cancel()
@@ -966,105 +928,120 @@ struct EasyNoteSheet: View {
     }
     
     private func generatePrompt() {
+        print("DEBUG: EasyNote - Starting generatePrompt()")
+        
+        // Set activity type to Session Note and create new activity
+        chatViewModel.selectedTask = "Create a Client Session Note"
+        print("DEBUG: EasyNote - Set task to Session Note")
+        
+        // Create new activity first with EasyNote flag
+        print("DEBUG: EasyNote - Creating new activity")
+        chatViewModel.createNewActivity(isEasyNote: true)
+        
+        var notePrompt = ""
+        
         // Format date and time
         let dateFormatter = DateFormatter()
-        dateFormatter.dateStyle = .medium
-        let formattedDate = dateFormatter.string(from: selectedDate)
+        dateFormatter.dateStyle = .long
+        dateFormatter.timeStyle = .short
+        notePrompt += "Date: \(dateFormatter.string(from: selectedDate))\n\n"
         
-        let timeFormatter = DateFormatter()
-        timeFormatter.timeStyle = .short
-        let formattedTime = timeFormatter.string(from: selectedTime)
+        // Add session location
+        notePrompt += "Session Location: \(selectedLocation)\n\n"
         
-        // Create the base prompt with date and time
-        var promptText = "Date: \(formattedDate)\nTime: \(formattedTime)\n\n"
-        
-        // Add location
-        promptText += "Location: \(selectedLocation)\n"
-        
-        // Add telehealth placeholder if needed
-        if selectedLocation == "First Telehealth Visit" {
-            promptText += "Telehealth Note: This was the client's first telehealth session. Document that informed consent for telehealth was obtained, that the client was informed of potential risks and limitations, that the therapists license or registration number was provided, and that the therapist made efforts to identify local emergency resources relevant to the client’s location.\n\n"
-        } else if selectedLocation == "Subsequent Telehealth Visit" {
-            promptText += "Telehealth Note: This was a subsequent telehealth session. Document that the therapist confirmed the client’s full name and present physical address, assessed the appropriateness of continuing via telehealth, and ensured confidentiality and safety using best practices for secure communication. \n\n"
+        // Add presenting issue if custom
+        if presentingIssue == "Other" && !customPresentingIssue.isEmpty {
+            notePrompt += "Presenting Issue: \(customPresentingIssue)\n\n"
+        } else if presentingIssue != "Other" {
+            notePrompt += "Presenting Issue: \(presentingIssue)\n\n"
         }
         
-        // Add note format
-        promptText += "Note Format: \(selectedNoteFormat == "Other" ? customNoteFormat : selectedNoteFormat)\n\n"
+        // Add client response if custom
+        if clientResponse == "Other" && !customClientResponse.isEmpty {
+            notePrompt += "Client Response: \(customClientResponse)\n\n"
+        } else if clientResponse != "Other" {
+            notePrompt += "Client Response: \(clientResponse)\n\n"
+        }
         
-        // Add therapeutic approach
-        promptText += "Therapeutic Approach: \(selectedApproach == "Other" ? customApproach : selectedApproach)\n"
+        // Add clinical focus if custom
+        if clinicalFocus == "Other" && !customClinicalFocus.isEmpty {
+            notePrompt += "Clinical Focus: \(customClinicalFocus)\n\n"
+        } else if clinicalFocus != "Other" {
+            notePrompt += "Clinical Focus: \(clinicalFocus)\n\n"
+        }
         
-        // Add selected interventions
+        // Add treatment goals if custom
+        if treatmentGoals == "Other" && !customTreatmentGoals.isEmpty {
+            notePrompt += "Treatment Goals: \(customTreatmentGoals)\n\n"
+        } else if treatmentGoals != "Other" {
+            notePrompt += "Treatment Goals: \(treatmentGoals)\n\n"
+        }
+        
+        // Collect selected modalities and interventions
+        var selectedModalitiesMap: [String: [String]] = [:]
         if !selectedInterventions.isEmpty {
-            promptText += "Interventions: \(selectedInterventions.joined(separator: ", "))\n"
+            selectedModalitiesMap[selectedApproach] = Array(selectedInterventions)
         }
         
-        // Add presenting issue
-        promptText += "Presenting Issue: \(presentingIssue == "Other" ? customPresentingIssue : presentingIssue)\n"
-        
-        // Add client response
-        promptText += "Client Response: \(clientResponse == "Other" ? customClientResponse : clientResponse)\n"
-        
-        // Add clinical focus
-        promptText += "Clinical Focus: \(clinicalFocus == "Other" ? customClinicalFocus : clinicalFocus)\n"
-        
-        // Add treatment goals
-        promptText += "Treatment Goals: \(treatmentGoals == "Other" ? customTreatmentGoals : treatmentGoals)\n"
-        
-        // Add insurance code/diagnosis
-        if !insuranceQuery.isEmpty {
-            promptText += "Insurance Code/Diagnosis: \(insuranceQuery)\n"
-        }
-        
-        // Add additional notes
+        // Add additional notes if any
         if !additionalNotes.isEmpty {
-            promptText += "\nAdditional Notes:\n\(additionalNotes)\n"
+            notePrompt += "Additional Notes:\n\(additionalNotes)\n\n"
         }
         
-        // Add suicidal ideation/self-harm information if applicable
-        if hasSuicidalIdeation {
-            promptText += "\nClient Expressed Suicidal Ideation or Self-Harm"
-            
-            if suicidalIdeationPastSession {
-                promptText += " in a past session"
-            } else if suicidalIdeationCurrentSession {
-                promptText += " for the first time in the current session"
-            } else if suicidalIdeationBothSessions {
-                promptText += " in a past session and the current session"
+        // Add insurance diagnosis if provided
+        if !insuranceQuery.isEmpty {
+            notePrompt += "Insurance Diagnosis: \(insuranceQuery)"
+            if !selectedICDCode.isEmpty {
+                notePrompt += " (\(selectedICDCode))"
             }
-            
-            promptText += "\n\nif either (a) the client has expressed suicidal ideation or self harm for the first time during the session, or (b) the client has expressed suicidal ideation or self-harm previously and also in the current session, document this clearly and clinically. Include: (1) the client's specific statements or behaviors that prompted risk assessment, (2) identified risk and protective factors, (3) the outcome of any suicide risk assessment and rationale for the therapists clinical judgment, (4) any safety plan developed collaboratively with the client, and (5) follow-up arrangements. Use objective language and avoid vague phrasing. If the client has expressed suicidal ideation or self harm in a previous session, but has not in the current session, note that the client has previously expressed suicidal ideation, that there was no further expression during the current session, but note that the therapist reviewed the client's safety plan with them. If a formal assessment tool was used, reference it. Ensure the note reflects ethical care, clinical reasoning, and legal defensibility.\n"
+            notePrompt += "\n\n"
         }
         
-        // Store the display prompt (without PIRP instructions)
-        chatEntryText = promptText
+        // Add suicidal ideation assessment if applicable
+        if hasSuicidalIdeation {
+            notePrompt += "Suicidal Ideation Assessment:\n"
+            if suicidalIdeationPastSession {
+                notePrompt += "- Reported in past session\n"
+            }
+            if suicidalIdeationCurrentSession {
+                notePrompt += "- Present in current session\n"
+            }
+            if suicidalIdeationBothSessions {
+                notePrompt += "- Present in both past and current sessions\n"
+            }
+            notePrompt += "\n"
+        }
         
-        // If PIRP format is selected, append the PIRP instructions to the full prompt
-        if selectedNoteFormat == "PIRP" {
-            fullPrompt = promptText + "\n\nFor your reference, here is how to structure PIRP Clinical Note Language:\n\n" +
-                "PIRP Clinical Note Language differs from BIRP in that it leads with the Presenting Problem, followed by the Intervention, then the Response, and finally the Plan. This format is particularly useful for documenting specific therapeutic interactions and their outcomes.\n\n" +
-                "Key therapeutic elements to include:\n" +
-                "- Presenting Problem: Client's current issue, symptoms, or concerns\n" +
-                "- Intervention: Specific therapeutic techniques or approaches used\n" +
-                "- Response: Client's reaction to the intervention\n" +
-                "- Plan: Next steps, homework, or follow-up actions\n\n" +
-                "PIRP Note Template:\n" +
-                "P: [Presenting Problem] - Describe the client's current issue or concern\n" +
-                "I: [Intervention] - Detail the specific therapeutic approach or technique used\n" +
-                "R: [Response] - Document the client's reaction or response to the intervention\n" +
-                "P: [Plan] - Outline the next steps, homework, or follow-up actions\n\n" +
-                "Example:\n" +
-                "P: Client reported increased anxiety related to work deadlines\n" +
-                "I: Utilized cognitive restructuring to identify and challenge negative thought patterns\n" +
-                "R: Client demonstrated good insight and was able to reframe two specific cognitive distortions\n" +
-                "P: Client will practice cognitive restructuring worksheet daily and monitor anxiety levels\n\n" +
-                "Additional plug-in language:\n" +
-                "- \"Client presented with...\"\n" +
-                "- \"Therapist utilized...\"\n" +
-                "- \"Client responded by...\"\n" +
-                "- \"Plan includes...\""
-        } else {
-            fullPrompt = promptText
+        print("DEBUG: EasyNote - Generated prompt content: \(notePrompt.prefix(100))...")
+        
+        // Store the prompt locally to ensure it's not lost
+        let finalPrompt = notePrompt
+        
+        print("DEBUG: EasyNote - Setting prompt and triggering generation")
+        
+        // Use the two-pass system with our structured data
+        Task {
+            await chatViewModel.enhanceSessionNoteGeneration(
+                transcript: finalPrompt,
+                ollamaKit: ollamaKit,
+                isEasyNote: true,
+                providedModalities: selectedModalitiesMap
+            )
+            
+            // Update the prompt binding and trigger generation
+            DispatchQueue.main.async {
+                // Set the prompt
+                self.prompt = finalPrompt
+                print("DEBUG: EasyNote - Prompt set, length: \(finalPrompt.count)")
+                
+                // Trigger generation
+                print("DEBUG: EasyNote - Calling generateAction")
+                self.generateAction()
+                
+                // Dismiss the sheet
+                print("DEBUG: EasyNote - Dismissing sheet")
+                self.dismiss()
+            }
         }
     }
 }

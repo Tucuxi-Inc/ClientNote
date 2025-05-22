@@ -26,7 +26,8 @@ struct AppView: View {
     let container = try! ModelContainer(for: Chat.self, Message.self, configurations: config)
     
     let chatViewModel = ChatViewModel(modelContext: container.mainContext)
-    let messageViewModel = MessageViewModel(modelContext: container.mainContext)
+    let messageViewModel = MessageViewModel(modelContext: container.mainContext, chatViewModel: chatViewModel)
+    chatViewModel.setMessageViewModel(messageViewModel)
     let codeHighlighter = CodeHighlighter(colorScheme: .light, fontSize: 13, enabled: false)
     
     return AppView()
