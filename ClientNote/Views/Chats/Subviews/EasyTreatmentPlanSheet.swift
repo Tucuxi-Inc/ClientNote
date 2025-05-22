@@ -475,9 +475,10 @@ struct EasyTreatmentPlanSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Generate Treatment Plan") {
                         generatePrompt()
-                        if let activeChat = chatViewModel.activeChat {
-                            messageViewModel.generate(ollamaKit, activeChat: activeChat, prompt: chatEntryText)
-                        }
+                        // Set the prompt first
+                        self.prompt = chatEntryText
+                        // Then call the generate action
+                        generateAction()
                         dismiss()
                     }
                     .buttonStyle(.borderedProminent)
@@ -637,25 +638,8 @@ struct EasyTreatmentPlanSheet: View {
         
         print("DEBUG: EasyTreatmentPlan - Generated prompt content: \(planPrompt.prefix(200))...")
         
-        // Store the prompt locally to ensure it's not lost
-        let finalPrompt = planPrompt
-        
-        print("DEBUG: EasyTreatmentPlan - Setting prompt and triggering generation")
-        
-        // Update the prompt binding and trigger generation
-        DispatchQueue.main.async {
-            // Set the prompt
-            self.prompt = finalPrompt
-            print("DEBUG: EasyTreatmentPlan - Prompt set, length: \(finalPrompt.count)")
-            
-            // Trigger generation
-            print("DEBUG: EasyTreatmentPlan - Calling generateAction")
-            self.generateAction()
-            
-            // Dismiss the sheet
-            print("DEBUG: EasyTreatmentPlan - Dismissing sheet")
-            self.dismiss()
-        }
+        // Store the prompt in chatEntryText
+        chatEntryText = planPrompt
     }
     
     // Add the missing functions

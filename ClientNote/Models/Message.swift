@@ -29,9 +29,42 @@ final class Message: Identifiable {
     }
 
     @Transient var displayPrompt: String {
-        // Split the prompt at the PIRP instructions marker
-        let components = prompt.components(separatedBy: "\n\nFor your reference, here is how to structure PIRP Clinical Note Language.")
-        return components[0]  // Return just the visible part
+        // Filter out analysis prompts and duplicates
+        let analysisMarkers = [
+            "Consider these common patterns of client engagement",
+            "Please analyze the client's engagement and responsiveness",
+            "Analyze the following therapy session transcript"
+        ]
+        
+        // If the prompt contains any of the analysis markers, find the actual content
+        if analysisMarkers.contains(where: { prompt.contains($0) }) {
+            if let sessionStart = prompt.range(of: "Session Transcript:") {
+                let content = String(prompt[sessionStart.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+                // Only return content if it's not already shown in a previous message
+                if let chat = chat,
+                   let messageIndex = chat.messages.firstIndex(where: { $0.id == id }),
+                   messageIndex > 0 {
+                    let previousMessages = chat.messages[..<messageIndex]
+                    if previousMessages.contains(where: { $0.prompt.contains(content) }) {
+                        return ""  // Skip if content already shown
+                    }
+                }
+                return content
+            }
+            return ""  // If no transcript found, don't show the analysis prompt
+        }
+        
+        // For non-analysis prompts, check for duplicates
+        if let chat = chat,
+           let messageIndex = chat.messages.firstIndex(where: { $0.id == id }),
+           messageIndex > 0 {
+            let previousMessages = chat.messages[..<messageIndex]
+            if previousMessages.contains(where: { $0.prompt == prompt }) {
+                return ""  // Skip if exact prompt already shown
+            }
+        }
+        
+        return prompt
     }
 
     var responseText: String {

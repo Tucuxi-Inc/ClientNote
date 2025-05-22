@@ -631,11 +631,28 @@ struct EasyNoteSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Generate Note") {
-                        generatePrompt()
-                        // Call the generate action with the chat entry text
-                        if let activeChat = chatViewModel.activeChat {
-                            messageViewModel.generate(ollamaKit, activeChat: activeChat, prompt: chatEntryText)
+                        // Generate the prompt first
+                        let notePrompt = generateNotePrompt()
+                        
+                        // Set the prompt
+                        self.prompt = notePrompt
+                        
+                        // First pass: Enhance the note with modalities analysis
+                        Task {
+                            await chatViewModel.enhanceSessionNoteGeneration(
+                                transcript: notePrompt,
+                                ollamaKit: ollamaKit,
+                                isEasyNote: true,
+                                providedModalities: [selectedApproach: Array(selectedInterventions)]
+                            )
+                            
+                            // Generate after enhancement (run on main thread)
+                            DispatchQueue.main.async {
+                                generateAction()
+                            }
                         }
+                        
+                        // Dismiss the sheet immediately (not in async context)
                         dismiss()
                     }
                     .buttonStyle(.borderedProminent)
@@ -927,7 +944,7 @@ struct EasyNoteSheet: View {
         task.resume()
     }
     
-    private func generatePrompt() {
+    private func generateNotePrompt() -> String {
         print("DEBUG: EasyNote - Starting generatePrompt()")
         
         // Set activity type to Session Note and create new activity
@@ -938,111 +955,91 @@ struct EasyNoteSheet: View {
         print("DEBUG: EasyNote - Creating new activity")
         chatViewModel.createNewActivity(isEasyNote: true)
         
-        var notePrompt = ""
+        var notePrompt = """
+        Please generate a clinical session note using the following information and format:
+
+        SESSION INFORMATION:
+        """
         
         // Format date and time
         let dateFormatter = DateFormatter()
         dateFormatter.dateStyle = .long
         dateFormatter.timeStyle = .short
-        notePrompt += "Date: \(dateFormatter.string(from: selectedDate))\n\n"
+        notePrompt += "\nDate: \(dateFormatter.string(from: selectedDate))"
+        notePrompt += "\nLocation: \(selectedLocation)\n"
         
-        // Add session location
-        notePrompt += "Session Location: \(selectedLocation)\n\n"
+        notePrompt += "\nCLINICAL CONTENT:"
         
         // Add presenting issue if custom
         if presentingIssue == "Other" && !customPresentingIssue.isEmpty {
-            notePrompt += "Presenting Issue: \(customPresentingIssue)\n\n"
+            notePrompt += "\nPresenting Issue: \(customPresentingIssue)"
         } else if presentingIssue != "Other" {
-            notePrompt += "Presenting Issue: \(presentingIssue)\n\n"
+            notePrompt += "\nPresenting Issue: \(presentingIssue)"
         }
         
         // Add client response if custom
         if clientResponse == "Other" && !customClientResponse.isEmpty {
-            notePrompt += "Client Response: \(customClientResponse)\n\n"
+            notePrompt += "\nClient Response: \(customClientResponse)"
         } else if clientResponse != "Other" {
-            notePrompt += "Client Response: \(clientResponse)\n\n"
+            notePrompt += "\nClient Response: \(clientResponse)"
         }
         
         // Add clinical focus if custom
         if clinicalFocus == "Other" && !customClinicalFocus.isEmpty {
-            notePrompt += "Clinical Focus: \(customClinicalFocus)\n\n"
+            notePrompt += "\nClinical Focus: \(customClinicalFocus)"
         } else if clinicalFocus != "Other" {
-            notePrompt += "Clinical Focus: \(clinicalFocus)\n\n"
+            notePrompt += "\nClinical Focus: \(clinicalFocus)"
         }
         
         // Add treatment goals if custom
         if treatmentGoals == "Other" && !customTreatmentGoals.isEmpty {
-            notePrompt += "Treatment Goals: \(customTreatmentGoals)\n\n"
+            notePrompt += "\nTreatment Goals: \(customTreatmentGoals)"
         } else if treatmentGoals != "Other" {
-            notePrompt += "Treatment Goals: \(treatmentGoals)\n\n"
+            notePrompt += "\nTreatment Goals: \(treatmentGoals)"
         }
         
-        // Collect selected modalities and interventions
-        var selectedModalitiesMap: [String: [String]] = [:]
+        notePrompt += "\n\nTHERAPEUTIC APPROACH:"
+        notePrompt += "\nPrimary Modality: \(selectedApproach)"
+        
         if !selectedInterventions.isEmpty {
-            selectedModalitiesMap[selectedApproach] = Array(selectedInterventions)
+            notePrompt += "\nInterventions Used:"
+            for intervention in selectedInterventions {
+                notePrompt += "\n- \(intervention)"
+            }
         }
         
         // Add additional notes if any
         if !additionalNotes.isEmpty {
-            notePrompt += "Additional Notes:\n\(additionalNotes)\n\n"
+            notePrompt += "\n\nADDITIONAL CLINICAL NOTES:\n\(additionalNotes)"
         }
         
         // Add insurance diagnosis if provided
         if !insuranceQuery.isEmpty {
-            notePrompt += "Insurance Diagnosis: \(insuranceQuery)"
+            notePrompt += "\n\nDIAGNOSIS:"
+            notePrompt += "\n\(insuranceQuery)"
             if !selectedICDCode.isEmpty {
                 notePrompt += " (\(selectedICDCode))"
             }
-            notePrompt += "\n\n"
         }
         
         // Add suicidal ideation assessment if applicable
         if hasSuicidalIdeation {
-            notePrompt += "Suicidal Ideation Assessment:\n"
+            notePrompt += "\n\nRISK ASSESSMENT - Suicidal Ideation:"
             if suicidalIdeationPastSession {
-                notePrompt += "- Reported in past session\n"
+                notePrompt += "\n- History: Reported in past session"
             }
             if suicidalIdeationCurrentSession {
-                notePrompt += "- Present in current session\n"
+                notePrompt += "\n- Current: Present in this session"
             }
             if suicidalIdeationBothSessions {
-                notePrompt += "- Present in both past and current sessions\n"
+                notePrompt += "\n- Pattern: Present in both past and current sessions"
             }
-            notePrompt += "\n"
         }
+        
+        notePrompt += "\n\nPlease structure this information into a comprehensive clinical note following standard format and professional terminology. Include clear descriptions of interventions used and client's response to treatment."
         
         print("DEBUG: EasyNote - Generated prompt content: \(notePrompt.prefix(100))...")
-        
-        // Store the prompt locally to ensure it's not lost
-        let finalPrompt = notePrompt
-        
-        print("DEBUG: EasyNote - Setting prompt and triggering generation")
-        
-        // Use the two-pass system with our structured data
-        Task {
-            await chatViewModel.enhanceSessionNoteGeneration(
-                transcript: finalPrompt,
-                ollamaKit: ollamaKit,
-                isEasyNote: true,
-                providedModalities: selectedModalitiesMap
-            )
-            
-            // Update the prompt binding and trigger generation
-            DispatchQueue.main.async {
-                // Set the prompt
-                self.prompt = finalPrompt
-                print("DEBUG: EasyNote - Prompt set, length: \(finalPrompt.count)")
-                
-                // Trigger generation
-                print("DEBUG: EasyNote - Calling generateAction")
-                self.generateAction()
-                
-                // Dismiss the sheet
-                print("DEBUG: EasyNote - Dismissing sheet")
-                self.dismiss()
-            }
-        }
+        return notePrompt
     }
 }
 

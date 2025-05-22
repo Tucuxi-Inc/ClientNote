@@ -203,9 +203,7 @@ struct ChatView: View {
                     print("DEBUG: ChatView - EasyNote generateAction called")
                     if !prompt.isEmpty {
                         print("DEBUG: ChatView - Processing EasyNote prompt, length: \(prompt.count)")
-                        DispatchQueue.main.async {
-                            generateAction()
-                        }
+                        chatViewModel.handleGenerateAction(prompt: prompt)
                     } else {
                         print("DEBUG: ChatView - Empty prompt from EasyNote")
                     }
@@ -288,26 +286,52 @@ struct ChatView: View {
             .navigationTitle("")
             .toolbar {
                 Group {
-                    // Left: Activity Picker
+                    // Left: New Session Button and Activity Picker
                     ToolbarItem(placement: .navigation) {
-                        VStack(spacing: 4) {
-                            Text("Activity")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(Color.euniSecondary)
-                            Picker("Choose Activity", selection: Binding(
-                                get: { chatViewModel.selectedTask },
-                                set: { chatViewModel.selectedTask = $0 }
-                            )) {
-                                ForEach(taskOptions, id: \.self) { task in
-                                    Text(task).tag(task)
+                        HStack(spacing: 16) {
+                            // New Session Button
+                            Button(action: {
+                                chatViewModel.createNewActivity()
+                                
+                                // Ensure the view resets to the new activity
+                                prompt = ""
+                                if let newActivityId = chatViewModel.selectedActivityID {
+                                    DispatchQueue.main.async {
+                                        // Force loading the activity chat
+                                        if let clientIndex = chatViewModel.clients.firstIndex(where: { $0.id == chatViewModel.selectedClientID }),
+                                           let activity = chatViewModel.clients[clientIndex].activities.first(where: { $0.id == newActivityId }) {
+                                            chatViewModel.loadActivityChat(activity)
+                                            messageViewModel.load(of: chatViewModel.activeChat)
+                                        }
+                                    }
+                                }
+                            }) {
+                                Image(systemName: "square.and.pencil")
+                                    .foregroundColor(Color.euniPrimary)
+                            }
+                            .keyboardShortcut("n")
+                            .help("Create new activity")
+                            
+                            // Activity Picker
+                            VStack(spacing: 4) {
+                                Text("Activity")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(Color.euniSecondary)
+                                Picker("Choose Activity", selection: Binding(
+                                    get: { chatViewModel.selectedTask },
+                                    set: { chatViewModel.selectedTask = $0 }
+                                )) {
+                                    ForEach(taskOptions, id: \.self) { task in
+                                        Text(task).tag(task)
+                                    }
+                                }
+                                .frame(width: 200)
+                                .onChange(of: chatViewModel.selectedTask) { _, _ in
+                                    updateSystemPrompt()
                                 }
                             }
-                            .frame(width: 200)
-                            .onChange(of: chatViewModel.selectedTask) { _, _ in
-                                updateSystemPrompt()
-                            }
+                            .padding(.vertical, 8)
                         }
-                        .padding(.vertical, 8)
                     }
 
                     // Center: Client Picker
@@ -553,10 +577,20 @@ struct ChatView: View {
                 return
             }
 
-            print("DEBUG: ChatView - Generating with prompt length: \(promptToSend.count)")
+            // Verify that the system prompt matches the selected activity type
+            let activityType = chatViewModel.getActivityTypeFromTask(chatViewModel.selectedTask)
+            let expectedPrompt = chatViewModel.getSystemPromptForActivityType(activityType)
+            
+            if activityType == .brainstorm && activeChat.systemPrompt != expectedPrompt {
+                print("DEBUG: ChatView - Correcting system prompt for Brainstorm before generating")
+                activeChat.systemPrompt = expectedPrompt
+            }
+            
+            print("DEBUG: ChatView - Generating with prompt length: \(promptToSend.count) for activity type: \(activityType.rawValue)")
             print("DEBUG: ChatView - Prompt preview: \(String(promptToSend.prefix(100)))...")
             
-            messageViewModel.generate(ollamaKit, activeChat: activeChat, prompt: promptToSend)
+            // Use the new method to handle generation properly
+            chatViewModel.handleGenerateAction(prompt: promptToSend)
         }
         
         self.prompt = ""
@@ -570,7 +604,7 @@ struct ChatView: View {
         } else {
             guard let activeChat = chatViewModel.activeChat else { return }
             
-            messageViewModel.regenerate(ollamaKit, activeChat: activeChat)
+            messageViewModel.regenerate(activeChat: activeChat)
         }
         
         prompt = ""
@@ -652,9 +686,9 @@ struct ChatFieldView: View {
         VStack {
             HStack(alignment: .top, spacing: 8) {
                 // Left column with Easy Button and Microphone Button
-                if showEasyButton {
-                    VStack(spacing: 8) {
-                        // Easy Button
+                VStack(spacing: 8) {
+                    // Easy Button - only shown for Session Note and Treatment Plan
+                    if showEasyButton {
                         Button(action: handleEasyButtonTap) {
                             Image(systemName: easyButtonIcon)
                                 .foregroundStyle(.white)
@@ -665,26 +699,26 @@ struct ChatFieldView: View {
                         .background(Color.euniPrimary)
                         .buttonStyle(.borderless)
                         .clipShape(.circle)
-                        
-                        // Microphone Button
-                        Button {
-                            if speechRecognitionVM.isRecording {
-                                speechRecognitionVM.stopRecording()
-                            } else {
-                                speechRecognitionVM.startRecording { transcribedText in
-                                    prompt = transcribedText
-                                }
-                            }
-                        } label: {
-                            Image(systemName: speechRecognitionVM.isRecording ? "stop.circle.fill" : "mic.circle")
-                                .foregroundStyle(Color.euniText)
-                                .fontWeight(.bold)
-                                .padding(8)
-                        }
-                        .background(speechRecognitionVM.isRecording ? Color.euniError : Color.euniSecondary)
-                        .buttonStyle(.borderless)
-                        .clipShape(.circle)
                     }
+                    
+                    // Microphone Button - always visible for all activity types
+                    Button {
+                        if speechRecognitionVM.isRecording {
+                            speechRecognitionVM.stopRecording()
+                        } else {
+                            speechRecognitionVM.startRecording { transcribedText in
+                                prompt = transcribedText
+                            }
+                        }
+                    } label: {
+                        Image(systemName: speechRecognitionVM.isRecording ? "stop.circle.fill" : "mic.circle")
+                            .foregroundStyle(Color.euniText)
+                            .fontWeight(.bold)
+                            .padding(8)
+                    }
+                    .background(speechRecognitionVM.isRecording ? Color.euniError : Color.euniSecondary)
+                    .buttonStyle(.borderless)
+                    .clipShape(.circle)
                 }
                 
                 // Chat Field
@@ -790,7 +824,11 @@ struct ChatFieldView: View {
             switch activeEasySheet {
             case .note:
                 NavigationView {
-                    EasyNoteSheet(prompt: $prompt, generateAction: generateAction)
+                    EasyNoteSheet(prompt: $prompt, generateAction: {
+                        if !prompt.isEmpty {
+                            generateAction()
+                        }
+                    })
                 }
                 .frame(minWidth: 1000, minHeight: 800)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
