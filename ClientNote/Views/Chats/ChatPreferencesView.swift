@@ -25,27 +25,15 @@ struct ChatPreferencesView: View {
     @State private var pullProgress: Double = 0.0
     @State private var pullStatus: String = ""
     @State private var showAddClientSheet: Bool = false
+    @State private var clientToDelete: UUID? = nil
+    @State private var showDeleteClientConfirmation = false
+    @State private var showFinalDeleteConfirmation = false
     
     @Default(.defaultHost) private var host
     @Default(.defaultSystemPrompt) private var systemPrompt
     @Default(.defaultTemperature) private var temperature
     @Default(.defaultTopP) private var topP
     @Default(.defaultTopK) private var topK
-    
-    private let taskOptions = [
-        "Create a Treatment Plan",
-        "Create a Client Session Note",
-        "Brainstorm"
-    ]
-    
-    private func updateSystemPrompt() {
-        // Get the appropriate system prompt from ChatViewModel
-        let type = chatViewModel.getActivityTypeFromTask(chatViewModel.selectedTask)
-        systemPrompt = chatViewModel.getSystemPromptForActivityType(type)
-        
-        // Update the active chat's system prompt
-        self.chatViewModel.activeChat?.systemPrompt = systemPrompt
-    }
     
     private let availableModels = [
         "qwen3:0.6b",
@@ -56,16 +44,6 @@ struct ChatPreferencesView: View {
         "granite3.3:8b"
     ]
     
-    // Temporary client list - will be replaced with actual client data
-    private let clients = [
-        "Select a Client",  // Placeholder client first
-        "Add New Client"
-    ]
-    
-    private func showNoteFormatInfo() {
-        showingNoteFormatInfo = true
-    }
-    
     init(ollamaKit: Binding<OllamaKit>) {
         self._ollamaKit = ollamaKit
     }
@@ -74,13 +52,6 @@ struct ChatPreferencesView: View {
         @Bindable var bindableChatViewModel = chatViewModel
         
         Form {
-            // Client Section
-            Section {
-                clientPicker
-            } header: {
-                Text("Client")
-            }
-            
             // Note Format Section
             Section {
                 noteFormatView
@@ -97,40 +68,6 @@ struct ChatPreferencesView: View {
                 Text("Enter or paste a sample note format that you'd like the system to reference when generating notes.")
                     .font(.caption)
                     .foregroundColor(.secondary)
-            }
-            
-            // Task Section
-            Section {
-                Picker("Choose Activity", selection: Binding(
-                    get: { chatViewModel.selectedTask },
-                    set: { chatViewModel.selectedTask = $0 }
-                )) {
-                    ForEach(taskOptions, id: \.self) { task in
-                        Text(task).tag(task)
-                    }
-                }
-            } header: {
-                Text("Activity")
-            }
-            .onChange(of: chatViewModel.selectedTask) { _, _ in
-                updateSystemPrompt()
-            }
-            
-            // Assistant Section
-            Section {
-                // Picker for choosing from downloaded models
-                Picker("Choose an Assistant", selection: Binding(
-                    get: { chatViewModel.activeChat?.model ?? "" },
-                    set: { newModel in
-                        chatViewModel.activeChat?.model = newModel
-                    }
-                )) {
-                    ForEach(chatViewModel.models, id: \.self) { model in
-                        Text(AssistantModel.nameFor(modelId: model)).tag(model)
-                    }
-                }
-            } header: {
-                Text("Assistant")
             }
             
             // Additional Assistants Section
@@ -234,124 +171,46 @@ struct ChatPreferencesView: View {
                 }
             }
             
-            // Commented out Advanced Settings
-            /*
+            // Client Removal Section
             Section {
-                // Empty section for spacing
-            }
-            
-            Section {
-                Button(action: {
-                    withAnimation {
-                        showAdvancedSettings.toggle()
-                    }
-                }) {
-                    HStack {
-                        Text("Advanced Settings")
-                        Spacer()
-                        Image(systemName: showAdvancedSettings ? "chevron.up" : "chevron.down")
-                            .font(.caption)
-                    }
-                }
-                .buttonStyle(.plain)
-            }
-            
-            if showAdvancedSettings {
-                Section {
-                    Text(host)
-                        .help(host)
-                        .lineLimit(1)
-                } header: {
-                    HStack {
-                        Text("Host")
-                        
-                        Spacer()
-                        
-                        Button("Change", action: { isUpdateOllamaHostPresented = true })
-                            .buttonStyle(.accessoryBar)
-                            .foregroundColor(Color.euniPrimary)
-                    }
-                }
-                .onChange(of: host) { _, newValue in
-                    self.chatViewModel.activeChat?.host = newValue
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Remove a client and all associated records")
+                        .foregroundColor(Color.euniError)
+                        .font(.caption)
                     
-                    if let baseURL = URL(string: newValue) {
-                        self.ollamaKit = OllamaKit(baseURL: baseURL)
+                    Picker("Select Client to Remove", selection: $clientToDelete) {
+                        Text("Select a Client").tag(nil as UUID?)
+                        ForEach(chatViewModel.clients) { client in
+                            Text(client.identifier).tag(client.id as UUID?)
+                        }
+                    }
+                    
+                    if clientToDelete != nil {
+                        Button(role: .destructive) {
+                            showDeleteClientConfirmation = true
+                        } label: {
+                            Label("Delete Selected Client", systemImage: "trash")
+                                .foregroundColor(.red)
+                        }
+                        .buttonStyle(.borderless)
+                        .padding(.top, 4)
                     }
                 }
-                
-                Section {
-                    Text(systemPrompt)
-                        .help(systemPrompt)
-                        .lineLimit(3)
-                } header: {
-                    HStack {
-                        Text("System Prompt")
-                        
-                        Spacer()
-                        
-                        Button("Change", action: { isUpdateSystemPromptPresented = true })
-                            .buttonStyle(.accessoryBar)
-                            .foregroundColor(Color.euniPrimary)
-                    }
-                } footer: {
-                    Button("Restore Default System Prompt") {
-                        systemPrompt = "You're Euni™ - Client Notes.  You are a clinical documentation assistant helping a therapist generate an insurance-ready psychotherapy progress note. You will use the information provided to you here to write a psychotherapy progress note using (unless otherwise instructed by the user) the BIRP format (Behavior, Intervention, Response, Plan). Requirements: Use clear, objective, and concise clinical language, Maintain gender-neutral pronouns, Do not make up quotes - only use exact quotes if and when provided by the user. Focus on observable behaviors, reported thoughts and feelings, therapist interventions, and clinical goals, Apply relevant approaches and techniques, including typical interventions and session themes, Use documentation language suitable for EHRs and insurance billing, If schemas, distortions, or core beliefs are addressed, name them using standard psychological terms, Conclude with a brief, action-oriented treatment plan. If this was the client's first telehealth session, document that informed consent for telehealth was obtained (verbal or written), that the client was informed of potential risks and limitations, that the therapists license or registration number was provided, and that the therapist made efforts to identify local emergency resources relevant to the client's location. If this was a subsequent telehealth session, document that the therapist confirmed the client's full name and present physical address, assessed the appropriateness of continuing via telehealth, and ensured confidentiality and safety using best practices for secure communication. If the client expressed suicidal ideation or self harm during the session, document this clearly and clinically. Include: (1) the client's specific statements or behaviors that prompted risk assessment, (2) identified risk and protective factors, (3) the outcome of any suicide risk assessment and rationale for the therapists clinical judgment, (4) any safety plan developed collaboratively with the client, and (5) follow-up arrangements. Use objective language and avoid vague phrasing. If a formal assessment tool was used, reference it. Ensure the note reflects ethical care, clinical reasoning, and legal defensibility."
-                    }
-                    .buttonStyle(.link)
-                    .font(.caption)
-                    .foregroundColor(Color.euniPrimary)
-                }
-                .onChange(of: systemPrompt) { _, newValue in
-                    self.chatViewModel.activeChat?.systemPrompt = newValue
-                }
-                
-                Section {
-                    Slider(value: $temperature, in: 0...1, step: 0.1) {
-                        Text(temperature.formatted())
-                    } minimumValueLabel: {
-                        Text("0")
-                    } maximumValueLabel: {
-                        Text("1")
-                    }
-                } header: {
-                    Text("Temperature")
-                } footer: {
-                    ChatPreferencesFooterView("Controls randomness. Higher values increase creativity, lower values are more focused.")
-                }
-                .onChange(of: temperature) { _, newValue in
-                    self.chatViewModel.activeChat?.temperature = newValue
-                }
-                
-                Section {
-                    Slider(value: $topP, in: 0...1, step: 0.1) {
-                        Text(topP.formatted())
-                    } minimumValueLabel: {
-                        Text("0")
-                    } maximumValueLabel: {
-                        Text("1")
-                    }
-                } header: {
-                    Text("Top P")
-                } footer: {
-                    ChatPreferencesFooterView("Affects diversity. Higher values increase variety, lower values are more conservative.")
-                }
-                .onChange(of: topP) { _, newValue in
-                    self.chatViewModel.activeChat?.topP = newValue
-                }
-                
-                Section {
-                    Stepper(topK.formatted(), value: $topK)
-                } header: {
-                    Text("Top K")
-                } footer: {
-                    ChatPreferencesFooterView("Limits token pool. Higher values increase diversity, lower values are more focused.")
-                }
-                .onChange(of: topK) { _, newValue in
-                    self.chatViewModel.activeChat?.topK = newValue
-                }
+            } header: {
+                Text("Remove Client")
+            } footer: {
+                Text("Warning: This will permanently delete the client and all their session notes, treatment plans, and brainstorm sessions.")
+                    .foregroundColor(Color.euniError)
             }
-            */
+            
+            // Copyright section at the bottom
+            Section {
+                Text("Euni™ - Client Notes © 2025 Tucuxi, Inc.")
+                    .font(.caption)
+                    .foregroundColor(Color.euniSecondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 8)
+            }
         }
         .onChange(of: self.chatViewModel.activeChat) { _, newValue in
             if let model = newValue?.model {
@@ -391,33 +250,31 @@ struct ChatPreferencesView: View {
         .onAppear {
             chatViewModel.fetchModels(ollamaKit)
         }
-    }
-    
-    private var clientPicker: some View {
-        Picker("Choose Client", selection: Binding(
-            get: { chatViewModel.selectedClientID ?? UUID() },
-            set: { newValue in
-                if newValue == UUID(uuidString: "00000000-0000-0000-0000-000000000000") {
-                    showAddClientSheet = true
-                } else {
-                    chatViewModel.selectedClientID = newValue
-                }
+        .alert("Delete Client?", isPresented: $showDeleteClientConfirmation) {
+            Button("Cancel", role: .cancel) {
+                clientToDelete = nil
             }
-        )) {
-            ForEach(chatViewModel.clients) { client in
-                Text(client.identifier).tag(client.id)
+            Button("Proceed", role: .destructive) {
+                showFinalDeleteConfirmation = true
             }
-            Text("Add New Client").tag(UUID(uuidString: "00000000-0000-0000-0000-000000000000")!)
+        } message: {
+            if let clientID = clientToDelete,
+               let client = chatViewModel.clients.first(where: { $0.id == clientID }) {
+                Text("Are you sure you want to delete the client '\(client.identifier)' and all their associated records?")
+            }
         }
-        .sheet(isPresented: $showAddClientSheet, onDismiss: {
-            if let last = chatViewModel.clients.last {
-                chatViewModel.selectedClientID = last.id
+        .alert("Final Confirmation", isPresented: $showFinalDeleteConfirmation) {
+            Button("Cancel", role: .cancel) {
+                clientToDelete = nil
             }
-        }) {
-            NavigationStack {
-                AddClientView()
+            Button("Yes, Delete Everything", role: .destructive) {
+                deleteSelectedClient()
             }
-            .frame(minWidth: 600, minHeight: 900)
+        } message: {
+            if let clientID = clientToDelete,
+               let client = chatViewModel.clients.first(where: { $0.id == clientID }) {
+                Text("This will permanently delete '\(client.identifier)' and ALL their records. This action cannot be undone.\n\nAre you absolutely sure?")
+            }
         }
     }
     
@@ -476,6 +333,11 @@ struct ChatPreferencesView: View {
         .font(.system(.body, design: .monospaced))
     }
     
+    private func showNoteFormatInfo() {
+        showingNoteFormatInfo = true
+    }
+    
+    // Keep the model pulling functionality
     func pullModel(_ modelName: String) {
         guard !isPullingModel else { return }
         
@@ -654,5 +516,15 @@ struct ChatPreferencesView: View {
                 .font(.caption)
                 .foregroundColor(Color.euniText)
         }
+    }
+    
+    private func deleteSelectedClient() {
+        guard let clientID = clientToDelete else { return }
+        
+        // Use the ChatViewModel method to delete the client
+        chatViewModel.deleteClient(clientID)
+        
+        // Reset our local state
+        clientToDelete = nil
     }
 }

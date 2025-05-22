@@ -4,53 +4,104 @@ import SwiftData
 import SwiftUI
 import Foundation
 
+/// ChatViewModel is the central coordinator for the Euni™ Client Notes application.
+/// It manages client data, activities, chat interactions, and integration with the Ollama AI service.
+///
+/// Key responsibilities:
+/// - Client management (adding, selecting, saving clients)
+/// - Activity tracking (session notes, treatment plans, brainstorming)
+/// - Chat interaction with Ollama AI
+/// - Note format management and template handling
+/// - Therapeutic modality analysis and engagement tracking
+///
+/// The ViewModel follows a file-based persistence model for client data and
+/// integrates with SwiftData for chat history management.
 @MainActor
 @Observable
 final class ChatViewModel {
+    // MARK: - Private Properties
+    
+    /// The SwiftData context for managing persistent storage
     private var modelContext: ModelContext
+    
+    /// Temporary storage for chat renaming operations
     private var _chatNameTemp: String = ""
+    
+    /// Reference to the message handling view model
     private weak var messageViewModel: MessageViewModel?
     
+    // MARK: - Public Properties
+    
+    /// Available AI models from Ollama
     var models: [String] = []
     
+    /// Collection of all chat sessions
     var chats: [Chat] = []
+    
+    /// Currently active chat session
     var activeChat: Chat? = nil
+    
+    /// Set of currently selected chats (for multi-select operations)
     var selectedChats = Set<Chat>()
-
+    
+    /// Flag to control input field focus
     var shouldFocusPrompt = false
-
+    
+    /// Indicates if the Ollama host is reachable
     var isHostReachable: Bool = true
+    
+    /// Current loading state
     var loading: ChatViewModelLoading? = nil
+    
+    /// Current error state
     var error: ChatViewModelError? = nil
     
+    /// UI state for chat renaming
     var isRenameChatPresented = false
+    
+    /// UI state for deletion confirmation
     var isDeleteConfirmationPresented = false
     
-    // Shared state for selected client and task
+    // MARK: - Client and Activity State
+    
+    /// Currently selected client's ID
     var selectedClientID: UUID? = nil
+    
+    /// Currently selected task type
     var selectedTask: String = "Create a Client Session Note"
     
-    // File-based persistence for clients
+    /// Collection of all clients
     var clients: [Client] = []
     
-    // Activity type selection for filtering
+    /// Currently selected activity type filter
     var selectedActivityType: ActivityType = .sessionNote
     
-    // Selected activity tracking
+    /// Currently selected activity's ID
     var selectedActivityID: UUID? = nil
     
-    // Note format preferences
-    var selectedNoteFormat: String = "BIRP"  // Default to BIRP
+    // MARK: - Note Format Properties
+    
+    /// Currently selected note format (e.g., "BIRP", "SOAP")
+    var selectedNoteFormat: String = "PIRP"
+    
+    /// Custom template for note formatting
     var noteFormatTemplate: String = ""
     
-    // Note format information
+    // MARK: - Note Format Definitions
+    
+    /// Represents a clinical note format with its structure and usage guidelines
     struct NoteFormat: Identifiable {
+        /// Unique identifier for the format (e.g., "SOAP", "BIRP")
         let id: String
+        /// Full name of the format
         let name: String
+        /// Primary use case or focus area
         let focus: String
+        /// Detailed description of the format's structure and usage
         let description: String
     }
     
+    /// Available clinical note formats with their descriptions and guidelines
     let availableNoteFormats: [NoteFormat] = [
         NoteFormat(
             id: "SOAP",
@@ -138,31 +189,27 @@ final class ChatViewModel {
         )
     ]
     
-    // Computed property: selected activity
-    var selectedActivity: ClientActivity? {
-        guard let selectedClientIndex = clients.firstIndex(where: { $0.id == selectedClientID }),
-              let selectedActivityID = selectedActivityID else {
-            return nil
-        }
-        return clients[selectedClientIndex].activities.first { $0.id == selectedActivityID }
+    // MARK: - Initialization
+    
+    /// Initialize the ChatViewModel
+    /// - Parameters:
+    ///   - modelContext: SwiftData context for persistence
+    ///   - messageViewModel: Optional message handling view model
+    init(modelContext: ModelContext, messageViewModel: MessageViewModel? = nil) {
+        self.modelContext = modelContext
+        self.messageViewModel = messageViewModel
+        loadClients()
     }
     
-    // Computed property: filtered and sorted activities for the selected client and activity type
-    var filteredActivities: [ClientActivity] {
-        guard let client = selectedClient else { return [] }
-        let activities = client.activities
-        
-        // If "All" is selected, return all activities
-        if selectedActivityType == .all {
-            return activities.sorted { $0.date > $1.date }
-        }
-        
-        // Otherwise filter by type
-        return activities
-            .filter { $0.type == selectedActivityType }
-            .sorted { $0.date > $1.date }
+    /// Set the message view model after initialization
+    /// - Parameter viewModel: The message handling view model
+    func setMessageViewModel(_ viewModel: MessageViewModel) {
+        self.messageViewModel = viewModel
     }
     
+    // MARK: - Client Directory Management
+    
+    /// Directory where client files are stored
     private var clientsDirectory: URL {
         let urls = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
         let dir = urls[0].appendingPathComponent("Clients", isDirectory: true)
@@ -172,6 +219,16 @@ final class ChatViewModel {
         return dir
     }
     
+    // MARK: - Client Management
+    
+    /// Loads all clients from persistent storage
+    ///
+    /// This method:
+    /// 1. Reads client files from the documents directory
+    /// 2. Deserializes JSON data into Client objects
+    /// 3. Updates the clients array
+    /// 4. Validates current selections
+    /// 5. Handles any missing or invalid data
     func loadClients() {
         let dir = clientsDirectory
         let files = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
@@ -195,6 +252,13 @@ final class ChatViewModel {
         }
     }
     
+    /// Saves a client's data to persistent storage
+    /// - Parameter client: The client to save
+    ///
+    /// This method:
+    /// 1. Encodes the client object to JSON
+    /// 2. Writes the data to a file named with the client's identifier
+    /// 3. Handles any serialization or file writing errors
     func saveClient(_ client: Client) {
         let file = clientsDirectory.appendingPathComponent("client_\(client.identifier).json")
         if let data = try? JSONEncoder().encode(client) {
@@ -202,44 +266,141 @@ final class ChatViewModel {
         }
     }
     
+    /// Adds a new client to the system
+    /// - Parameter client: The new client to add
+    ///
+    /// This method:
+    /// 1. Adds the client to the in-memory array
+    /// 2. Saves the client to persistent storage
+    /// 3. Updates the selected client to the new client
     func addClient(_ client: Client) {
         clients.append(client)
         saveClient(client)
         selectedClientID = client.id
     }
     
+    /// Selects a client by their ID
+    /// - Parameter id: The UUID of the client to select
     func selectClient(by id: UUID) {
         selectedClientID = id
     }
     
+    /// Validates the current client selection
+    ///
+    /// This method ensures that:
+    /// 1. The selected client still exists
+    /// 2. If not, resets to the first available client
+    /// 3. If no clients exist, clears the selection
+    ///
+    /// This is typically called after loading clients or
+    /// when client data might have changed.
+    func validateClientSelection() {
+        if let selectedID = selectedClientID {
+            // Check if the selected client still exists
+            if !clients.contains(where: { $0.id == selectedID }) {
+                print("DEBUG: Invalid client selection: \(selectedID)")
+                // Reset to first available client or clear selection
+                if let firstClient = clients.first {
+                    selectedClientID = firstClient.id
+                    print("DEBUG: Reset to first available client: \(firstClient.id)")
+                } else {
+                    selectedClientID = nil
+                    print("DEBUG: No valid clients available")
+                }
+            }
+        }
+    }
+    
+    /// Deletes a client and all their associated data
+    /// - Parameter clientID: The UUID of the client to delete
+    ///
+    /// This method:
+    /// 1. Removes the client from memory
+    /// 2. Deletes the client's file from storage
+    /// 3. Updates selections if the deleted client was selected
+    /// 4. Handles cleanup of associated data
+    func deleteClient(_ clientID: UUID) {
+        guard let clientIndex = clients.firstIndex(where: { $0.id == clientID }) else {
+            return
+        }
+        
+        // Get the client's file path
+        let clientFile = clientsDirectory.appendingPathComponent("client_\(clients[clientIndex].identifier).json")
+        
+        // Remove from memory
+        clients.remove(at: clientIndex)
+        
+        // Delete the file
+        try? FileManager.default.removeItem(at: clientFile)
+        
+        // Reset selections if needed
+        if selectedClientID == clientID {
+            selectedClientID = clients.first?.id
+        }
+    }
+    
+    /// The currently selected activity for the active client
+    /// - Returns: The ClientActivity object if both client and activity are selected, nil otherwise
+    var selectedActivity: ClientActivity? {
+        guard let selectedClientIndex = clients.firstIndex(where: { $0.id == selectedClientID }),
+              let selectedActivityID = selectedActivityID else {
+            return nil
+        }
+        return clients[selectedClientIndex].activities.first { $0.id == selectedActivityID }
+    }
+    
+    /// Filtered and sorted activities for the selected client and activity type
+    /// - Returns: An array of activities filtered by type and sorted by date (newest first)
+    var filteredActivities: [ClientActivity] {
+        guard let client = selectedClient else { return [] }
+        let activities = client.activities
+        
+        // If "All" is selected, return all activities
+        if selectedActivityType == .all {
+            return activities.sorted { $0.date > $1.date }
+        }
+        
+        // Otherwise filter by type
+        return activities
+            .filter { $0.type == selectedActivityType }
+            .sorted { $0.date > $1.date }
+    }
+    
+    /// The currently selected client
+    /// - Returns: The Client object if one is selected, nil otherwise
     var selectedClient: Client? {
         clients.first(where: { $0.id == selectedClientID })
     }
     
+    /// Temporary name for chat renaming operations
     var chatNameTemp: String {
         get {
             if isRenameChatPresented, let activeChat {
                 return activeChat.name
             }
-            
             return _chatNameTemp
         }
-        
         set {
             _chatNameTemp = newValue
         }
     }
     
-    init(modelContext: ModelContext, messageViewModel: MessageViewModel? = nil) {
-        self.modelContext = modelContext
-        self.messageViewModel = messageViewModel
-        loadClients()
-    }
+    // MARK: - Ollama Integration
     
-    func setMessageViewModel(_ viewModel: MessageViewModel) {
-        self.messageViewModel = viewModel
-    }
-    
+    /// Fetches available AI models from the Ollama server
+    /// - Parameter ollamaKit: The OllamaKit instance configured with the appropriate base URL
+    ///
+    /// This method performs several key operations:
+    /// 1. Checks if the Ollama server is reachable
+    /// 2. Retrieves the list of available models
+    /// 3. Updates the UI state based on the results
+    /// 4. Handles error conditions appropriately
+    ///
+    /// The method will set the following state:
+    /// - `loading`: Indicates fetch progress
+    /// - `error`: Contains any error information
+    /// - `models`: Updated list of available models
+    /// - `isHostReachable`: Indicates server availability
     func fetchModels(_ ollamaKit: OllamaKit) {
         self.loading = .fetchModels
         self.error = nil
@@ -272,6 +433,12 @@ final class ChatViewModel {
         }
     }
     
+    /// Loads existing chat history from persistent storage
+    ///
+    /// This method:
+    /// 1. Retrieves chats sorted by modification date (newest first)
+    /// 2. Updates the `chats` array with the results
+    /// 3. Handles any errors during the fetch operation
     func load() {
         do {
             let sortDescriptor = SortDescriptor(\Chat.modifiedAt, order: .reverse)
@@ -283,6 +450,14 @@ final class ChatViewModel {
         }
     }
     
+    /// Creates a new chat session with the specified AI model
+    /// - Parameter model: The identifier of the Ollama model to use
+    ///
+    /// This method:
+    /// 1. Creates a new Chat instance
+    /// 2. Inserts it into persistent storage
+    /// 3. Updates the UI state for the new chat
+    /// 4. Sets focus to the prompt field
     func create(model: String) {
         let chat = Chat(model: model)
         self.modelContext.insert(chat)
@@ -292,6 +467,12 @@ final class ChatViewModel {
         self.shouldFocusPrompt = true
     }
     
+    /// Renames the active chat session
+    ///
+    /// This method:
+    /// 1. Updates the chat name in memory
+    /// 2. Updates the modification timestamp
+    /// 3. Changes are automatically persisted via SwiftData
     func rename() {
         guard let activeChat else { return }
         
@@ -301,6 +482,12 @@ final class ChatViewModel {
         }
     }
     
+    /// Removes selected chat sessions
+    ///
+    /// This method:
+    /// 1. Deletes the chats from persistent storage
+    /// 2. Updates the in-memory chat array
+    /// 3. Handles multiple chat deletions in a single operation
     func remove() {
         for chat in selectedChats {
             self.modelContext.delete(chat)
@@ -308,6 +495,12 @@ final class ChatViewModel {
         }
     }
     
+    /// Removes a temporary chat if it meets specific criteria
+    /// - Parameter chatToRemove: The chat to potentially remove
+    ///
+    /// A chat is considered temporary if:
+    /// - It has the default chat name
+    /// - It contains no messages
     func removeTemporaryChat(chatToRemove: Chat) {
         if (chatToRemove.name == Defaults[.defaultChatName] && chatToRemove.messages.isEmpty) {
             self.modelContext.delete(chatToRemove)
@@ -315,7 +508,21 @@ final class ChatViewModel {
         }
     }
     
-    // Load chat history for a selected activity
+    // MARK: - Chat Loading and State Management
+    
+    /// Loads the chat history for a specific activity
+    /// - Parameter activity: The activity whose chat history should be loaded
+    ///
+    /// This method performs several operations:
+    /// 1. Removes any existing active chat
+    /// 2. Creates a new chat with appropriate system prompt
+    /// 3. Loads and parses the activity's content
+    /// 4. Handles both JSON and legacy content formats
+    /// 5. Updates the UI state for the new chat
+    ///
+    /// The content parsing supports two formats:
+    /// - JSON array of message dictionaries (newer format)
+    /// - Plain text content (legacy format)
     func loadActivityChat(_ activity: ClientActivity) {
         print("DEBUG: Loading chat for activity: \(activity.id)")
         
@@ -367,88 +574,22 @@ final class ChatViewModel {
         messageViewModel?.load(of: chat)
     }
     
-    // Watch for activity selection changes
-    func onActivitySelected() {
-        if let selectedID = selectedActivityID {
-            // Validate that the selected activity exists
-            guard let activity = filteredActivities.first(where: { $0.id == selectedID }) else {
-                print("DEBUG: Invalid activity selection: \(selectedID)")
-                // Reset to first available activity or clear selection
-                if let firstActivity = filteredActivities.first {
-                    selectedActivityID = firstActivity.id
-                    print("DEBUG: Reset to first available activity: \(firstActivity.id)")
-                } else {
-                    selectedActivityID = nil
-                    print("DEBUG: No valid activities available")
-                }
-                return
-            }
-            
-            print("DEBUG: Valid activity selected: \(activity.id)")
-            // Update the selected task to match the activity type
-            selectedTask = taskForActivityType(activity.type)
-            
-            // Clear current chat and create new one for this activity
-            loadActivityChat(activity)
-        }
-    }
+    // MARK: - Activity Management
     
-    // Validate client selection
-    func validateClientSelection() {
-        if let selectedID = selectedClientID {
-            // Check if the selected client still exists
-            if !clients.contains(where: { $0.id == selectedID }) {
-                print("DEBUG: Invalid client selection: \(selectedID)")
-                // Reset to first available client or clear selection
-                if let firstClient = clients.first {
-                    selectedClientID = firstClient.id
-                    print("DEBUG: Reset to first available client: \(firstClient.id)")
-                } else {
-                    selectedClientID = nil
-                    print("DEBUG: No valid clients available")
-                }
-            }
-        }
-    }
-    
-    // Save chat content to activity
-    func saveActivityContent() {
-        guard let activity = selectedActivity,
-              let clientIndex = clients.firstIndex(where: { $0.id == selectedClientID }),
-              let activityIndex = clients[clientIndex].activities.firstIndex(where: { $0.id == activity.id }),
-              let chat = activeChat else {
-            print("DEBUG: Cannot save activity content - missing required data")
-            return
-        }
-        
-        // Create an array of message dictionaries
-        let messageHistory = chat.messages.map { message -> [String: String] in
-            var messageData: [String: String] = ["prompt": message.prompt]
-            if let response = message.response {
-                messageData["response"] = response
-            }
-            return messageData
-        }
-        
-        do {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            let jsonData = try encoder.encode(messageHistory)
-            
-            if let jsonString = String(data: jsonData, encoding: .utf8) {
-                print("DEBUG: Saving chat history with \(messageHistory.count) messages")
-                print("DEBUG: JSON preview: \(String(jsonString.prefix(200)))...")
-                clients[clientIndex].activities[activityIndex].content = jsonString
-                saveClient(clients[clientIndex])
-            } else {
-                print("DEBUG: Failed to convert JSON data to string")
-            }
-        } catch {
-            print("DEBUG: Error saving chat history: \(error)")
-        }
-    }
-    
-    // Create a new activity and associated chat
+    /// Creates a new activity and associated chat session
+    /// - Parameter isEasyNote: Whether this activity is created through the EasyNote interface
+    ///
+    /// This method performs several operations:
+    /// 1. Creates a new activity with appropriate type based on selected task
+    /// 2. Generates a unique title including timestamp and sequence number
+    /// 3. Creates an associated chat with appropriate system prompt
+    /// 4. Saves the activity to persistent storage
+    /// 5. Updates UI state to reflect the new activity
+    ///
+    /// The title generation logic:
+    /// - Uses current date and time
+    /// - Appends a sequence number if multiple activities exist for the same day
+    /// - Format: "{Type} - {Date} [(Count)]"
     func createNewActivity(isEasyNote: Bool = false) {
         guard let clientIndex = clients.firstIndex(where: { $0.id == selectedClientID }) else { return }
         
@@ -492,7 +633,15 @@ final class ChatViewModel {
         selectedActivityID = newActivity.id
     }
     
-    // Helper function to get ActivityType from task name
+    /// Converts a task name to its corresponding activity type
+    /// - Parameter task: The task name to convert
+    /// - Returns: The corresponding ActivityType
+    ///
+    /// Mapping:
+    /// - "Create a Client Session Note" → .sessionNote
+    /// - "Create a Treatment Plan" → .treatmentPlan
+    /// - "Brainstorm" → .brainstorm
+    /// - Default → .sessionNote
     func getActivityTypeFromTask(_ task: String) -> ActivityType {
         switch task {
         case "Create a Client Session Note":
@@ -506,6 +655,11 @@ final class ChatViewModel {
         }
     }
     
+    /// Converts an activity type to its corresponding task name
+    /// - Parameter type: The ActivityType to convert
+    /// - Returns: The corresponding task name
+    ///
+    /// This is the inverse operation of getActivityTypeFromTask(_:)
     private func taskForActivityType(_ type: ActivityType) -> String {
         switch type {
         case .sessionNote:
@@ -516,6 +670,86 @@ final class ChatViewModel {
             return "Brainstorm"
         case .all:
             return "Create a Client Session Note"
+        }
+    }
+    
+    /// Handles activity selection changes
+    ///
+    /// This method:
+    /// 1. Validates the selected activity exists
+    /// 2. Updates the selected task to match the activity type
+    /// 3. Loads the appropriate chat history
+    /// 4. Handles invalid selections by resetting to a valid state
+    func onActivitySelected() {
+        if let selectedID = selectedActivityID {
+            // Validate that the selected activity exists
+            guard let activity = filteredActivities.first(where: { $0.id == selectedID }) else {
+                print("DEBUG: Invalid activity selection: \(selectedID)")
+                // Reset to first available activity or clear selection
+                if let firstActivity = filteredActivities.first {
+                    selectedActivityID = firstActivity.id
+                    print("DEBUG: Reset to first available activity: \(firstActivity.id)")
+                } else {
+                    selectedActivityID = nil
+                    print("DEBUG: No valid activities available")
+                }
+                return
+            }
+            
+            print("DEBUG: Valid activity selected: \(activity.id)")
+            // Update the selected task to match the activity type
+            selectedTask = taskForActivityType(activity.type)
+            
+            // Clear current chat and create new one for this activity
+            loadActivityChat(activity)
+        }
+    }
+    
+    /// Saves the current chat content to the associated activity
+    ///
+    /// This method:
+    /// 1. Validates all required references exist
+    /// 2. Converts chat messages to a serializable format
+    /// 3. Saves the content to the activity
+    /// 4. Updates the client file
+    ///
+    /// The chat content is saved as a JSON array of message dictionaries,
+    /// where each message contains:
+    /// - prompt: The user's input
+    /// - response: The AI's response (if any)
+    func saveActivityContent() {
+        guard let activity = selectedActivity,
+              let clientIndex = clients.firstIndex(where: { $0.id == selectedClientID }),
+              let activityIndex = clients[clientIndex].activities.firstIndex(where: { $0.id == activity.id }),
+              let chat = activeChat else {
+            print("DEBUG: Cannot save activity content - missing required data")
+            return
+        }
+        
+        // Create an array of message dictionaries
+        let messageHistory = chat.messages.map { message -> [String: String] in
+            var messageData: [String: String] = ["prompt": message.prompt]
+            if let response = message.response {
+                messageData["response"] = response
+            }
+            return messageData
+        }
+        
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let jsonData = try encoder.encode(messageHistory)
+            
+            if let jsonString = String(data: jsonData, encoding: .utf8) {
+                print("DEBUG: Saving chat history with \(messageHistory.count) messages")
+                print("DEBUG: JSON preview: \(String(jsonString.prefix(200)))...")
+                clients[clientIndex].activities[activityIndex].content = jsonString
+                saveClient(clients[clientIndex])
+            } else {
+                print("DEBUG: Failed to convert JSON data to string")
+            }
+        } catch {
+            print("DEBUG: Error saving chat history: \(error)")
         }
     }
     
@@ -625,23 +859,36 @@ final class ChatViewModel {
         """
     }
     
-    // Therapy modality structures
+    // MARK: - Therapeutic Modality Analysis
+    
+    /// Represents a specific therapeutic intervention technique
+    /// Used to identify and track specific therapeutic methods used in sessions
     struct TherapyIntervention: Identifiable {
         let id = UUID()
+        /// Name of the intervention technique
         let name: String
+        /// Clinical description of the intervention
         let description: String
+        /// Specific phrases or patterns that indicate this intervention is being used
         let detectionCriteria: String
     }
     
+    /// Represents a complete therapeutic modality with its associated interventions
+    /// Used to categorize and analyze therapeutic approaches in sessions
     struct TherapyModality: Identifiable {
         let id = UUID()
+        /// Name of the therapeutic modality
         let name: String
+        /// Clinical description of the modality
         let description: String
+        /// Patterns that indicate this modality is being used
         let detectionCriteria: [String]
+        /// Specific interventions associated with this modality
         let interventions: [TherapyIntervention]
     }
     
-    // Comprehensive therapy modalities reference
+    /// Comprehensive catalog of therapeutic modalities and their interventions
+    /// This serves as the knowledge base for analyzing therapy sessions
     private let therapyModalities: [TherapyModality] = [
         TherapyModality(
             name: "Cognitive Behavioral Therapy (CBT)",
@@ -971,7 +1218,14 @@ final class ChatViewModel {
         )
     ]
     
-    // Function to get modalities analysis prompt
+    /// Generates a prompt for analyzing therapeutic modalities in session content
+    /// - Returns: A structured prompt for the AI to analyze therapeutic approaches
+    ///
+    /// The prompt instructs the AI to:
+    /// 1. Identify therapeutic modalities used
+    /// 2. Detect specific interventions
+    /// 3. Provide evidence from the transcript
+    /// 4. Note any unique or combined approaches
     func getModalitiesAnalysisPrompt() -> String {
         var prompt = """
         Analyze the following therapy session transcript to identify therapeutic modalities and interventions used.
@@ -1009,26 +1263,126 @@ final class ChatViewModel {
         return prompt
     }
     
-    // Client Engagement Pattern structures
+    /// Performs comprehensive analysis of a therapy session
+    /// - Parameters:
+    ///   - transcript: The session transcript to analyze
+    ///   - ollamaKit: The OllamaKit instance for AI analysis
+    ///   - isEasyNote: Whether this is an EasyNote format
+    ///   - providedModalities: Pre-selected modalities for EasyNote
+    /// - Returns: A tuple containing modalities analysis and engagement analysis
+    /// - Throws: ChatViewModelError if analysis fails
+    private func performSessionAnalysis(
+        transcript: String,
+        ollamaKit: OllamaKit,
+        isEasyNote: Bool = false,
+        providedModalities: [String: [String]]? = nil
+    ) async throws -> (modalities: String, engagement: String) {
+        guard messageViewModel != nil else {
+            throw ChatViewModelError.generate("MessageViewModel not available")
+        }
+        
+        // Get modalities analysis
+        let modalitiesAnalysis: String
+        if isEasyNote, let modalities = providedModalities {
+            var analysis = "Therapeutic Modalities Analysis:\n\n"
+            for (modality, interventions) in modalities {
+                analysis += "\(modality):\n"
+                for intervention in interventions {
+                    analysis += "- \(intervention)\n"
+                }
+                analysis += "\n"
+            }
+            modalitiesAnalysis = analysis
+        } else {
+            let analysisPrompt = getModalitiesAnalysisPrompt() + "\n\nSession Transcript:\n" + transcript
+            modalitiesAnalysis = try await generateAnalysis(prompt: analysisPrompt, ollamaKit: ollamaKit)
+        }
+        
+        // Get engagement patterns analysis
+        let engagementPrompt = getEngagementPatternsPrompt() + "\n\nSession Transcript:\n" + transcript
+        let engagementAnalysis = try await generateAnalysis(prompt: engagementPrompt, ollamaKit: ollamaKit)
+        
+        return (modalities: modalitiesAnalysis, engagement: engagementAnalysis)
+    }
+    
+    /// Generates an AI analysis based on a specific prompt
+    /// - Parameters:
+    ///   - prompt: The analysis prompt to send to the AI
+    ///   - ollamaKit: The OllamaKit instance for AI interaction
+    /// - Returns: The generated analysis
+    /// - Throws: ChatViewModelError if generation fails
+    private func generateAnalysis(prompt: String, ollamaKit: OllamaKit) async throws -> String {
+        guard let messageViewModel = self.messageViewModel else {
+            throw ChatViewModelError.generate("MessageViewModel not available")
+        }
+        
+        guard let activeChat = self.activeChat else {
+            throw ChatViewModelError.generate("No active chat available")
+        }
+        
+        let analysisMessage = Message(prompt: prompt)
+        analysisMessage.chat = activeChat
+        
+        return try await withCheckedThrowingContinuation { continuation in
+            Task {
+                do {
+                    let currentMessages = messageViewModel.messages
+                    messageViewModel.generate(ollamaKit, activeChat: activeChat, prompt: prompt)
+                    
+                    while messageViewModel.loading == .generate {
+                        try await Task.sleep(nanoseconds: 100_000_000)
+                    }
+                    
+                    if let lastMessage = messageViewModel.messages.last,
+                       let response = lastMessage.response {
+                        messageViewModel.messages = currentMessages
+                        continuation.resume(returning: response)
+                    } else {
+                        continuation.resume(throwing: ChatViewModelError.generate("Failed to generate analysis"))
+                    }
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+    
+    // MARK: - Client Engagement Pattern Tracking
+    
+    /// Represents a specific example of client engagement behavior
+    /// Used to identify and categorize client responses and participation
     struct ClientEngagementExample: Identifiable {
         let id = UUID()
+        /// Description of the engagement behavior
         let description: String
+        /// Category of engagement (e.g., "Active Listening", "Response to Interventions")
         let category: String
+        /// Qualitative assessment of the engagement
         let tone: EngagementTone
     }
     
+    /// Represents the qualitative assessment of client engagement
+    /// Used to categorize engagement patterns as positive, negative, or neutral
     enum EngagementTone {
+        /// Indicates positive engagement and receptiveness
         case positive
+        /// Indicates resistance or disengagement
         case negative
+        /// Indicates neither clearly positive nor negative engagement
         case neutral
     }
     
+    /// Groups related engagement examples into categories
+    /// Used to organize and analyze different aspects of client engagement
     struct ClientEngagementCategory {
+        /// Name of the engagement category
         let name: String
+        /// Collection of example behaviors in this category
         let examples: [ClientEngagementExample]
     }
     
-    // Comprehensive client engagement patterns reference
+    /// Comprehensive catalog of client engagement patterns
+    /// Used as a reference for analyzing client participation and response
     private let clientEngagementPatterns: [ClientEngagementCategory] = [
         ClientEngagementCategory(
             name: "General Receptiveness",
@@ -1122,7 +1476,15 @@ final class ChatViewModel {
         )
     ]
     
-    // Function to get engagement patterns analysis prompt
+    /// Generates a prompt for analyzing client engagement patterns
+    /// - Returns: A structured prompt for the AI to analyze client engagement
+    ///
+    /// The prompt instructs the AI to analyze:
+    /// 1. Overall engagement level
+    /// 2. Response to specific interventions
+    /// 3. Nonverbal communication
+    /// 4. Commitment to practice
+    /// 5. Changes in engagement during the session
     private func getEngagementPatternsPrompt() -> String {
         var prompt = """
         Consider these common patterns of client engagement and responsiveness when analyzing the session:
@@ -1160,79 +1522,18 @@ final class ChatViewModel {
         return prompt
     }
     
-    // Modify the performModalitiesAnalysis to include engagement patterns
-    private func performSessionAnalysis(
-        transcript: String,
-        ollamaKit: OllamaKit,
-        isEasyNote: Bool = false,
-        providedModalities: [String: [String]]? = nil
-    ) async throws -> (modalities: String, engagement: String) {
-        guard messageViewModel != nil else {
-            throw ChatViewModelError.generate("MessageViewModel not available")
-        }
-        
-        // Get modalities analysis
-        let modalitiesAnalysis: String
-        if isEasyNote, let modalities = providedModalities {
-            var analysis = "Therapeutic Modalities Analysis:\n\n"
-            for (modality, interventions) in modalities {
-                analysis += "\(modality):\n"
-                for intervention in interventions {
-                    analysis += "- \(intervention)\n"
-                }
-                analysis += "\n"
-            }
-            modalitiesAnalysis = analysis
-        } else {
-            let analysisPrompt = getModalitiesAnalysisPrompt() + "\n\nSession Transcript:\n" + transcript
-            modalitiesAnalysis = try await generateAnalysis(prompt: analysisPrompt, ollamaKit: ollamaKit)
-        }
-        
-        // Get engagement patterns analysis
-        let engagementPrompt = getEngagementPatternsPrompt() + "\n\nSession Transcript:\n" + transcript
-        let engagementAnalysis = try await generateAnalysis(prompt: engagementPrompt, ollamaKit: ollamaKit)
-        
-        return (modalities: modalitiesAnalysis, engagement: engagementAnalysis)
-    }
-    
-    // Helper function for generating analysis
-    private func generateAnalysis(prompt: String, ollamaKit: OllamaKit) async throws -> String {
-        guard let messageViewModel = self.messageViewModel else {
-            throw ChatViewModelError.generate("MessageViewModel not available")
-        }
-        
-        guard let activeChat = self.activeChat else {
-            throw ChatViewModelError.generate("No active chat available")
-        }
-        
-        let analysisMessage = Message(prompt: prompt)
-        analysisMessage.chat = activeChat
-        
-        return try await withCheckedThrowingContinuation { continuation in
-            Task {
-                do {
-                    let currentMessages = messageViewModel.messages
-                    messageViewModel.generate(ollamaKit, activeChat: activeChat, prompt: prompt)
-                    
-                    while messageViewModel.loading == .generate {
-                        try await Task.sleep(nanoseconds: 100_000_000)
-                    }
-                    
-                    if let lastMessage = messageViewModel.messages.last,
-                       let response = lastMessage.response {
-                        messageViewModel.messages = currentMessages
-                        continuation.resume(returning: response)
-                    } else {
-                        continuation.resume(throwing: ChatViewModelError.generate("Failed to generate analysis"))
-                    }
-                } catch {
-                    continuation.resume(throwing: error)
-                }
-            }
-        }
-    }
-    
-    // Update enhanceSessionNoteGeneration to use the new analysis
+    /// Enhances session note generation with modality and engagement analysis
+    /// - Parameters:
+    ///   - transcript: The session transcript to analyze
+    ///   - ollamaKit: The OllamaKit instance for AI analysis
+    ///   - isEasyNote: Whether this is an EasyNote format
+    ///   - providedModalities: Pre-selected modalities for EasyNote
+    ///
+    /// This method:
+    /// 1. Performs comprehensive session analysis
+    /// 2. Updates the system prompt with analysis results
+    /// 3. Integrates findings into note generation
+    /// 4. Handles both structured and unstructured note formats
     func enhanceSessionNoteGeneration(
         transcript: String,
         ollamaKit: OllamaKit,

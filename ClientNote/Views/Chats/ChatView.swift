@@ -154,11 +154,27 @@ struct ChatView: View {
     @State private var scrollProxy: ScrollViewProxy? = nil
     @State private var isPreferencesPresented = false
     @State private var isEasyNotePresented = false
+    @State private var showAddClientSheet = false
     @FocusState private var isFocused: Bool
+    
+    private let taskOptions = [
+        "Create a Treatment Plan",
+        "Create a Client Session Note",
+        "Brainstorm"
+    ]
     
     init() {
         let baseURL = URL(string: Defaults[.defaultHost])!
         self._ollamaKit = State(initialValue: OllamaKit(baseURL: baseURL))
+    }
+    
+    private func updateSystemPrompt() {
+        // Get the appropriate system prompt from ChatViewModel
+        let type = chatViewModel.getActivityTypeFromTask(chatViewModel.selectedTask)
+        let systemPrompt = chatViewModel.getSystemPromptForActivityType(type)
+        
+        // Update the active chat's system prompt
+        chatViewModel.activeChat?.systemPrompt = systemPrompt
     }
     
     var body: some View {
@@ -170,11 +186,14 @@ struct ChatView: View {
             isFocused: _isFocused,
             isEasyNotePresented: $isEasyNotePresented,
             isPreferencesPresented: $isPreferencesPresented,
+            showAddClientSheet: $showAddClientSheet,
             ollamaKit: $ollamaKit,
+            taskOptions: taskOptions,
             copyAction: copyAction,
             generateAction: generateAction,
             regenerateAction: regenerateAction,
-            onActiveChatChanged: onActiveChatChanged
+            onActiveChatChanged: onActiveChatChanged,
+            updateSystemPrompt: updateSystemPrompt
         )
         .sheet(isPresented: $isEasyNotePresented, onDismiss: {
             print("DEBUG: ChatView - EasyNote sheet dismissed")
@@ -207,11 +226,14 @@ struct ChatView: View {
         @FocusState var isFocused: Bool
         @Binding var isEasyNotePresented: Bool
         @Binding var isPreferencesPresented: Bool
+        @Binding var showAddClientSheet: Bool
         @Binding var ollamaKit: OllamaKit
+        let taskOptions: [String]
         let copyAction: (_ content: String) -> Void
         let generateAction: () -> Void
         let regenerateAction: () -> Void
         let onActiveChatChanged: () -> Void
+        let updateSystemPrompt: () -> Void
         
         @State private var scrollProxy: ScrollViewProxy? = nil
         @Environment(CodeHighlighter.self) private var codeHighlighter
@@ -263,54 +285,97 @@ struct ChatView: View {
                     codeHighlighter.enabled = experimentalCodeHighlighting
                 }
             }
-            .navigationTitle(chatViewModel.selectedClient?.identifier ?? "No Client Selected")
+            .navigationTitle("")
             .toolbar {
                 Group {
-                    // Centered app name
+                    // Left: Activity Picker
+                    ToolbarItem(placement: .navigation) {
+                        VStack(spacing: 4) {
+                            Text("Activity")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Color.euniSecondary)
+                            Picker("Choose Activity", selection: Binding(
+                                get: { chatViewModel.selectedTask },
+                                set: { chatViewModel.selectedTask = $0 }
+                            )) {
+                                ForEach(taskOptions, id: \.self) { task in
+                                    Text(task).tag(task)
+                                }
+                            }
+                            .frame(width: 200)
+                            .onChange(of: chatViewModel.selectedTask) { _, _ in
+                                updateSystemPrompt()
+                            }
+                        }
+                        .padding(.vertical, 8)
+                    }
+
+                    // Center: Client Picker
                     ToolbarItem(placement: .principal) {
-                        Text("Euni™ - Client Notes")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(Color.euniText)
+                        VStack(spacing: 4) {
+                            Text("Client")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Color.euniSecondary)
+                            Picker("Choose Client", selection: Binding(
+                                get: { chatViewModel.selectedClientID ?? UUID(uuidString: "00000000-0000-0000-0000-000000000001")! },
+                                set: { newValue in
+                                    if newValue == UUID(uuidString: "00000000-0000-0000-0000-000000000000") {
+                                        showAddClientSheet = true
+                                    } else if newValue != UUID(uuidString: "00000000-0000-0000-0000-000000000001") {
+                                        chatViewModel.selectedClientID = newValue
+                                    }
+                                }
+                            )) {
+                                Text("Choose Client").tag(UUID(uuidString: "00000000-0000-0000-0000-000000000001")!)
+                                ForEach(chatViewModel.clients) { client in
+                                    Text(client.identifier).tag(client.id)
+                                }
+                                Text("Add New Client").tag(UUID(uuidString: "00000000-0000-0000-0000-000000000000")!)
+                            }
+                            .frame(width: 200)
+                        }
+                        .padding(.vertical, 8)
                     }
-                    // Right: Activity and Assistant Name
+
+                    // Right side items
                     ToolbarItem(placement: .automatic) {
-                        HStack(spacing: 24) {
-                            // Show selected activity title or type
-                            if let activity = chatViewModel.selectedActivity {
-                                Text(activity.displayTitle)
-                                    .font(.headline)
+                        HStack(spacing: 16) {
+                            VStack(spacing: 4) {
+                                Text("Assistant")
+                                    .font(.system(size: 14, weight: .medium))
                                     .foregroundColor(Color.euniSecondary)
-                                    .layoutPriority(1)
-                            } else {
-                                // Show selected task type
-                                let taskType = chatViewModel.selectedTask.replacingOccurrences(of: "Create a ", with: "")
-                                Text(taskType)
-                                    .font(.headline)
-                                    .foregroundColor(Color.euniSecondary)
-                                    .layoutPriority(1)
+                                Picker("Choose an Assistant", selection: Binding(
+                                    get: { chatViewModel.activeChat?.model ?? "" },
+                                    set: { newModel in
+                                        chatViewModel.activeChat?.model = newModel
+                                    }
+                                )) {
+                                    ForEach(chatViewModel.models, id: \.self) { model in
+                                        Text(AssistantModel.nameFor(modelId: model)).tag(model)
+                                    }
+                                }
+                                .frame(width: 200)
                             }
-                            // Assistant Name (right aligned, can truncate)
-                            if let model = chatViewModel.activeChat?.model, !model.isEmpty {
-                                Text(AssistantModel.nameFor(modelId: model))
-                                    .font(.headline)
-                                    .foregroundColor(Color.euniSecondary)
-                                    .lineLimit(1)
-                                    .frame(maxWidth: 200, alignment: .trailing)
-                            } else {
-                                Text("")
-                                    .frame(maxWidth: 200, alignment: .trailing)
+                            
+                            // Preferences button
+                            Button(action: { isPreferencesPresented.toggle() }) {
+                                Image(systemName: "sidebar.trailing")
                             }
+                            .foregroundColor(Color.euniSecondary)
                         }
-                    }
-                    // Preferences button (sidebar.trailing icon)
-                    ToolbarItem(placement: .primaryAction) {
-                        Button(action: { isPreferencesPresented.toggle() }) {
-                            Image(systemName: "sidebar.trailing")
-                        }
-                        .foregroundColor(Color.euniSecondary)
+                        .padding(.vertical, 8)
                     }
                 }
+            }
+            .sheet(isPresented: $showAddClientSheet, onDismiss: {
+                if let last = chatViewModel.clients.last {
+                    chatViewModel.selectedClientID = last.id
+                }
+            }) {
+                NavigationStack {
+                    AddClientView()
+                }
+                .frame(minWidth: 600, minHeight: 900)
             }
             .inspector(isPresented: $isPreferencesPresented) {
                 ChatPreferencesView(ollamaKit: $ollamaKit)
