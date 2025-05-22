@@ -620,17 +620,18 @@ final class ChatViewModel {
             title: title
         )
         
-        // Create a new chat for this activity with the appropriate system prompt
-        let chat = Chat(model: Defaults[.defaultModel])
-        chat.systemPrompt = getSystemPromptForActivityType(type, isEasyNote: isEasyNote)
-        modelContext.insert(chat)
-        chats.insert(chat, at: 0)
-        activeChat = chat
-        
         // Add and select the new activity
         clients[clientIndex].activities.insert(newActivity, at: 0)
         saveClient(clients[clientIndex])
         selectedActivityID = newActivity.id
+        
+        // Load the new activity's chat
+        loadActivityChat(newActivity)
+        
+        // Tell MessageViewModel to load this chat's messages
+        if let chat = activeChat {
+            messageViewModel?.load(of: chat)
+        }
     }
     
     /// Converts a task name to its corresponding activity type
@@ -1540,6 +1541,12 @@ final class ChatViewModel {
         isEasyNote: Bool = false,
         providedModalities: [String: [String]]? = nil
     ) async {
+        // Skip enhancement for brainstorm activities
+        guard let activeChat = activeChat,
+              getActivityTypeFromTask(selectedTask) != .brainstorm else {
+            return
+        }
+
         do {
             let analysis = try await performSessionAnalysis(
                 transcript: transcript,
@@ -1548,35 +1555,33 @@ final class ChatViewModel {
                 providedModalities: providedModalities
             )
             
-            if let activeChat = activeChat {
-                let currentPrompt = activeChat.systemPrompt ?? getSystemPromptForActivityType(.sessionNote)
+            let currentPrompt = activeChat.systemPrompt ?? getSystemPromptForActivityType(.sessionNote)
+            
+            // Get the selected note format details
+            let noteFormat = availableNoteFormats.first(where: { $0.id == selectedNoteFormat })
+            let formatInstructions = """
+            
+            IMPORTANT: Structure this note using the \(selectedNoteFormat) format:
+            \(noteFormat?.description ?? "")
+            """
+            
+            activeChat.systemPrompt = """
+                \(currentPrompt)
                 
-                // Get the selected note format details
-                let noteFormat = availableNoteFormats.first(where: { $0.id == selectedNoteFormat })
-                let formatInstructions = """
+                Consider the following analyses for this session:
                 
-                IMPORTANT: Structure this note using the \(selectedNoteFormat) format:
-                \(noteFormat?.description ?? "")
+                THERAPEUTIC MODALITIES AND INTERVENTIONS:
+                \(analysis.modalities)
+                
+                CLIENT ENGAGEMENT AND RESPONSIVENESS:
+                \(analysis.engagement)
+                
+                \(formatInstructions)
+                
+                \(isEasyNote ? "Use the provided structured form data to generate the note." : "Analyze the transcript to generate the note.")
+                Incorporate these analyses into your note, ensuring proper clinical terminology and context.
+                Pay particular attention to accurately describing the client's engagement and response to interventions.
                 """
-                
-                activeChat.systemPrompt = """
-                    \(currentPrompt)
-                    
-                    Consider the following analyses for this session:
-                    
-                    THERAPEUTIC MODALITIES AND INTERVENTIONS:
-                    \(analysis.modalities)
-                    
-                    CLIENT ENGAGEMENT AND RESPONSIVENESS:
-                    \(analysis.engagement)
-                    
-                    \(formatInstructions)
-                    
-                    \(isEasyNote ? "Use the provided structured form data to generate the note." : "Analyze the transcript to generate the note.")
-                    Incorporate these analyses into your note, ensuring proper clinical terminology and context.
-                    Pay particular attention to accurately describing the client's engagement and response to interventions.
-                    """
-            }
         } catch {
             self.error = .generate(error.localizedDescription)
         }
