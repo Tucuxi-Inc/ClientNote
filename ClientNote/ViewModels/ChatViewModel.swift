@@ -1550,6 +1550,15 @@ final class ChatViewModel {
             
             if let activeChat = activeChat {
                 let currentPrompt = activeChat.systemPrompt ?? getSystemPromptForActivityType(.sessionNote)
+                
+                // Get the selected note format details
+                let noteFormat = availableNoteFormats.first(where: { $0.id == selectedNoteFormat })
+                let formatInstructions = """
+                
+                IMPORTANT: Structure this note using the \(selectedNoteFormat) format:
+                \(noteFormat?.description ?? "")
+                """
+                
                 activeChat.systemPrompt = """
                     \(currentPrompt)
                     
@@ -1560,6 +1569,8 @@ final class ChatViewModel {
                     
                     CLIENT ENGAGEMENT AND RESPONSIVENESS:
                     \(analysis.engagement)
+                    
+                    \(formatInstructions)
                     
                     \(isEasyNote ? "Use the provided structured form data to generate the note." : "Analyze the transcript to generate the note.")
                     Incorporate these analyses into your note, ensuring proper clinical terminology and context.

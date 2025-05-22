@@ -288,26 +288,39 @@ struct ChatView: View {
             .navigationTitle("")
             .toolbar {
                 Group {
-                    // Left: Activity Picker
+                    // Left: New Session Button and Activity Picker
                     ToolbarItem(placement: .navigation) {
-                        VStack(spacing: 4) {
-                            Text("Activity")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(Color.euniSecondary)
-                            Picker("Choose Activity", selection: Binding(
-                                get: { chatViewModel.selectedTask },
-                                set: { chatViewModel.selectedTask = $0 }
-                            )) {
-                                ForEach(taskOptions, id: \.self) { task in
-                                    Text(task).tag(task)
+                        HStack(spacing: 16) {
+                            // New Session Button
+                            Button(action: {
+                                chatViewModel.createNewActivity()
+                            }) {
+                                Image(systemName: "square.and.pencil")
+                                    .foregroundColor(Color.euniPrimary)
+                            }
+                            .keyboardShortcut("n")
+                            .help("Create new activity")
+                            
+                            // Activity Picker
+                            VStack(spacing: 4) {
+                                Text("Activity")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(Color.euniSecondary)
+                                Picker("Choose Activity", selection: Binding(
+                                    get: { chatViewModel.selectedTask },
+                                    set: { chatViewModel.selectedTask = $0 }
+                                )) {
+                                    ForEach(taskOptions, id: \.self) { task in
+                                        Text(task).tag(task)
+                                    }
+                                }
+                                .frame(width: 200)
+                                .onChange(of: chatViewModel.selectedTask) { _, _ in
+                                    updateSystemPrompt()
                                 }
                             }
-                            .frame(width: 200)
-                            .onChange(of: chatViewModel.selectedTask) { _, _ in
-                                updateSystemPrompt()
-                            }
+                            .padding(.vertical, 8)
                         }
-                        .padding(.vertical, 8)
                     }
 
                     // Center: Client Picker
