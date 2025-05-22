@@ -29,7 +29,7 @@ final class Message: Identifiable {
     }
 
     @Transient var displayPrompt: String {
-        // Filter out analysis prompts
+        // Filter out analysis prompts and duplicates
         let analysisMarkers = [
             "Consider these common patterns of client engagement",
             "Please analyze the client's engagement and responsiveness",
@@ -39,9 +39,29 @@ final class Message: Identifiable {
         // If the prompt contains any of the analysis markers, find the actual content
         if analysisMarkers.contains(where: { prompt.contains($0) }) {
             if let sessionStart = prompt.range(of: "Session Transcript:") {
-                return String(prompt[sessionStart.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+                let content = String(prompt[sessionStart.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+                // Only return content if it's not already shown in a previous message
+                if let chat = chat,
+                   let messageIndex = chat.messages.firstIndex(where: { $0.id == id }),
+                   messageIndex > 0 {
+                    let previousMessages = chat.messages[..<messageIndex]
+                    if previousMessages.contains(where: { $0.prompt.contains(content) }) {
+                        return ""  // Skip if content already shown
+                    }
+                }
+                return content
             }
             return ""  // If no transcript found, don't show the analysis prompt
+        }
+        
+        // For non-analysis prompts, check for duplicates
+        if let chat = chat,
+           let messageIndex = chat.messages.firstIndex(where: { $0.id == id }),
+           messageIndex > 0 {
+            let previousMessages = chat.messages[..<messageIndex]
+            if previousMessages.contains(where: { $0.prompt == prompt }) {
+                return ""  // Skip if exact prompt already shown
+            }
         }
         
         return prompt

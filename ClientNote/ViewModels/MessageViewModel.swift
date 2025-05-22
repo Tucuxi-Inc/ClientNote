@@ -54,7 +54,16 @@ final class MessageViewModel {
         }
     }
     
-    func generate(_ ollamaKit: OllamaKit, activeChat: Chat, prompt: String, modelPrompt: String? = nil) {
+    func generate(activeChat: Chat, prompt: String, modelPrompt: String? = nil) {
+        // Get an OllamaKit instance for this chat
+        guard let host = activeChat.host,
+              let baseURL = URL(string: host) else {
+            self.error = .generate("Invalid host URL")
+            return
+        }
+        
+        let ollamaKit = OllamaKit(baseURL: baseURL)
+        
         // Create a message with the display prompt (without PIRP instructions)
         let message = Message(prompt: prompt)
         message.chat = activeChat
@@ -118,9 +127,18 @@ final class MessageViewModel {
         }
     }
     
-    func regenerate(_ ollamaKit: OllamaKit, activeChat: Chat) {
+    func regenerate(activeChat: Chat) {
         guard let lastMessage = messages.last else { return }
         lastMessage.response = nil
+        
+        // Get an OllamaKit instance for this chat
+        guard let host = activeChat.host,
+              let baseURL = URL(string: host) else {
+            self.error = .generate("Invalid host URL")
+            return
+        }
+        
+        let ollamaKit = OllamaKit(baseURL: baseURL)
         
         self.loading = .generate
         self.error = nil

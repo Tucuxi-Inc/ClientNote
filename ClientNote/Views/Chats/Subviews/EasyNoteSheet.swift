@@ -631,26 +631,29 @@ struct EasyNoteSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Generate Note") {
+                        // Generate the prompt first
+                        let notePrompt = generateNotePrompt()
+                        
+                        // Set the prompt
+                        self.prompt = notePrompt
+                        
+                        // First pass: Enhance the note with modalities analysis
                         Task {
-                            // Dismiss first to ensure good UX
-                            await MainActor.run {
-                                dismiss()
-                            }
-                            
-                            // Set the prompt before enhancement
-                            self.prompt = generateNotePrompt()
-                            
-                            // First pass: Enhance the note with modalities analysis
                             await chatViewModel.enhanceSessionNoteGeneration(
-                                transcript: self.prompt,
+                                transcript: notePrompt,
                                 ollamaKit: ollamaKit,
                                 isEasyNote: true,
                                 providedModalities: [selectedApproach: Array(selectedInterventions)]
                             )
                             
-                            // Generate after enhancement
-                            generateAction()
+                            // Generate after enhancement (run on main thread)
+                            DispatchQueue.main.async {
+                                generateAction()
+                            }
                         }
+                        
+                        // Dismiss the sheet immediately (not in async context)
+                        dismiss()
                     }
                     .buttonStyle(.borderedProminent)
                 }
