@@ -29,9 +29,22 @@ final class Message: Identifiable {
     }
 
     @Transient var displayPrompt: String {
-        // Split the prompt at the PIRP instructions marker
-        let components = prompt.components(separatedBy: "\n\nFor your reference, here is how to structure PIRP Clinical Note Language.")
-        return components[0]  // Return just the visible part
+        // Filter out analysis prompts
+        let analysisMarkers = [
+            "Consider these common patterns of client engagement",
+            "Please analyze the client's engagement and responsiveness",
+            "Analyze the following therapy session transcript"
+        ]
+        
+        // If the prompt contains any of the analysis markers, find the actual content
+        if analysisMarkers.contains(where: { prompt.contains($0) }) {
+            if let sessionStart = prompt.range(of: "Session Transcript:") {
+                return String(prompt[sessionStart.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            return ""  // If no transcript found, don't show the analysis prompt
+        }
+        
+        return prompt
     }
 
     var responseText: String {

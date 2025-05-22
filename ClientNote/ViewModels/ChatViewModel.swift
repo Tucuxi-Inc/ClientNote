@@ -1548,6 +1548,7 @@ final class ChatViewModel {
         }
 
         do {
+            // Perform the analysis but don't include it in the visible prompt
             let analysis = try await performSessionAnalysis(
                 transcript: transcript,
                 ollamaKit: ollamaKit,
@@ -1559,28 +1560,44 @@ final class ChatViewModel {
             
             // Get the selected note format details
             let noteFormat = availableNoteFormats.first(where: { $0.id == selectedNoteFormat })
+            
+            // Create a more structured format instruction
             let formatInstructions = """
             
-            IMPORTANT: Structure this note using the \(selectedNoteFormat) format:
+            CRITICAL: You MUST structure your response using the following \(selectedNoteFormat) format exactly:
+
+            \(selectedNoteFormat) Format Requirements:
             \(noteFormat?.description ?? "")
+
+            Format Rules:
+            1. Use the exact headings shown above (e.g. Problem, Intervention, Response, Plan for PIRP)
+            2. Include ALL sections in the order shown
+            3. Do not add additional major sections
+            4. Content under each section should directly relate to that section's purpose
+            5. Use clear headings with the exact names specified
+            """
+            
+            // Create a hidden analysis section using HTML-style comments
+            let hiddenAnalysis = """
+            <!-- Analysis Results (Not for Display):
+            THERAPEUTIC MODALITIES AND INTERVENTIONS:
+            \(analysis.modalities)
+            
+            CLIENT ENGAGEMENT AND RESPONSIVENESS:
+            \(analysis.engagement)
+            -->
             """
             
             activeChat.systemPrompt = """
                 \(currentPrompt)
                 
-                Consider the following analyses for this session:
-                
-                THERAPEUTIC MODALITIES AND INTERVENTIONS:
-                \(analysis.modalities)
-                
-                CLIENT ENGAGEMENT AND RESPONSIVENESS:
-                \(analysis.engagement)
-                
                 \(formatInstructions)
                 
+                \(hiddenAnalysis)
+                
                 \(isEasyNote ? "Use the provided structured form data to generate the note." : "Analyze the transcript to generate the note.")
-                Incorporate these analyses into your note, ensuring proper clinical terminology and context.
-                Pay particular attention to accurately describing the client's engagement and response to interventions.
+                Incorporate the analysis findings into your note while maintaining the exact format structure.
+                Ensure clinical terminology and proper context throughout.
                 """
         } catch {
             self.error = .generate(error.localizedDescription)
