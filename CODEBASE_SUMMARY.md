@@ -24,9 +24,29 @@ ClientNoteApp (SwiftUI)
 
 ## **Critical Issues Identified & Status**
 
+### ✅ **FIXED: Brainstorm System Prompt Contamination (CRITICAL)**
+**Issue**: Brainstorm was receiving treatment plan system prompt instead of brainstorm prompt
+- **Root Cause**: `SystemPrompts.brainstorm` was referencing `Defaults[.defaultSystemPrompt]` which could be overridden by user settings
+- **Fix Applied**: 
+  - Hardcoded clean brainstorm prompt directly in `SystemPrompts.brainstorm` 
+  - Eliminated dependency on potentially contaminated user defaults
+  - Ensures brainstorm always gets proper general AI assistant prompt
+- **Code Location**: `ChatViewModel.swift` SystemPrompts struct, lines 1419-1437
+- **Status**: ✅ RESOLVED
+
+### ✅ **FIXED: Duplicate Message Creation (CRITICAL)**
+**Issue**: Brainstorm creating duplicate messages during generation, causing duplicate prompts in saved chat history
+- **Root Cause**: Both `handleGenerateAction()` and `messageViewModel.generate()` were creating messages for the same prompt
+- **Fix Applied**: 
+  - Removed message creation in `handleGenerateAction()` for brainstorm activities
+  - Let `messageViewModel.generate()` handle all message creation to avoid duplicates
+  - Ensures single clean message per user input
+- **Code Location**: `ChatViewModel.swift` handleGenerateAction() brainstorm section, lines 720-726
+- **Status**: ✅ RESOLVED
+
 ### ✅ **FIXED: Chat History Contamination (CRITICAL)**
-**Issue**: Brainstorm getting contaminated with treatment plan content due to shared chat history
-- **Root Cause**: All activity types shared the same chat's message history, causing AI to see previous conversations
+**Issue**: All activity types shared the same chat's message history, causing AI to see previous conversations
+- **Root Cause**: Activities didn't clear previous messages before generation
 - **Fix Applied**: 
   - Added complete message clearing before each activity type generation
   - Ensured MessageViewModel updates to reflect cleared state
@@ -187,7 +207,7 @@ User Input → handleGenerateAction() → performTwoPassGeneration()
 ## **Current Status & Progress**
 
 ### ✅ **BUILD SUCCESS: All Compilation Issues Resolved**
-- ✅ **Build Status**: Clean successful build with exit code 0 (Latest: ✅ All deprecation warnings fixed)
+- ✅ **Build Status**: Clean successful build with exit code 0 (Latest: ✅ All brainstorm contamination issues fixed)
 - ✅ **Fixed Issues**: SwiftUI type-checking errors resolved by breaking up complex expressions
 - ✅ **Method Signatures**: Fixed onChange and onKeyPress handlers to match correct SwiftUI APIs
 - ✅ **Missing Methods**: Added updateActiveEasySheet() and simplified handleReturnKey()
@@ -204,6 +224,8 @@ User Input → handleGenerateAction() → performTwoPassGeneration()
 - ✅ **Enhanced Format Instructions**: AI model now receives detailed, specific section headings and requirements for each format
 - ✅ **Format Parsing System**: Added generateDetailedFormatInstructions() and extractSectionsFromDescription() methods
 - ✅ **Chat History Isolation**: Complete message clearing prevents cross-contamination between activity types
+- ✅ **Brainstorm System Prompt Isolation**: Hardcoded clean brainstorm prompt eliminates treatment plan contamination
+- ✅ **Duplicate Message Prevention**: Fixed message creation to avoid duplicate prompts in chat history
 
 ### 🎯 **COMPREHENSIVE UX FIXES COMPLETED**
 1. ✅ **EasyNoteSheet Text Duplication**: Fixed prompt appearing in both chat view AND text entry
@@ -214,10 +236,24 @@ User Input → handleGenerateAction() → performTwoPassGeneration()
 6. ✅ **Enter Key Functionality**: Enhanced TextEditor to send messages on Enter key press
 7. ✅ **SwiftUI Deprecation Warnings**: Fixed onChange(of:perform:) to use modern SwiftUI API
 
+### ✅ **NEW FEATURE: DPKNY Simple Brainstorm Mode**
+**Feature**: Toggle button for wife-friendly simplified interface
+- **Implementation**: DPKNY toggle button next to "AI can make mistakes" disclaimer
+- **UI Changes When Enabled**:
+  - Hides both sidebars for distraction-free interface
+  - Hides all top navigation pickers except pencil/paper icon  
+  - Hides Easy button to keep interface simple
+  - Switches to dedicated "BrainStorm Client" automatically
+  - Sets app to brainstorm mode with clean simple chat
+- **Behind the Scenes**: All chat storage/history continues normally
+- **Code Location**: `ChatViewModel.swift` DPKNY methods, `AppView.swift` conditional layout, `ChatView.swift` footer button
+- **Status**: ✅ IMPLEMENTED & BUILDS SUCCESSFULLY
+
 ### 🔄 **REMAINING PRIORITIES**
 1. ✅ **Chat History Isolation**: Fixed - each activity now starts with clean chat history
-2. ✅ **Brainstorm Contamination**: Fixed - brainstorm now gets clean prompt without therapeutic content
-3. **Activity Sidebar Loading**: Verify that selecting activities from sidebar shows only their content
+2. ✅ **Brainstorm Contamination**: Fixed - brainstorm now gets clean prompt without therapeutic content  
+3. ✅ **DPKNY Simple Mode**: Implemented - one-toggle distraction-free brainstorming
+4. **Activity Sidebar Loading**: Verify that selecting activities from sidebar shows only their content
 
 ### 🧪 **TESTING CHECKLIST** 
 **✅ READY TO TEST - BUILD SUCCESSFUL:**
@@ -227,9 +263,14 @@ User Input → handleGenerateAction() → performTwoPassGeneration()
 - [x] **Format Structure**: AI model receives detailed instructions for specific note formats (✅ enhanced system)
 - [x] **Enter Key Functionality**: Users can press Enter to send messages (✅ implemented)
 - [x] **Client Switching**: Chat view should clear when switching clients (✅ implemented)
+- [x] **Brainstorm System Prompt**: Should receive clean general AI assistant prompt (✅ fixed hardcoded prompt)
+- [x] **Duplicate Message Prevention**: Single message per user input, no duplicates (✅ fixed message creation)
+- [x] **DPKNY Toggle Implementation**: Button should hide sidebars, simplify UI, create BrainStorm Client (✅ implemented)
+- [ ] **DPKNY User Experience**: Test full workflow - toggle on, brainstorm, toggle off (needs testing)
+- [ ] **DPKNY Chat Storage**: Verify brainstorm sessions save properly to BrainStorm Client (needs testing)
 - [ ] **Activity Type Switching**: Session Note → Brainstorm → Treatment Plan (should clear chat each time)
 - [ ] **Chat History Loading**: Select specific brainstorm from sidebar (should show only that content)
-- [ ] **Brainstorm Isolation**: Brainstorm sessions should not contaminate session notes  
+- [ ] **Brainstorm Content Quality**: Should provide general info without therapeutic contamination  
 - [ ] **Treatment Plan Independence**: Should use own prompt, not session note analysis
 
 ### 📋 **POTENTIAL IMPROVEMENTS**
@@ -255,4 +296,4 @@ The fixes are successful when:
 ---
 **Last Updated**: 2025-05-23  
 **Build Status**: ✅ Compiles Successfully  
-**Major Changes**: Complete rewrite of analysis system, robust state management, clean persistence, chat history isolation 
+**Major Changes**: Complete rewrite of analysis system, robust state management, clean persistence, chat history isolation, brainstorm system prompt fixes, duplicate message prevention, **DPKNY simple mode implementation** 

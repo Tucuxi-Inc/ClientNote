@@ -10,14 +10,25 @@ import SwiftData
 import Defaults
 
 struct AppView: View {
+    @Environment(ChatViewModel.self) private var chatViewModel
+    
     var body: some View {
-        NavigationSplitView {
-            SidebarView()
-                .navigationSplitViewColumnWidth(min: 256, ideal: 256)
-        } detail: {
-            ChatView()
+        Group {
+            if chatViewModel.isDPKNYMode {
+                // DPKNY mode: Simple full-screen chat without sidebar
+                ChatView()
+                    .background(Color.euniBackground)
+            } else {
+                // Normal mode: Split view with sidebar
+                NavigationSplitView {
+                    SidebarView()
+                        .navigationSplitViewColumnWidth(min: 256, ideal: 256)
+                } detail: {
+                    ChatView()
+                }
+                .background(Color.euniBackground)
+            }
         }
-        .background(Color.euniBackground)
     }
 }
 

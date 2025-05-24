@@ -79,6 +79,14 @@ final class ChatViewModel {
     /// Currently selected activity's ID
     var selectedActivityID: UUID? = nil
     
+    // MARK: - DPKNY Simple Mode Properties
+    
+    /// Whether DPKNY simple brainstorm mode is enabled
+    var isDPKNYMode: Bool = false
+    
+    /// The special "BrainStorm Client" used for DPKNY mode
+    private var brainstormClient: Client? = nil
+    
     // MARK: - Note Format Properties
     
     /// Currently selected note format (e.g., "BIRP", "SOAP")
@@ -725,17 +733,11 @@ final class ChatViewModel {
                 }
             }
             
-            // Create message and generate normally
-            let message = Message(prompt: prompt)
-            message.chat = activeChat
-            activeChat.messages.append(message)
-            
-            print("DEBUG: Created brainstorm message with prompt: '\(String(prompt.prefix(100)))...'")
-            print("DEBUG: Chat now has \(activeChat.messages.count) messages (should be 1)")
-            print("DEBUG: Calling messageViewModel.generate() for brainstorm")
+            // Don't create message here - let messageViewModel.generate() handle it to avoid duplicates
+            print("DEBUG: Calling messageViewModel.generate() for brainstorm with prompt: '\(String(prompt.prefix(100)))...'")
             
             messageViewModel?.generate(activeChat: activeChat, prompt: prompt)
-            saveActivityContent()
+            // Note: saveActivityContent() will be called automatically by messageViewModel.generate() when complete
             
             print("DEBUG: ===== BRAINSTORM GENERATION END =====")
             return
@@ -1335,9 +1337,25 @@ final class ChatViewModel {
     
     // System Prompts for different activities and contexts
     private struct SystemPrompts {
-        // Default/Brainstorm prompt - already defined in Defaults.Keys
+        // Hardcoded Brainstorm prompt to avoid contamination from user settings
         static var brainstorm: String {
-            return Defaults[.defaultSystemPrompt]
+            return """
+            You are a helpful AI assistant engaging in a general brainstorming conversation. Your role is to:
+
+            1. Help explore ideas and concepts openly
+            2. Provide relevant information and insights
+            3. Ask clarifying questions when needed
+            4. Maintain a balanced and objective perspective
+            5. Support creative thinking and problem-solving
+
+            Focus on:
+            - Understanding the specific topic or question at hand
+            - Providing clear and well-structured responses
+            - Being adaptable to different types of inquiries
+            - Maintaining a helpful and constructive tone
+
+            Avoid making assumptions about the context. If the user hasn't specified a particular framework or approach, keep responses general and adaptable.
+            """
         }
         
         // Regular Session Note prompt
@@ -2700,6 +2718,85 @@ final class ChatViewModel {
         selectedTask = "Create a Client Session Note"
         
         print("DEBUG: Client switched - chat cleared and activity selection reset")
+    }
+    
+    // MARK: - DPKNY Simple Mode Management
+    
+    /// Toggles DPKNY simple brainstorm mode on/off
+    func toggleDPKNYMode() {
+        isDPKNYMode.toggle()
+        
+        if isDPKNYMode {
+            // Enable DPKNY mode
+            print("DEBUG: Enabling DPKNY simple mode")
+            enableDPKNYMode()
+        } else {
+            // Disable DPKNY mode
+            print("DEBUG: Disabling DPKNY simple mode")
+            disableDPKNYMode()
+        }
+    }
+    
+    /// Enables DPKNY simple brainstorm mode
+    private func enableDPKNYMode() {
+        // Create or get the BrainStorm Client
+        createOrGetBrainstormClient()
+        
+        // Set to brainstorm mode
+        selectedTask = "Brainstorm"
+        selectedActivityType = .brainstorm
+        
+        // Select the BrainStorm Client
+        if let brainstormClient = brainstormClient {
+            selectedClientID = brainstormClient.id
+        }
+        
+        // Clear chat view for fresh start
+        clearChatView()
+        
+        // Automatically create a new brainstorm activity so user can start typing immediately
+        createNewActivity()
+        
+        print("DEBUG: DPKNY mode enabled - using BrainStorm Client with new brainstorm activity")
+    }
+    
+    /// Disables DPKNY simple brainstorm mode and returns to normal interface
+    private func disableDPKNYMode() {
+        // Return to normal mode - keep current client if one was selected
+        // If we were using the BrainStorm Client, switch to first regular client
+        if let currentClient = selectedClient, currentClient.identifier == "BrainStorm Client" {
+            // Switch to first non-brainstorm client
+            if let firstRegularClient = clients.first(where: { $0.identifier != "BrainStorm Client" }) {
+                selectedClientID = firstRegularClient.id
+            }
+        }
+        
+        // Reset to default activity type
+        selectedTask = "Create a Client Session Note"
+        selectedActivityType = .sessionNote
+        
+        print("DEBUG: DPKNY mode disabled - returned to normal interface")
+    }
+    
+    /// Creates or retrieves the special BrainStorm Client used for DPKNY mode
+    private func createOrGetBrainstormClient() {
+        // Check if BrainStorm Client already exists
+        if let existingClient = clients.first(where: { $0.identifier == "BrainStorm Client" }) {
+            brainstormClient = existingClient
+            return
+        }
+        
+        // Create new BrainStorm Client
+        let newBrainstormClient = Client(
+            identifier: "BrainStorm Client"
+        )
+        
+        // Add to clients list and save
+        clients.insert(newBrainstormClient, at: 0) // Put at top for easy access
+        saveClient(newBrainstormClient)
+        brainstormClient = newBrainstormClient
+        
+        print("DEBUG: Created new BrainStorm Client for DPKNY mode")
     }
 }
 

@@ -338,9 +338,17 @@ struct ChatView: View {
         
         @ToolbarContentBuilder
         private var toolbarContent: some ToolbarContent {
-            leftToolbarItems
-            centerToolbarItem
-            rightToolbarItems
+            if chatViewModel.isDPKNYMode {
+                // DPKNY mode: only show the pencil/paper icon
+                ToolbarItem(placement: .navigation) {
+                    newSessionButton
+                }
+            } else {
+                // Normal mode: show all toolbar items
+                leftToolbarItems
+                centerToolbarItem
+                rightToolbarItems
+            }
         }
         
         private var leftToolbarItems: some ToolbarContent {
@@ -373,7 +381,7 @@ struct ChatView: View {
                     .foregroundColor(Color.euniPrimary)
             }
             .keyboardShortcut("n")
-            .help("Create new activity")
+            .help(chatViewModel.isDPKNYMode ? "Start new brainstorm" : "Create new activity")
         }
         
         private var activityPicker: some View {
@@ -739,8 +747,10 @@ struct ChatFieldView: View {
     }
     
     private var showEasyButton: Bool {
-        chatViewModel.selectedTask.contains("Session Note") ||
-        chatViewModel.selectedTask.contains("Treatment Plan")
+        // Hide Easy button in DPKNY mode to keep interface simple
+        !chatViewModel.isDPKNYMode &&
+        (chatViewModel.selectedTask.contains("Session Note") ||
+         chatViewModel.selectedTask.contains("Treatment Plan"))
     }
     
     private var easyButtonIcon: String {
@@ -923,15 +933,46 @@ struct ChatFieldView: View {
                 }
                 .font(.callout)
             } else if messageViewModel.messages.isEmpty == false {
-                Text("\u{2318}+R to regenerate the response")
-                    .font(.callout)
-                    .foregroundColor(.secondary)
+                HStack {
+                    Text("\u{2318}+R to regenerate the response")
+                        .font(.callout)
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    dpknyToggleButton
+                }
             } else {
-                Text("AI can make mistakes. Please double-check responses.")
-                    .font(.callout)
-                    .foregroundColor(.secondary)
+                HStack {
+                    Text("AI can make mistakes. Please double-check responses.")
+                        .font(.callout)
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    dpknyToggleButton
+                }
             }
         }
+    }
+    
+    private var dpknyToggleButton: some View {
+        Toggle("DPKNY", isOn: Binding(
+            get: { chatViewModel.isDPKNYMode },
+            set: { _ in chatViewModel.toggleDPKNYMode() }
+        ))
+        .toggleStyle(.button)
+        .buttonStyle(.borderless)
+        .font(.caption)
+        .foregroundColor(chatViewModel.isDPKNYMode ? .white : .secondary)
+        .background(
+            RoundedRectangle(cornerRadius: 4)
+                .fill(chatViewModel.isDPKNYMode ? Color.euniPrimary : Color.clear)
+                .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+        )
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
+        .help("Toggle DPKNY simple mode - hides complexity and switches to pure brainstorm mode")
     }
     
     @ViewBuilder
