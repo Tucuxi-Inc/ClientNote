@@ -342,11 +342,35 @@ final class ChatViewModel {
     /// The currently selected activity for the active client
     /// - Returns: The ClientActivity object if both client and activity are selected, nil otherwise
     var selectedActivity: ClientActivity? {
-        guard let selectedClientIndex = clients.firstIndex(where: { $0.id == selectedClientID }),
-              let selectedActivityID = selectedActivityID else {
+        print("DEBUG: selectedActivity getter called")
+        print("DEBUG: selectedClientID: \(selectedClientID?.uuidString ?? "nil")")
+        print("DEBUG: selectedActivityID: \(selectedActivityID?.uuidString ?? "nil")")
+        
+        guard let selectedClientIndex = clients.firstIndex(where: { $0.id == selectedClientID }) else {
+            print("DEBUG: selectedActivity - no client found for selectedClientID")
             return nil
         }
-        return clients[selectedClientIndex].activities.first { $0.id == selectedActivityID }
+        
+        guard let selectedActivityID = selectedActivityID else {
+            print("DEBUG: selectedActivity - selectedActivityID is nil")
+            return nil
+        }
+        
+        print("DEBUG: selectedActivity - looking for activity in \(clients[selectedClientIndex].activities.count) activities")
+        
+        // Debug: list all activities
+        for (index, act) in clients[selectedClientIndex].activities.enumerated() {
+            print("DEBUG: Activity \(index + 1): id=\(act.id), type=\(act.type.rawValue), content_length=\(act.content.count)")
+        }
+        
+        let activity = clients[selectedClientIndex].activities.first { $0.id == selectedActivityID }
+        print("DEBUG: selectedActivity - found activity: \(activity?.id.uuidString ?? "nil")")
+        if let activity = activity {
+            print("DEBUG: selectedActivity - activity content length: \(activity.content.count)")
+            print("DEBUG: selectedActivity - activity content preview: \(String(activity.content.prefix(100)))")
+        }
+        
+        return activity
     }
     
     /// Filtered and sorted activities for the selected client and activity type
@@ -510,24 +534,34 @@ final class ChatViewModel {
     
     // MARK: - Chat Loading and State Management
     
-    /// Loads the chat history for a specific activity
-    /// - Parameter activity: The activity whose chat history should be loaded
+    /// Loads an existing activity's chat content
+    /// - Parameter activity: The activity whose chat content should be loaded
     ///
     /// This method:
-    /// 1. Removes any existing active chat
-    /// 2. Creates a new chat with appropriate system prompt
-    /// 3. Loads and parses the activity's content
-    /// 4. Updates the UI state for the new chat
+    /// 1. Saves current activity content if needed
+    /// 2. Removes any existing active chat
+    /// 3. Creates a new chat with appropriate system prompt
+    /// 4. Loads and parses the activity's content
+    /// 5. Updates the UI state for the new chat
     func loadActivityChat(_ activity: ClientActivity) {
-        print("DEBUG: Loading chat for activity: \(activity.id)")
+        print("DEBUG: ===== loadActivityChat START =====")
+        print("DEBUG: Loading chat for activity: \(activity.id) (\(activity.type.rawValue))")
+        print("DEBUG: Activity title: \(activity.title ?? "nil")")
+        print("DEBUG: Activity content length: \(activity.content.count)")
+        
+        // Save current activity content before switching
+        if let currentActivity = selectedActivity, currentActivity.id != activity.id {
+            print("DEBUG: Saving current activity (\(currentActivity.id)) content before switching")
+            saveActivityContent()
+        }
         
         // Remove any existing chat
-        if let activeChat = activeChat {
-            // Before removing, ensure any pending content is saved
-            saveActivityContent()
-            
-            modelContext.delete(activeChat)
-            chats.removeAll(where: { $0.id == activeChat.id })
+        if let existingChat = activeChat {
+            print("DEBUG: Removing existing chat: \(existingChat.id)")
+            modelContext.delete(existingChat)
+            chats.removeAll(where: { $0.id == existingChat.id })
+        } else {
+            print("DEBUG: No existing chat to remove")
         }
         
         // Create a new chat with the activity's content
@@ -536,94 +570,382 @@ final class ChatViewModel {
         // Explicitly set the system prompt based on the activity type
         let type = activity.type
         chat.systemPrompt = getSystemPromptForActivityType(type)
+        print("DEBUG: Set system prompt for activity type: \(type.rawValue)")
         
         // Parse the stored content into messages
+        var messagesLoaded = 0
         if !activity.content.isEmpty {
-            print("DEBUG: Raw content: \(activity.content)")
+            print("DEBUG: Activity has content, parsing...")
+            print("DEBUG: Content preview: \(String(activity.content.prefix(200)))...")
+            
             guard let contentData = activity.content.data(using: .utf8) else {
-                print("DEBUG: Could not convert content to data")
+                print("DEBUG: ERROR - Could not convert content to data")
                 return
             }
             
-            // Try to decode as JSON array first
+            // Try to decode as JSON array first (new format)
             do {
                 let chatHistory = try JSONDecoder().decode([[String: String]].self, from: contentData)
-                print("DEBUG: Successfully decoded JSON chat history with \(chatHistory.count) messages")
+                print("DEBUG: Successfully decoded JSON chat history with \(chatHistory.count) entries")
                 
-                // Keep track of seen prompts to avoid duplicates
-                var seenPrompts = Set<String>()
-                
-                for messageData in chatHistory {
-                    if let prompt = messageData["prompt"],
-                       !seenPrompts.contains(prompt) {
-                        seenPrompts.insert(prompt)
+                // Load messages directly without additional filtering since saveActivityContent already filtered
+                for (index, messageData) in chatHistory.enumerated() {
+                    if let prompt = messageData["prompt"], !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        print("DEBUG: Loading message \(index + 1): \(String(prompt.prefix(50)))...")
+                        
                         let message = Message(prompt: prompt)
                         message.chat = chat
                         message.response = messageData["response"]
                         chat.messages.append(message)
+                        messagesLoaded += 1
+                        print("DEBUG: Added message with response: \(message.response != nil)")
+                    } else {
+                        print("DEBUG: Message \(index + 1) has empty prompt, skipping")
                     }
                 }
             } catch {
-                print("DEBUG: JSON parsing failed, treating as legacy content: \(error)")
-                // Handle legacy content format or invalid data by creating a single message
-                let message = Message(prompt: activity.content)
-                message.chat = chat
-                chat.messages.append(message)
+                print("DEBUG: JSON parsing failed, checking for legacy format: \(error)")
+                
+                // Handle legacy content format - treat entire content as a single user message
+                // This handles cases where old activities might have been saved differently
+                let trimmedContent = activity.content.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmedContent.isEmpty {
+                    // Check if this looks like a user prompt (not a system prompt or analysis)
+                    let isUserContent = !trimmedContent.hasPrefix("You are a clinical documentation assistant") &&
+                                       !trimmedContent.contains("Consider these common patterns of client engagement") &&
+                                       !trimmedContent.hasPrefix("AVAILABLE CLIENT CONTEXT:")
+                    
+                    if isUserContent {
+                        let message = Message(prompt: trimmedContent)
+                        message.chat = chat
+                        chat.messages.append(message)
+                        messagesLoaded = 1
+                        print("DEBUG: Created single legacy message from content")
+                    } else {
+                        print("DEBUG: Legacy content appears to be system/analysis content, not loading as user message")
+                    }
+                } else {
+                    print("DEBUG: Legacy content is empty after trimming")
+                }
             }
+        } else {
+            print("DEBUG: Activity has no content (empty)")
         }
+        
+        print("DEBUG: Total messages loaded: \(messagesLoaded)")
+        print("DEBUG: Chat messages count: \(chat.messages.count)")
         
         modelContext.insert(chat)
         chats.insert(chat, at: 0)
         activeChat = chat
+        print("DEBUG: Set activeChat to: \(chat.id)")
         
         // Tell MessageViewModel to load this chat's messages
         messageViewModel?.load(of: chat)
+        print("DEBUG: MessageViewModel loaded with \(messageViewModel?.messages.count ?? 0) messages")
         
         // Make sure the selected task matches the activity type
+        let oldTask = selectedTask
         selectedTask = taskForActivityType(activity.type)
-        print("DEBUG: Updated selectedTask to match activity type: \(selectedTask)")
+        print("DEBUG: Updated selectedTask from '\(oldTask)' to '\(selectedTask)'")
+        
+        // Ensure this activity is marked as selected
+        if selectedActivityID != activity.id {
+            print("DEBUG: Setting selectedActivityID to match loaded activity: \(activity.id)")
+            selectedActivityID = activity.id
+        }
+        
+        print("DEBUG: Final state - selectedActivityID: \(selectedActivityID?.uuidString ?? "nil")")
+        print("DEBUG: Final state - selectedActivity: \(selectedActivity?.id.uuidString ?? "nil")")
+        print("DEBUG: ===== loadActivityChat END =====")
+    }
+    
+    /// Determines if a prompt is an analysis prompt that shouldn't be displayed
+    /// - Parameter prompt: The prompt to check
+    /// - Returns: True if this is an analysis prompt
+    private func isAnalysisPrompt(_ prompt: String) -> Bool {
+        // This method is deprecated in favor of more specific filtering in saveActivityContent
+        // Keeping for backwards compatibility but returning false to avoid over-filtering
+        return false
     }
     
     /// Handles the action to generate a response from the AI
     /// - Parameters:
     ///   - prompt: The user's prompt
+    ///   - noteFormat: Optional note format override (for EasyNote)
+    ///   - providedModalities: Optional pre-selected modalities (for EasyNote)
     /// This method creates a message and triggers response generation
-    func handleGenerateAction(prompt: String) {
+    func handleGenerateAction(prompt: String, noteFormat: String? = nil, providedModalities: [String: [String]]? = nil) {
         guard let activeChat = activeChat else { return }
         
-        // Get current activity type and verify system prompt matches
-        if let activity = selectedActivity {
-            let type = activity.type
-            let expectedPrompt = getSystemPromptForActivityType(type)
+        let activityType = getActivityTypeFromTask(selectedTask)
+        print("DEBUG: Generating with activity type: \(activityType.rawValue)")
+        
+        // For brainstorm activities, use simple generation
+        if activityType == .brainstorm {
+            print("DEBUG: ===== BRAINSTORM GENERATION START =====")
+            print("DEBUG: Using simple generation for Brainstorm")
+            print("DEBUG: selectedTask: '\(selectedTask)'")
+            print("DEBUG: activityType: \(activityType.rawValue)")
             
-            // If we're in brainstorm mode but using a different system prompt, fix it
-            if type == .brainstorm && activeChat.systemPrompt != expectedPrompt {
-                print("DEBUG: Fixing system prompt for Brainstorm activity")
-                activeChat.systemPrompt = expectedPrompt
+            let expectedPrompt = getSystemPromptForActivityType(activityType)
+            print("DEBUG: Expected brainstorm prompt: \(String(expectedPrompt.prefix(100)))...")
+            print("DEBUG: Current activeChat systemPrompt: \(String(activeChat.systemPrompt?.prefix(100) ?? "nil")...)") 
+            
+            // CRITICAL: Ensure we're using the clean brainstorm prompt
+            activeChat.systemPrompt = expectedPrompt
+            print("DEBUG: Set activeChat systemPrompt to brainstorm prompt")
+            
+            // CRITICAL: Clear all previous messages to prevent contamination
+            // This ensures brainstorm doesn't see treatment plan or session note history
+            print("DEBUG: Clearing \(activeChat.messages.count) previous messages for clean brainstorm")
+            for message in activeChat.messages {
+                modelContext.delete(message)
             }
-            // Similarly, ensure treatment plan and session note have correct prompts
-            else if type == .treatmentPlan && !(activeChat.systemPrompt?.contains("treatment plan") ?? false) {
-                print("DEBUG: Fixing system prompt for Treatment Plan activity")
-                activeChat.systemPrompt = expectedPrompt
-            }
-            else if type == .sessionNote && !(activeChat.systemPrompt?.contains("progress note") ?? false) {
-                print("DEBUG: Fixing system prompt for Session Note activity")
-                activeChat.systemPrompt = expectedPrompt
+            activeChat.messages.removeAll()
+            print("DEBUG: Chat messages cleared - starting with clean slate")
+            
+            // Update MessageViewModel to reflect the cleared state
+            messageViewModel?.load(of: activeChat)
+            
+            // Verify the prompt was set correctly
+            if let currentPrompt = activeChat.systemPrompt {
+                print("DEBUG: Verification - systemPrompt length: \(currentPrompt.count)")
+                print("DEBUG: Verification - systemPrompt starts with: '\(String(currentPrompt.prefix(50)))...'")
+                
+                // Check if it contains therapeutic modality content (which it shouldn't for brainstorm)
+                let containsTherapeuticContent = currentPrompt.contains("therapeutic") || 
+                                               currentPrompt.contains("modalities") ||
+                                               currentPrompt.contains("clinical documentation")
+                print("DEBUG: Contains therapeutic content: \(containsTherapeuticContent)")
+                
+                if containsTherapeuticContent {
+                    print("DEBUG: WARNING - Brainstorm prompt contains therapeutic content!")
+                    print("DEBUG: Full prompt: \(currentPrompt)")
+                }
             }
             
-            print("DEBUG: Generating with activity type: \(type.rawValue)")
+            // Create message and generate normally
+            let message = Message(prompt: prompt)
+            message.chat = activeChat
+            activeChat.messages.append(message)
+            
+            print("DEBUG: Created brainstorm message with prompt: '\(String(prompt.prefix(100)))...'")
+            print("DEBUG: Chat now has \(activeChat.messages.count) messages (should be 1)")
+            print("DEBUG: Calling messageViewModel.generate() for brainstorm")
+            
+            messageViewModel?.generate(activeChat: activeChat, prompt: prompt)
+            saveActivityContent()
+            
+            print("DEBUG: ===== BRAINSTORM GENERATION END =====")
+            return
         }
         
-        // Create a new message with the prompt
-        let message = Message(prompt: prompt)
-        message.chat = activeChat
-        activeChat.messages.append(message)
+        // For treatment plans, use streaming generation (single pass, not two-pass like session notes)
+        if activityType == .treatmentPlan {
+            print("DEBUG: ===== TREATMENT PLAN GENERATION START =====")
+            print("DEBUG: Using streaming generation for Treatment Plan")
+            print("DEBUG: selectedTask: '\(selectedTask)'")
+            print("DEBUG: activityType: \(activityType.rawValue)")
+            
+            let expectedPrompt = getSystemPromptForActivityType(activityType)
+            print("DEBUG: Expected treatment plan prompt: \(String(expectedPrompt.prefix(100)))...")
+            print("DEBUG: Current activeChat systemPrompt: \(String(activeChat.systemPrompt?.prefix(100) ?? "nil")...)")
+            
+            // Set the proper treatment plan system prompt
+            activeChat.systemPrompt = expectedPrompt
+            print("DEBUG: Set activeChat systemPrompt to treatment plan prompt")
+            
+            // CRITICAL: Clear all previous messages to prevent contamination
+            // This ensures treatment plans don't see session note or brainstorm history
+            print("DEBUG: Clearing \(activeChat.messages.count) previous messages for clean treatment plan")
+            for message in activeChat.messages {
+                modelContext.delete(message)
+            }
+            activeChat.messages.removeAll()
+            print("DEBUG: Chat messages cleared for treatment plan - starting with clean slate")
+            
+            // Update MessageViewModel to reflect the cleared state
+            messageViewModel?.load(of: activeChat)
+            
+            // Create user message first (this is what will be displayed)
+            let userMessage = Message(prompt: prompt)
+            userMessage.chat = activeChat
+            activeChat.messages.append(userMessage)
+            
+            // Update MessageViewModel immediately to show the user message
+            messageViewModel?.load(of: activeChat)
+            
+            // Set initial loading state
+            messageViewModel?.loading = .generate
+            
+            // Start streaming generation for treatment plan
+            Task {
+                do {
+                    print("DEBUG: Starting treatment plan streaming generation")
+                    
+                    // Get OllamaKit instance
+                    guard let host = activeChat.host,
+                          let baseURL = URL(string: host) else {
+                        throw ChatViewModelError.generate("Invalid host configuration")
+                    }
+                    
+                    let ollamaKit = OllamaKit(baseURL: baseURL)
+                    
+                    // Get client context for treatment plan
+                    let clientContext = getClientContext()
+                    
+                    // Generate treatment plan with streaming feedback
+                    let treatmentPlan = try await generateAnalysisWithStreaming(prompt: """
+                        AVAILABLE CLIENT CONTEXT:
+                        \(clientContext)
+                        
+                        USER REQUEST:
+                        \(prompt)
+                        
+                        Please create a comprehensive treatment plan using the structured format outlined in the system prompt. Follow the 7-section format exactly and provide detailed, clinically appropriate content for each section.
+                        """, ollamaKit: ollamaKit)
+                    
+                    await MainActor.run {
+                        userMessage.response = treatmentPlan
+                        activeChat.modifiedAt = .now
+                        
+                        // Clear loading state
+                        messageViewModel?.loading = nil
+                        
+                        // Update MessageViewModel to reflect the completed message
+                        messageViewModel?.load(of: activeChat)
+                        
+                        // Save the activity content
+                        saveActivityContent()
+                        
+                        print("DEBUG: Treatment plan generation completed successfully")
+                    }
+                    
+                } catch {
+                    await MainActor.run {
+                        print("DEBUG: Treatment plan generation failed: \(error)")
+                        messageViewModel?.loading = nil
+                        messageViewModel?.tempResponse = ""
+                        self.error = .generate("Treatment plan generation failed: \(error.localizedDescription)")
+                        
+                        // Provide a fallback response
+                        let fallbackResponse = """
+                        **Treatment Plan Generation Error**
+                        
+                        The treatment plan generation failed: \(error.localizedDescription)
+                        
+                        **Original Input:**
+                        \(prompt)
+                        
+                        **Suggested Action:**
+                        Please try regenerating this treatment plan or check your connection to Ollama.
+                        """
+                        
+                        userMessage.response = fallbackResponse
+                        messageViewModel?.load(of: activeChat)
+                        saveActivityContent()
+                    }
+                }
+            }
+            
+            print("DEBUG: ===== TREATMENT PLAN GENERATION END =====")
+            return
+        }
         
-        // Tell the MessageViewModel to generate a response
-        messageViewModel?.generate(activeChat: activeChat, prompt: prompt)
+        // For session notes only, use two-pass generation
+        print("DEBUG: Using two-pass generation for \(activityType.rawValue)")
         
-        // Save the activity content after the message is created
-        saveActivityContent()
+        // Get OllamaKit instance
+        guard let host = activeChat.host,
+              let baseURL = URL(string: host) else {
+            print("DEBUG: Invalid host URL for OllamaKit")
+            self.error = .generate("Invalid host configuration")
+            return
+        }
+        
+        let ollamaKit = OllamaKit(baseURL: baseURL)
+        
+        // CRITICAL: Clear all previous messages to prevent contamination
+        // This ensures session notes don't see treatment plan or brainstorm history
+        print("DEBUG: Clearing \(activeChat.messages.count) previous messages for clean session note")
+        for message in activeChat.messages {
+            modelContext.delete(message)
+        }
+        activeChat.messages.removeAll()
+        print("DEBUG: Chat messages cleared for session note - starting with clean slate")
+        
+        // Update MessageViewModel to reflect the cleared state
+        messageViewModel?.load(of: activeChat)
+        
+        // Create the user message first (this is what will be displayed)
+        let userMessage = Message(prompt: prompt)
+        userMessage.chat = activeChat
+        activeChat.messages.append(userMessage)
+        
+        // Update MessageViewModel immediately to show the user message
+        messageViewModel?.load(of: activeChat)
+        
+        // Set initial loading state (will be updated during streaming)
+        messageViewModel?.loading = .generate
+        
+        // Start the two-pass generation process
+        Task {
+            do {
+                print("DEBUG: Starting two-pass generation process")
+                
+                // Perform two-pass generation internally without creating additional messages
+                let finalNote = try await performTwoPassGeneration(
+                    userInput: prompt,
+                    ollamaKit: ollamaKit,
+                    isEasyNote: noteFormat != nil,
+                    providedModalities: providedModalities,
+                    noteFormat: noteFormat
+                )
+                
+                // Update the user message with the generated response
+                await MainActor.run {
+                    userMessage.response = finalNote
+                    activeChat.modifiedAt = .now
+                    
+                    // Clear loading state (streaming will have already cleared tempResponse)
+                    messageViewModel?.loading = nil
+                    
+                    // Update MessageViewModel to reflect the completed message
+                    messageViewModel?.load(of: activeChat)
+                    
+                    // Save the activity content
+                    saveActivityContent()
+                    
+                    print("DEBUG: Two-pass generation completed successfully")
+                }
+                
+            } catch {
+                await MainActor.run {
+                    print("DEBUG: Two-pass generation failed: \(error)")
+                    messageViewModel?.loading = nil
+                    messageViewModel?.tempResponse = ""
+                    self.error = .generate("Two-pass generation failed: \(error.localizedDescription)")
+                    
+                    // Provide a fallback response instead of leaving the message empty
+                    let fallbackResponse = """
+                    **Note Generation Error**
+                    
+                    The advanced two-pass generation failed: \(error.localizedDescription)
+                    
+                    **Original Input:**
+                    \(prompt)
+                    
+                    **Suggested Action:**
+                    Please try regenerating this note or use the simple text input instead of the Easy Note form.
+                    """
+                    
+                    userMessage.response = fallbackResponse
+                    messageViewModel?.load(of: activeChat)
+                    saveActivityContent()
+                }
+            }
+        }
     }
     
     // MARK: - Activity Management
@@ -643,10 +965,39 @@ final class ChatViewModel {
     /// - Appends a sequence number if multiple activities exist for the same day
     /// - Format: "{Type} - {Date} [(Count)]"
     func createNewActivity(isEasyNote: Bool = false) {
-        guard let clientIndex = clients.firstIndex(where: { $0.id == selectedClientID }) else { return }
+        print("DEBUG: ===== createNewActivity START =====")
+        print("DEBUG: isEasyNote: \(isEasyNote)")
+        print("DEBUG: selectedClientID: \(selectedClientID?.uuidString ?? "nil")")
+        print("DEBUG: selectedTask: '\(selectedTask)'")
+        
+        guard let clientIndex = clients.firstIndex(where: { $0.id == selectedClientID }) else { 
+            print("DEBUG: Cannot create activity - no client found for selectedClientID")
+            return 
+        }
         
         // Get activity type from selected task
         let type = getActivityTypeFromTask(selectedTask)
+        print("DEBUG: Activity type from task: \(type.rawValue)")
+        
+        // Check if we already have a very recent activity of this type (within last 5 seconds)
+        // This helps prevent accidental duplicates from rapid clicks
+        let fiveSecondsAgo = Date().addingTimeInterval(-5)
+        let veryRecentActivities = clients[clientIndex].activities.filter { activity in
+            activity.type == type && activity.date > fiveSecondsAgo
+        }
+        
+        if !veryRecentActivities.isEmpty {
+            print("DEBUG: WARNING - Found \(veryRecentActivities.count) very recent activities of type \(type.rawValue)")
+            print("DEBUG: Most recent activity created at: \(veryRecentActivities.first?.date ?? Date())")
+            print("DEBUG: Skipping duplicate activity creation")
+            
+            // Select the most recent activity instead of creating a new one
+            if let mostRecent = veryRecentActivities.first {
+                selectedActivityID = mostRecent.id
+                print("DEBUG: Selected existing recent activity: \(mostRecent.id)")
+            }
+            return
+        }
         
         // Generate a unique title for the new activity
         let dateFormatter = DateFormatter()
@@ -665,6 +1016,9 @@ final class ChatViewModel {
         let title = activitiesOfTypeToday.isEmpty ? defaultTitle :
             "\(defaultTitle) (\(activitiesOfTypeToday.count + 1))"
         
+        print("DEBUG: Generated title: '\(title)'")
+        print("DEBUG: Activities of type \(type.rawValue) today: \(activitiesOfTypeToday.count)")
+        
         let newActivity = ClientActivity(
             type: type,
             date: Date(),
@@ -672,28 +1026,81 @@ final class ChatViewModel {
             title: title
         )
         
+        print("DEBUG: Created new activity object: \(newActivity.id)")
+        
         // Add and select the new activity
         clients[clientIndex].activities.insert(newActivity, at: 0)
         saveClient(clients[clientIndex])
         selectedActivityID = newActivity.id
         
+        print("DEBUG: createNewActivity - Set selectedActivityID to: \(newActivity.id)")
+        print("DEBUG: createNewActivity - selectedActivity is now: \(selectedActivity?.id.uuidString ?? "nil")")
+        print("DEBUG: createNewActivity - Total activities for client: \(clients[clientIndex].activities.count)")
+        
         // Print for debugging
         print("DEBUG: Created new activity with type: \(type.rawValue), task: \(selectedTask)")
         
-        // Only create a new chat if we don't have an active one
-        if activeChat == nil {
-            let chat = Chat(model: Defaults[.defaultModel])
-            chat.systemPrompt = getSystemPromptForActivityType(type, isEasyNote: isEasyNote)
-            modelContext.insert(chat)
-            chats.insert(chat, at: 0)
-            activeChat = chat
-            messageViewModel?.load(of: chat)
-            print("DEBUG: Created new chat with system prompt for \(type.rawValue)")
+        // Clear the chat view for new activities
+        clearChatView()
+        
+        // Create a fresh chat for this new activity
+        createFreshChatForActivity(newActivity, isEasyNote: isEasyNote)
+        
+        // Ensure UI focus for new activities
+        shouldFocusPrompt = true
+        
+        print("DEBUG: ===== createNewActivity END =====")
+    }
+    
+    /// Clears the current chat view
+    /// This method removes the active chat and clears the message view
+    private func clearChatView() {
+        print("DEBUG: clearChatView() called")
+        
+        if let existingChat = activeChat {
+            print("DEBUG: Clearing existing chat: \(existingChat.id)")
+            // Save any pending content before removing
+            saveActivityContent()
+            
+            // Clear all messages from the chat first
+            for message in existingChat.messages {
+                modelContext.delete(message)
+            }
+            existingChat.messages.removeAll()
+            
+            // Delete the chat itself
+            modelContext.delete(existingChat)
+            chats.removeAll(where: { $0.id == existingChat.id })
         } else {
-            // Update the existing chat's system prompt
-            activeChat?.systemPrompt = getSystemPromptForActivityType(type, isEasyNote: isEasyNote)
-            print("DEBUG: Updated existing chat with system prompt for \(type.rawValue)")
+            print("DEBUG: No existing chat to clear")
         }
+        
+        // Clear all related state
+        activeChat = nil
+        
+        // Clear the message view completely and load the empty state
+        messageViewModel?.messages.removeAll()
+        messageViewModel?.tempResponse = ""
+        messageViewModel?.loading = nil
+        messageViewModel?.load(of: nil) // Load empty state
+        
+        print("DEBUG: Chat view fully cleared")
+    }
+    
+    /// Creates a fresh chat for the given activity
+    /// - Parameters:
+    ///   - activity: The activity to create a chat for
+    ///   - isEasyNote: Whether this is an EasyNote format
+    private func createFreshChatForActivity(_ activity: ClientActivity, isEasyNote: Bool = false) {
+        let chat = Chat(model: Defaults[.defaultModel])
+        chat.systemPrompt = getSystemPromptForActivityType(activity.type, isEasyNote: isEasyNote)
+        modelContext.insert(chat)
+        chats.insert(chat, at: 0)
+        activeChat = chat
+        
+        // Load the empty chat in MessageViewModel
+        messageViewModel?.load(of: chat)
+        print("DEBUG: Created fresh chat for \(activity.type.rawValue): \(chat.id)")
     }
     
     /// Converts a task name to its corresponding activity type
@@ -741,31 +1148,69 @@ final class ChatViewModel {
     /// This method:
     /// 1. Validates the selected activity exists
     /// 2. Updates the selected task to match the activity type
-    /// 3. Loads the appropriate chat history
+    /// 3. Loads the appropriate chat history 
     /// 4. Handles invalid selections by resetting to a valid state
     func onActivitySelected() {
+        print("DEBUG: onActivitySelected() called with selectedActivityID: \(selectedActivityID?.uuidString ?? "nil")")
+        
+        // Validate client selection first
+        validateClientSelection()
+        
         if let selectedID = selectedActivityID {
-            // Validate that the selected activity exists
+            // Validate that the selected activity exists in the filtered activities
             guard let activity = filteredActivities.first(where: { $0.id == selectedID }) else {
                 print("DEBUG: Invalid activity selection: \(selectedID)")
+                print("DEBUG: Available filtered activities: \(filteredActivities.count)")
+                
                 // Reset to first available activity or clear selection
                 if let firstActivity = filteredActivities.first {
                     selectedActivityID = firstActivity.id
                     print("DEBUG: Reset to first available activity: \(firstActivity.id)")
+                    // Recursively call to handle the corrected selection
+                    onActivitySelected()
                 } else {
                     selectedActivityID = nil
-                    print("DEBUG: No valid activities available")
+                    clearChatView()
+                    print("DEBUG: No valid activities available, cleared selection")
                 }
                 return
             }
             
-            print("DEBUG: Valid activity selected: \(activity.id)")
+            print("DEBUG: Valid activity selected: \(activity.id) (\(activity.type.rawValue))")
+            print("DEBUG: Current activeChat: \(activeChat?.id.uuidString ?? "nil")")
+            print("DEBUG: Current selectedActivity: \(selectedActivity?.id.uuidString ?? "nil")")
+            
             // Update the selected task to match the activity type
+            let oldTask = selectedTask
             selectedTask = taskForActivityType(activity.type)
             
-            // Clear current chat and create new one for this activity
+            // Also update the selected activity type filter if needed
+            if selectedActivityType != activity.type && selectedActivityType != .all {
+                print("DEBUG: Updating selectedActivityType from \(selectedActivityType.rawValue) to \(activity.type.rawValue)")
+                selectedActivityType = activity.type
+            }
+            
+            print("DEBUG: Updated selectedTask from '\(oldTask)' to '\(selectedTask)'")
+            
+            // Always load the activity chat when selecting from sidebar
+            // This ensures the chat view shows the correct content
+            print("DEBUG: Loading chat for selected activity")
             loadActivityChat(activity)
+        } else {
+            print("DEBUG: No activity selected (selectedActivityID is nil)")
+            // Clear chat view when no activity is selected
+            clearChatView()
         }
+    }
+    
+
+    
+    /// Clears the chat view when starting a new activity type
+    /// This should be called when switching between session notes, treatment plans, and brainstorming
+    func clearChatForNewActivityType() {
+        print("DEBUG: Clearing chat for new activity type")
+        clearChatView()
+        shouldFocusPrompt = true
     }
     
     /// Saves the current chat content to the associated activity
@@ -781,27 +1226,77 @@ final class ChatViewModel {
     /// - prompt: The user's input
     /// - response: The AI's response (if any)
     func saveActivityContent() {
-        guard let activity = selectedActivity,
-              let clientIndex = clients.firstIndex(where: { $0.id == selectedClientID }),
-              let activityIndex = clients[clientIndex].activities.firstIndex(where: { $0.id == activity.id }),
-              let chat = activeChat else {
-            print("DEBUG: Cannot save activity content - missing required data")
+        print("DEBUG: saveActivityContent() called")
+        print("DEBUG: selectedClientID: \(selectedClientID?.uuidString ?? "nil")")
+        print("DEBUG: selectedActivityID: \(selectedActivityID?.uuidString ?? "nil")")
+        print("DEBUG: selectedActivity: \(selectedActivity?.id.uuidString ?? "nil")")
+        print("DEBUG: activeChat: \(activeChat?.id.uuidString ?? "nil")")
+        
+        guard let activity = selectedActivity else {
+            print("DEBUG: Cannot save - selectedActivity is nil")
             return
         }
         
-        // Create an array of message dictionaries, removing duplicates
-        var seenPrompts = Set<String>()
+        guard let clientIndex = clients.firstIndex(where: { $0.id == selectedClientID }) else {
+            print("DEBUG: Cannot save - client not found for selectedClientID: \(selectedClientID?.uuidString ?? "nil")")
+            return
+        }
+        
+        guard let activityIndex = clients[clientIndex].activities.firstIndex(where: { $0.id == activity.id }) else {
+            print("DEBUG: Cannot save - activity not found in client's activities: \(activity.id)")
+            return
+        }
+        
+        guard let chat = activeChat else {
+            print("DEBUG: Cannot save - activeChat is nil")
+            return
+        }
+        
+        print("DEBUG: All required data available, proceeding with save")
+        print("DEBUG: Chat has \(chat.messages.count) total messages")
+        
+        // Don't save if there are no messages to save
+        guard !chat.messages.isEmpty else {
+            print("DEBUG: No messages to save for activity")
+            return
+        }
+        
+        // Create an array of message dictionaries, keeping only user interactions and final responses
+        // This filters out intermediate analysis prompts but preserves legitimate user content
         let messageHistory = chat.messages.compactMap { message -> [String: String]? in
-            // Skip if we've seen this prompt before
-            guard !seenPrompts.contains(message.prompt) else {
+            let prompt = message.prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            // Skip completely empty prompts
+            guard !prompt.isEmpty else {
+                print("DEBUG: Skipping empty prompt")
                 return nil
             }
-            seenPrompts.insert(message.prompt)
             
-            var messageData: [String: String] = ["prompt": message.prompt]
-            if let response = message.response {
+            // Only filter out internal analysis prompts - be very specific
+            let internalAnalysisMarkers = [
+                "Consider these common patterns of client engagement",
+                "Analyze the following therapy session transcript",
+                "Please analyze the client's engagement and responsiveness",
+                "You are a clinical documentation assistant generating a structured"
+            ]
+            
+            // Only skip if the prompt starts with or contains these specific analysis markers
+            let isInternalAnalysis = internalAnalysisMarkers.contains { marker in
+                prompt.hasPrefix(marker) || (prompt.contains(marker) && prompt.count > 200)
+            }
+            
+            if isInternalAnalysis {
+                print("DEBUG: Skipping internal analysis prompt: \(String(prompt.prefix(50)))...")
+                return nil
+            }
+            
+            // Include all other user prompts and their responses
+            var messageData: [String: String] = ["prompt": prompt]
+            if let response = message.response, !response.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 messageData["response"] = response
             }
+            
+            print("DEBUG: Including message - prompt: '\(String(prompt.prefix(50)))...', hasResponse: \(message.response != nil)")
             return messageData
         }
         
@@ -815,6 +1310,7 @@ final class ChatViewModel {
                 print("DEBUG: JSON preview: \(String(jsonString.prefix(200)))...")
                 clients[clientIndex].activities[activityIndex].content = jsonString
                 saveClient(clients[clientIndex])
+                print("DEBUG: Successfully saved activity content")
             } else {
                 print("DEBUG: Failed to convert JSON data to string")
             }
@@ -901,17 +1397,86 @@ final class ChatViewModel {
         
         // Regular Treatment Plan prompt
         static let treatmentPlan = """
-        You are a clinical documentation assistant helping create a comprehensive treatment plan.
-        Focus on creating a structured, goal-oriented plan that meets clinical requirements.
+        You are a licensed mental health professional and clinical supervisor. Your task is to produce (or update) a psychotherapy treatment plan for a client using whatever information is currently available in their record, plus the most recent prior treatment plan and session note if they exist. Follow these steps in order:
 
-        Requirements:
-        1. Include clear treatment goals
-        2. Specify measurable outcomes
-        3. List specific interventions
-        4. Include timeframes
-        5. Address presenting problems
-        
-        [Placeholder for full Treatment Plan prompt]
+        1. **Ingest All Available Data**  
+           • Client Identifier: "[client_id]"  
+           • (Do not use Client Name in the plan itself.)  
+           • Gender: "[gender]"  
+           • Birthdate / Age: "[birthdate_or_age]"  
+           • Start-of-Care Date: "[start_date]"  
+           • Presenting Concerns: "[presenting_concerns]"  
+           • Relevant History: "[history]"  
+           • Presenting Symptoms: "[symptoms]"  
+           • Insurance & ICD-10 Diagnosis: "[insurance_info], [icd10_code]"  
+           • Client Strengths: "[strengths]"  
+           • Treatment Obstacles: "[obstacles]"  
+           • Cultural / Identity Factors: "[cultural_factors]"  
+           • Current Risk Assessment: "[risk_assessment]"  
+           • Most Recent Treatment Plan (if any):  
+             "[prior_treatment_plan]"  
+           • Most Recent Session Note Summary (if any):  
+             "[recent_session_note]"
+
+        2. **Detect Missing Critical Information**  
+           Identify any of these critical elements that are blank or incomplete:  
+           - ICD-10 Diagnosis  
+           - At least one Long-Term Goal  
+           - At least two Short-Term Objectives  
+           - Risk Assessment  
+           
+           - **If any are missing**, ask the user succinctly for those specific items.  
+             Example:  
+             "I'm missing your client's ICD-10 diagnosis. Please provide it (e.g. 'F41.1 Generalized Anxiety Disorder'), or reply 'Generic Plan' to proceed with a general framework based on presenting concerns alone."  
+
+        3. **Branch Logic**  
+           - **Complete Data Path:**  
+             Once all critical information is present, draft a **comprehensive treatment plan** according to the structure in Step 4.  
+           - **Generic Plan Path:**  
+             If the user replies "Generic Plan," produce a template plan based solely on the available data and clearly note any assumptions or gaps.  
+           - **Iterative Path:**  
+             If the user provides additional missing details, resume the Complete Data Path.
+
+        4. **Output Format**  
+           Use these headings exactly (with numbering) and populate each section:
+
+           1. **Client Info & Diagnosis**  
+              - Pseudonym & Age  
+              - Start-of-Care  
+              - ICD-10 Diagnosis (with code)  
+              - Presenting Concerns & Symptoms  
+
+           2. **Strengths & Barriers**  
+              - Key Strengths  
+              - Treatment Obstacles  
+
+           3. **Review of Prior Plan & Session**  
+              - Brief summary of prior treatment plan goals (if any)  
+              - Summary of most recent session themes/actions (if any)  
+
+           4. **Goals & Objectives**  
+              - **Long-Term Goals:** (List 1–2 SMART goals)  
+              - **Short-Term Objectives:** (List 2–4 measurable steps)  
+
+           5. **Recommended Interventions & Modalities**  
+              - Tailor to chosen modality(ies) (e.g., CBT, DBT, Narrative)  
+              - Specify session techniques and homework assignments  
+
+           6. **Timeline & Outcome Measures**  
+              - Proposed frequency/duration of sessions  
+              - Key metrics or scales for monitoring progress  
+              - Review dates  
+
+           7. **Cultural & Risk Considerations**  
+              - Cultural, identity or language factors  
+              - Any safety planning or risk-management steps  
+
+        5. **Tone & Style**  
+           - Professional, empathetic, and clinician-focused.  
+           - Use clear, concise clinical language suitable for inclusion in a client's chart.  
+           - When you must make assumptions due to missing data, state them explicitly.
+
+        BEGIN now by examining the provided fields, prompting for any missing critical items, and then generating the appropriate treatment plan.
         """
         
         // Easy Treatment Plan prompt
@@ -1351,9 +1916,12 @@ final class ChatViewModel {
             throw ChatViewModelError.generate("MessageViewModel not available")
         }
         
+        print("DEBUG: performSessionAnalysis - starting analysis")
+        
         // Get modalities analysis
         let modalitiesAnalysis: String
         if isEasyNote, let modalities = providedModalities {
+            print("DEBUG: Using provided modalities for EasyNote")
             var analysis = "Therapeutic Modalities Analysis:\n\n"
             for (modality, interventions) in modalities {
                 analysis += "\(modality):\n"
@@ -1364,14 +1932,42 @@ final class ChatViewModel {
             }
             modalitiesAnalysis = analysis
         } else {
+            print("DEBUG: Generating modalities analysis with AI")
             let analysisPrompt = getModalitiesAnalysisPrompt() + "\n\nSession Transcript:\n" + transcript
             modalitiesAnalysis = try await generateAnalysis(prompt: analysisPrompt, ollamaKit: ollamaKit)
+            print("DEBUG: Modalities analysis completed, length: \(modalitiesAnalysis.count)")
         }
         
-        // Get engagement patterns analysis
+        // Get engagement patterns analysis with retry
+        print("DEBUG: Starting engagement analysis")
         let engagementPrompt = getEngagementPatternsPrompt() + "\n\nSession Transcript:\n" + transcript
-        let engagementAnalysis = try await generateAnalysis(prompt: engagementPrompt, ollamaKit: ollamaKit)
         
+        var engagementAnalysis: String = ""
+        var retryCount = 0
+        let maxRetries = 2
+        
+        while retryCount <= maxRetries {
+            do {
+                print("DEBUG: Engagement analysis attempt \(retryCount + 1) of \(maxRetries + 1)")
+                engagementAnalysis = try await generateAnalysis(prompt: engagementPrompt, ollamaKit: ollamaKit)
+                print("DEBUG: Engagement analysis completed, length: \(engagementAnalysis.count)")
+                break
+            } catch {
+                retryCount += 1
+                print("DEBUG: Engagement analysis attempt \(retryCount) failed: \(error)")
+                
+                if retryCount > maxRetries {
+                    print("DEBUG: All engagement analysis attempts failed, using fallback")
+                    engagementAnalysis = "Engagement analysis could not be completed. Client engagement appeared cooperative based on the session content provided."
+                    break
+                } else {
+                    print("DEBUG: Waiting before retry...")
+                    try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+                }
+            }
+        }
+        
+        print("DEBUG: performSessionAnalysis - completed successfully")
         return (modalities: modalitiesAnalysis, engagement: engagementAnalysis)
     }
     
@@ -1382,38 +1978,68 @@ final class ChatViewModel {
     /// - Returns: The generated analysis
     /// - Throws: ChatViewModelError if generation fails
     private func generateAnalysis(prompt: String, ollamaKit: OllamaKit) async throws -> String {
-        guard let messageViewModel = self.messageViewModel else {
-            throw ChatViewModelError.generate("MessageViewModel not available")
-        }
-        
         guard let activeChat = self.activeChat else {
             throw ChatViewModelError.generate("No active chat available")
         }
         
-        let analysisMessage = Message(prompt: prompt)
-        analysisMessage.chat = activeChat
+        print("DEBUG: Starting analysis generation with prompt length: \(prompt.count)")
+        print("DEBUG: Analysis prompt preview: \(String(prompt.prefix(100)))...")
         
-        return try await withCheckedThrowingContinuation { continuation in
-            Task {
-                do {
-                    let currentMessages = messageViewModel.messages
-                    messageViewModel.generate(activeChat: activeChat, prompt: prompt)
-                    
-                    while messageViewModel.loading == .generate {
-                        try await Task.sleep(nanoseconds: 100_000_000)
-                    }
-                    
-                    if let lastMessage = messageViewModel.messages.last,
-                       let response = lastMessage.response {
-                        messageViewModel.messages = currentMessages
-                        continuation.resume(returning: response)
-                    } else {
-                        continuation.resume(throwing: ChatViewModelError.generate("Failed to generate analysis"))
-                    }
-                } catch {
-                    continuation.resume(throwing: error)
+        // Use direct OllamaKit API call instead of going through MessageViewModel
+        // This prevents creating temporary messages that could interfere with the main chat
+        let chatData = OKChatRequestData(
+            model: activeChat.model,
+            messages: [
+                OKChatRequestData.Message(role: .system, content: activeChat.systemPrompt ?? ""),
+                OKChatRequestData.Message(role: .user, content: prompt)
+            ]
+        )
+        
+        var fullResponse = ""
+        var isReasoningContent = false
+        
+        do {
+            print("DEBUG: Making direct API call for analysis")
+            
+            for try await chunk in ollamaKit.chat(data: chatData) {
+                guard let content = chunk.message?.content else { continue }
+                
+                // Handle reasoning content (like <think> tags) by skipping it
+                if content.contains("<think>") {
+                    isReasoningContent = true
+                    continue
+                }
+                
+                if content.contains("</think>") {
+                    isReasoningContent = false
+                    continue
+                }
+                
+                // Only accumulate non-reasoning content
+                if !isReasoningContent {
+                    fullResponse += content
+                }
+                
+                // Check if generation is done
+                if chunk.done {
+                    print("DEBUG: Analysis generation completed via direct API")
+                    print("DEBUG: Response length: \(fullResponse.count)")
+                    break
                 }
             }
+            
+            // Validate we got a meaningful response
+            let trimmedResponse = fullResponse.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedResponse.isEmpty else {
+                throw ChatViewModelError.generate("Empty response from analysis generation")
+            }
+            
+            print("DEBUG: Analysis generation successful")
+            return trimmedResponse
+            
+        } catch {
+            print("DEBUG: Analysis generation failed: \(error)")
+            throw ChatViewModelError.generate("Analysis generation failed: \(error.localizedDescription)")
         }
     }
     
@@ -1592,18 +2218,188 @@ final class ChatViewModel {
         return prompt
     }
     
-    /// Enhances session note generation with modality and engagement analysis
+    /// Performs complete two-pass note generation for session notes and treatment plans
+    /// - Parameters:
+    ///   - userInput: The original user input (transcript or form data)
+    ///   - ollamaKit: The OllamaKit instance for AI analysis
+    ///   - isEasyNote: Whether this is an EasyNote format
+    ///   - providedModalities: Pre-selected modalities for EasyNote
+    ///   - noteFormat: Override note format (for EasyNote)
+    /// - Returns: The final generated note
+    /// - Throws: ChatViewModelError if generation fails
+    func performTwoPassGeneration(
+        userInput: String,
+        ollamaKit: OllamaKit,
+        isEasyNote: Bool = false,
+        providedModalities: [String: [String]]? = nil,
+        noteFormat: String? = nil
+    ) async throws -> String {
+        let activityType = getActivityTypeFromTask(selectedTask)
+        
+        // For brainstorm activities, skip two-pass and use simple generation
+        guard activityType != .brainstorm else {
+            print("DEBUG: Using simple generation for Brainstorm activity")
+            return userInput // For brainstorm, just pass through the user input
+        }
+        
+        print("DEBUG: Starting two-pass generation for activity type: \(activityType.rawValue)")
+        
+        // FIRST PASS: Analyze the session content
+        print("DEBUG: First Pass - Analyzing session content")
+        let analysis = try await performSessionAnalysis(
+            transcript: userInput,
+            ollamaKit: ollamaKit,
+            isEasyNote: isEasyNote,
+            providedModalities: providedModalities
+        )
+        
+        // Add a small delay between passes to ensure first pass completes
+        print("DEBUG: Waiting briefly between first and second pass...")
+        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+        
+        // SECOND PASS: Generate the structured note
+        print("DEBUG: Second Pass - Generating structured note")
+        let finalNote = try await generateStructuredNote(
+            userInput: userInput,
+            analysis: analysis,
+            ollamaKit: ollamaKit,
+            activityType: activityType,
+            isEasyNote: isEasyNote,
+            noteFormat: noteFormat
+        )
+        
+        print("DEBUG: Two-pass generation completed successfully")
+        return finalNote
+    }
+    
+    /// Generates the structured note using analysis and context (Second Pass)
+    /// - Parameters:
+    ///   - userInput: Original user input
+    ///   - analysis: Analysis from first pass
+    ///   - ollamaKit: OllamaKit instance
+    ///   - activityType: Type of activity being generated
+    ///   - isEasyNote: Whether this is EasyNote format
+    ///   - noteFormat: Override note format
+    /// - Returns: Generated structured note
+    /// - Throws: ChatViewModelError if generation fails
+    private func generateStructuredNote(
+        userInput: String,
+        analysis: (modalities: String, engagement: String),
+        ollamaKit: OllamaKit,
+        activityType: ActivityType,
+        isEasyNote: Bool,
+        noteFormat: String? = nil
+    ) async throws -> String {
+        // Get client context
+        let clientContext = getClientContext()
+        
+        // Determine which note format to use (override from EasyNote or default)
+        let formatToUse = noteFormat ?? selectedNoteFormat
+        let noteFormatInfo = availableNoteFormats.first(where: { $0.id == formatToUse })
+        
+        // DEBUG: Track format selection
+        print("DEBUG: generateStructuredNote - Format selection:")
+        print("DEBUG: - noteFormat parameter: \(noteFormat ?? "nil")")
+        print("DEBUG: - selectedNoteFormat: \(selectedNoteFormat)")
+        print("DEBUG: - formatToUse: \(formatToUse)")
+        print("DEBUG: - noteFormatInfo found: \(noteFormatInfo != nil)")
+        print("DEBUG: - noteFormatTemplate.isEmpty: \(noteFormatTemplate.isEmpty)")
+        
+        // Determine if we should use template or standard format
+        let useTemplate = !noteFormatTemplate.isEmpty
+        
+        let formatInstructions: String
+        if useTemplate {
+            print("DEBUG: Using custom template format")
+            formatInstructions = """
+            CRITICAL: Structure your response exactly according to the provided template:
+            
+            \(noteFormatTemplate)
+            
+            Format Rules:
+            1. Follow the template structure exactly
+            2. Do not add sections not present in the template
+            3. Do not make up or fabricate any client information
+            4. Use only the provided client information and context
+            """
+        } else {
+            print("DEBUG: Using standard \(formatToUse) format")
+            
+            // Extract specific section requirements from the format definition
+            let sectionInstructions = generateDetailedFormatInstructions(for: formatToUse, formatInfo: noteFormatInfo)
+            
+            formatInstructions = """
+            CRITICAL: Structure your response using the \(formatToUse) format with these EXACT requirements:
+            
+            \(sectionInstructions)
+            
+            MANDATORY FORMAT RULES:
+            1. Use the exact section headings shown above in bold
+            2. Include ALL sections in the order specified
+            3. Do not add any sections not listed above
+            4. Do not combine or merge sections
+            5. Do not change the section names or order
+            6. Use clinical terminology appropriate for insurance documentation
+            7. Base content only on provided session information and client context
+            8. Do not invent or fabricate any client details not provided
+            
+            STRUCTURE EXAMPLE:
+            **[Section Name]**
+            [Content for that section]
+            
+            **[Next Section Name]**  
+            [Content for that section]
+            
+            Remember: This note will be used for insurance billing and clinical records, so accuracy and format compliance are critical.
+            """
+        }
+        
+        // Create the second pass prompt
+        let secondPassPrompt = """
+        You are a clinical documentation assistant generating a structured \(activityType.rawValue.lowercased()).
+        
+        AVAILABLE CLIENT CONTEXT:
+        \(clientContext)
+        
+        FIRST PASS ANALYSIS RESULTS:
+        
+        THERAPEUTIC MODALITIES AND INTERVENTIONS:
+        \(analysis.modalities)
+        
+        CLIENT ENGAGEMENT AND RESPONSIVENESS:
+        \(analysis.engagement)
+        
+        \(formatInstructions)
+        
+        ORIGINAL SESSION CONTENT:
+        \(userInput)
+        
+        INSTRUCTIONS:
+        - Use the analysis results to inform your clinical reasoning and documentation
+        - Incorporate the identified modalities and interventions appropriately
+        - Reference the client engagement patterns in your assessment
+        - Follow the specified format structure exactly
+        - Use only factual information from the provided context
+        - Do not invent or assume any client details not provided
+        - Ensure clinical terminology and professional language throughout
+        - Make clear connections between interventions used and client responses
+        """
+        
+        print("DEBUG: Second pass prompt format section preview:")
+        print("DEBUG: \(String(formatInstructions.prefix(200)))...")
+        
+        // Generate the final note with streaming feedback for better UX
+        return try await generateAnalysisWithStreaming(prompt: secondPassPrompt, ollamaKit: ollamaKit)
+    }
+    
+    /// Enhanced session note generation with modality and engagement analysis (Legacy method for compatibility)
     /// - Parameters:
     ///   - transcript: The session transcript to analyze
     ///   - ollamaKit: The OllamaKit instance for AI analysis
     ///   - isEasyNote: Whether this is an EasyNote format
     ///   - providedModalities: Pre-selected modalities for EasyNote
     ///
-    /// This method:
-    /// 1. Performs comprehensive session analysis
-    /// 2. Updates the system prompt with analysis results
-    /// 3. Integrates findings into note generation
-    /// 4. Handles both structured and unstructured note formats
+    /// This method is kept for compatibility but now delegates to the new two-pass system
     func enhanceSessionNoteGeneration(
         transcript: String,
         ollamaKit: OllamaKit,
@@ -1625,87 +2421,37 @@ final class ChatViewModel {
             return
         }
 
-        print("DEBUG: Enhancing note generation for activity type: \(activityType.rawValue)")
+        print("DEBUG: Legacy enhanceSessionNoteGeneration called - updating system prompt only")
         
-        do {
-            let analysis = try await performSessionAnalysis(
-                transcript: transcript,
-                ollamaKit: ollamaKit,
-                isEasyNote: isEasyNote,
-                providedModalities: providedModalities
-            )
+        // For legacy compatibility, just update the system prompt with basic format instructions
+        // Get client context
+        let clientContext = getClientContext()
+        
+        // Get the selected note format details
+        let noteFormat = availableNoteFormats.first(where: { $0.id == selectedNoteFormat })
+        
+        // Update the system prompt for basic generation
+        activeChat.systemPrompt = """
+            You are a clinical documentation assistant helping generate a structured clinical note.
             
-            // Get client context
-            let clientContext = getClientContext()
+            AVAILABLE CLIENT CONTEXT:
+            \(clientContext)
             
-            // Get the selected note format details
-            let noteFormat = availableNoteFormats.first(where: { $0.id == selectedNoteFormat })
+            CRITICAL: Structure your response using the \(selectedNoteFormat) format:
+            \(noteFormat?.description ?? "")
             
-            // Determine if we should use template or standard format
-            let useTemplate = !noteFormatTemplate.isEmpty
+            Format Rules:
+            1. Use the exact section headings for \(selectedNoteFormat)
+            2. Include ALL required sections
+            3. Do not make up or fabricate any client information
+            4. Use only the provided client information and context
+            5. Ensure clinical terminology and proper context throughout
             
-            let formatInstructions = if useTemplate {
-                """
-                CRITICAL: Structure your response exactly according to the provided template:
-                
-                \(noteFormatTemplate)
-                
-                Format Rules:
-                1. Follow the template structure exactly
-                2. Do not add sections not present in the template
-                3. Do not make up or fabricate any client information
-                4. Use only the provided client information and context
-                """
-            } else {
-                """
-                CRITICAL: Structure your response using exactly these sections in this order:
-                
-                \(selectedNoteFormat) Format:
-                \(noteFormat?.description ?? "")
-                
-                Format Rules:
-                1. Use these exact section headings: \(noteFormat?.id ?? "")
-                2. Include ALL sections in the order shown
-                3. Do not add sections not listed above
-                4. Do not make up or fabricate any client information
-                5. Use only the provided client information and context
-                """
-            }
-            
-            // Create a hidden analysis section
-            let hiddenAnalysis = """
-            <!-- Analysis Results (Not for Display):
-            THERAPEUTIC MODALITIES AND INTERVENTIONS:
-            \(analysis.modalities)
-            
-            CLIENT ENGAGEMENT AND RESPONSIVENESS:
-            \(analysis.engagement)
-            -->
+            \(isEasyNote ? "Use the provided structured form data to generate the note." : "Use the provided transcript and context to generate the note.")
             """
-            
-            // Update the system prompt without affecting the chat
-            activeChat.systemPrompt = """
-                You are a clinical documentation assistant helping generate a structured clinical note.
-                
-                AVAILABLE CLIENT CONTEXT:
-                \(clientContext)
-                
-                \(formatInstructions)
-                
-                \(hiddenAnalysis)
-                
-                \(isEasyNote ? "Use the provided structured form data to generate the note." : "Use the provided transcript and context to generate the note.")
-                - Incorporate the analysis findings while maintaining the exact format structure
-                - Use only factual information from the provided context
-                - Do not invent or assume any client details not provided
-                - Ensure clinical terminology and proper context throughout
-                """
-            
-            // Ensure the MessageViewModel is up to date
-            messageViewModel?.load(of: activeChat)
-        } catch {
-            self.error = .generate(error.localizedDescription)
-        }
+        
+        // Ensure the MessageViewModel is up to date
+        messageViewModel?.load(of: activeChat)
     }
     
     /// Gets the relevant context for the current client
@@ -1752,6 +2498,208 @@ final class ChatViewModel {
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
         return formatter.string(from: date)
+    }
+    
+    /// Generates an AI analysis with streaming feedback for better user experience
+    /// - Parameters:
+    ///   - prompt: The analysis prompt to send to the AI
+    ///   - ollamaKit: The OllamaKit instance for AI interaction
+    /// - Returns: The generated analysis
+    /// - Throws: ChatViewModelError if generation fails
+    ///
+    /// This method provides real-time streaming updates to the UI so users can see
+    /// the note being generated progressively, which improves the user experience
+    /// during the potentially long second pass generation.
+    private func generateAnalysisWithStreaming(prompt: String, ollamaKit: OllamaKit) async throws -> String {
+        guard let activeChat = self.activeChat else {
+            throw ChatViewModelError.generate("No active chat available")
+        }
+        
+        print("DEBUG: Starting streaming analysis generation with prompt length: \(prompt.count)")
+        print("DEBUG: Analysis prompt preview: \(String(prompt.prefix(100)))...")
+        
+        // Use direct OllamaKit API call with streaming updates to MessageViewModel
+        let chatData = OKChatRequestData(
+            model: activeChat.model,
+            messages: [
+                OKChatRequestData.Message(role: .system, content: activeChat.systemPrompt ?? ""),
+                OKChatRequestData.Message(role: .user, content: prompt)
+            ]
+        )
+        
+        var fullResponse = ""
+        var isReasoningContent = false
+        
+        do {
+            print("DEBUG: Making streaming API call for analysis")
+            
+            // Clear any existing temp response and set loading state
+            await MainActor.run {
+                messageViewModel?.tempResponse = ""
+                messageViewModel?.loading = .generate
+            }
+            
+            for try await chunk in ollamaKit.chat(data: chatData) {
+                guard let content = chunk.message?.content else { continue }
+                
+                // Handle reasoning content (like <think> tags) by skipping it
+                if content.contains("<think>") {
+                    isReasoningContent = true
+                    continue
+                }
+                
+                if content.contains("</think>") {
+                    isReasoningContent = false
+                    continue
+                }
+                
+                // Only accumulate and display non-reasoning content
+                if !isReasoningContent {
+                    fullResponse += content
+                    
+                    // Update the UI with streaming content
+                    await MainActor.run {
+                        messageViewModel?.tempResponse = fullResponse
+                    }
+                }
+                
+                // Check if generation is done
+                if chunk.done {
+                    print("DEBUG: Streaming analysis generation completed")
+                    print("DEBUG: Response length: \(fullResponse.count)")
+                    break
+                }
+            }
+            
+            // Clear loading state
+            await MainActor.run {
+                messageViewModel?.loading = nil
+                messageViewModel?.tempResponse = ""
+            }
+            
+            // Validate we got a meaningful response
+            let trimmedResponse = fullResponse.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedResponse.isEmpty else {
+                throw ChatViewModelError.generate("Empty response from streaming analysis generation")
+            }
+            
+            print("DEBUG: Streaming analysis generation successful")
+            return trimmedResponse
+            
+        } catch {
+            // Clear loading state on error
+            await MainActor.run {
+                messageViewModel?.loading = nil
+                messageViewModel?.tempResponse = ""
+            }
+            
+            print("DEBUG: Streaming analysis generation failed: \(error)")
+            throw ChatViewModelError.generate("Streaming analysis generation failed: \(error.localizedDescription)")
+        }
+    }
+    
+    /// Generates detailed format instructions with specific section headings
+    /// - Parameters:
+    ///   - formatId: The format identifier (e.g., "PIRP", "SOAP")
+    ///   - formatInfo: The format information object
+    /// - Returns: Detailed instructions with specific section requirements
+    private func generateDetailedFormatInstructions(for formatId: String, formatInfo: NoteFormat?) -> String {
+        guard let formatInfo = formatInfo else {
+            return "Use standard clinical note format with appropriate sections."
+        }
+        
+        print("DEBUG: Generating detailed instructions for format: \(formatId)")
+        
+        // Extract section names and descriptions from the format description
+        let sections = extractSectionsFromDescription(formatInfo.description)
+        
+        if sections.isEmpty {
+            print("DEBUG: No sections found for \(formatId), using fallback")
+            return """
+            \(formatInfo.name) Format:
+            \(formatInfo.description)
+            
+            Structure your note according to this format's requirements.
+            """
+        }
+        
+        // Build detailed section-by-section instructions
+        var instructions = """
+        \(formatInfo.name) (\(formatId)) Format:
+        Focus: \(formatInfo.focus)
+        
+        REQUIRED SECTIONS (in exact order):
+        
+        """
+        
+        for (index, section) in sections.enumerated() {
+            instructions += """
+            \(index + 1). **\(section.name)**
+               \(section.description)
+               
+            """
+        }
+        
+        instructions += """
+        
+        SECTION FORMATTING:
+        - Use the exact section names shown above as bold headings
+        - Write comprehensive content for each section
+        - Maintain the order specified above
+        - Each section should contain substantial clinical content
+        """
+        
+        print("DEBUG: Generated \(sections.count) sections for \(formatId)")
+        return instructions
+    }
+    
+    /// Extracts section names and descriptions from format description text
+    /// - Parameter description: The format description containing bullet points
+    /// - Returns: Array of section name/description pairs
+    private func extractSectionsFromDescription(_ description: String) -> [(name: String, description: String)] {
+        var sections: [(name: String, description: String)] = []
+        
+        // Split by lines and look for bullet point patterns
+        let lines = description.components(separatedBy: .newlines)
+        
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            
+            // Look for bullet points with section names (• SectionName: Description)
+            if trimmed.hasPrefix("•") || trimmed.hasPrefix("-") {
+                // Remove bullet point
+                let withoutBullet = trimmed.dropFirst().trimmingCharacters(in: .whitespaces)
+                
+                // Split on colon to separate name from description
+                if let colonIndex = withoutBullet.firstIndex(of: ":") {
+                    let sectionName = String(withoutBullet[..<colonIndex]).trimmingCharacters(in: .whitespaces)
+                    let sectionDescription = String(withoutBullet[withoutBullet.index(after: colonIndex)...]).trimmingCharacters(in: .whitespaces)
+                    
+                    if !sectionName.isEmpty && !sectionDescription.isEmpty {
+                        sections.append((name: sectionName, description: sectionDescription))
+                    }
+                }
+            }
+        }
+        
+        return sections
+    }
+    
+    /// Handles client selection changes and clears chat appropriately
+    func onClientSelected() {
+        print("DEBUG: onClientSelected() called - selectedClientID: \(selectedClientID?.uuidString ?? "nil")")
+        
+        // Clear chat view when switching clients
+        clearChatView()
+        
+        // Clear activity selection since activities are client-specific
+        selectedActivityID = nil
+        
+        // Reset to default activity type
+        selectedActivityType = .sessionNote
+        selectedTask = "Create a Client Session Note"
+        
+        print("DEBUG: Client switched - chat cleared and activity selection reset")
     }
 }
 

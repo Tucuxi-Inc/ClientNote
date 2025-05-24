@@ -169,12 +169,41 @@ struct ChatView: View {
     }
     
     private func updateSystemPrompt() {
+        print("DEBUG: updateSystemPrompt() called - selectedTask: '\(chatViewModel.selectedTask)'")
+        
         // Get the appropriate system prompt from ChatViewModel
-        let type = chatViewModel.getActivityTypeFromTask(chatViewModel.selectedTask)
-        let systemPrompt = chatViewModel.getSystemPromptForActivityType(type)
+        let newType = chatViewModel.getActivityTypeFromTask(chatViewModel.selectedTask)
+        let systemPrompt = chatViewModel.getSystemPromptForActivityType(newType)
+        
+        print("DEBUG: New activity type from task: \(newType.rawValue)")
+        print("DEBUG: Current activeChat: \(chatViewModel.activeChat?.id.uuidString ?? "nil")")
+        print("DEBUG: Current selectedActivity: \(chatViewModel.selectedActivity?.id.uuidString ?? "nil")")
+        
+        // Check if we're switching between different activity types via toolbar picker
+        let currentPrompt = chatViewModel.activeChat?.systemPrompt ?? ""
+        let previousType = currentPrompt.lowercased().contains("brainstorm") ? ActivityType.brainstorm :
+                          currentPrompt.lowercased().contains("treatment plan") ? ActivityType.treatmentPlan :
+                          ActivityType.sessionNote
+        
+        print("DEBUG: Previous type: \(previousType.rawValue), New type: \(newType.rawValue)")
+        
+        // Only clear chat if:
+        // 1. We're switching between different activity types AND
+        // 2. There's no currently selected activity (meaning this is a toolbar switch, not sidebar selection)
+        if previousType != newType && chatViewModel.activeChat != nil && chatViewModel.selectedActivity == nil {
+            print("DEBUG: Switching activity type via toolbar from \(previousType.rawValue) to \(newType.rawValue), clearing chat")
+            chatViewModel.clearChatForNewActivityType()
+        } else if previousType != newType && chatViewModel.selectedActivity != nil {
+            print("DEBUG: Activity type change detected but selectedActivity exists, updating system prompt only")
+        }
         
         // Update the active chat's system prompt
-        chatViewModel.activeChat?.systemPrompt = systemPrompt
+        if let activeChat = chatViewModel.activeChat {
+            activeChat.systemPrompt = systemPrompt
+            print("DEBUG: Updated system prompt for \(newType.rawValue)")
+        } else {
+            print("DEBUG: No active chat to update system prompt")
+        }
     }
     
     var body: some View {
@@ -239,176 +268,251 @@ struct ChatView: View {
         
         var body: some View {
             ScrollViewReader { proxy in
-                VStack {
-                    MessagesListView(
-                        messages: messageViewModel.messages,
-                        tempResponse: messageViewModel.tempResponse,
-                        isGenerating: messageViewModel.loading == .generate,
-                        copyAction: copyAction,
-                        regenerateAction: regenerateAction
-                    )
-                    .scrollContentBackground(.hidden)
-                    .background(Color.euniFieldBackground.opacity(0.5))
-                    
-                    ChatInputView(
-                        prompt: $prompt,
-                        isEasyNotePresented: $isEasyNotePresented,
-                        messageViewModel: messageViewModel,
-                        chatViewModel: chatViewModel,
-                        fontSize: fontSize,
-                        isFocused: _isFocused,
-                        generateAction: generateAction,
-                        onActiveChatChanged: onActiveChatChanged
-                    )
-                    .padding(.top, 8)
-                    .padding(.bottom, 12)
-                    .padding(.horizontal)
-                    .visible(if: chatViewModel.activeChat.isNotNil, removeCompletely: true)
-                }
-                .onAppear {
-                    self.scrollProxy = proxy
-                }
-                .onChange(of: chatViewModel.activeChat?.id) { _, _ in
-                    onActiveChatChanged()
-                }
-                .onChange(of: messageViewModel.tempResponse) { _, _ in
-                    if let proxy = scrollProxy {
-                        scrollToBottom(proxy: proxy, messages: messageViewModel.messages)
-                    }
-                }
-                .onChange(of: fontSize) { _, _ in
-                    codeHighlighter.fontSize = fontSize
-                }
-                .onChange(of: experimentalCodeHighlighting) { _, _ in
-                    codeHighlighter.enabled = experimentalCodeHighlighting
-                }
+                mainContentView(proxy: proxy)
             }
             .navigationTitle("")
             .toolbar {
-                Group {
-                    // Left: New Session Button and Activity Picker
-                    ToolbarItem(placement: .navigation) {
-                        HStack(spacing: 16) {
-                            // New Session Button
-                            Button(action: {
-                                chatViewModel.createNewActivity()
-                                
-                                // Ensure the view resets to the new activity
-                                prompt = ""
-                                if let newActivityId = chatViewModel.selectedActivityID {
-                                    DispatchQueue.main.async {
-                                        // Force loading the activity chat
-                                        if let clientIndex = chatViewModel.clients.firstIndex(where: { $0.id == chatViewModel.selectedClientID }),
-                                           let activity = chatViewModel.clients[clientIndex].activities.first(where: { $0.id == newActivityId }) {
-                                            chatViewModel.loadActivityChat(activity)
-                                            messageViewModel.load(of: chatViewModel.activeChat)
-                                        }
-                                    }
-                                }
-                            }) {
-                                Image(systemName: "square.and.pencil")
-                                    .foregroundColor(Color.euniPrimary)
-                            }
-                            .keyboardShortcut("n")
-                            .help("Create new activity")
-                            
-                            // Activity Picker
-                            VStack(spacing: 4) {
-                                Text("Activity")
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(Color.euniSecondary)
-                                Picker("Choose Activity", selection: Binding(
-                                    get: { chatViewModel.selectedTask },
-                                    set: { chatViewModel.selectedTask = $0 }
-                                )) {
-                                    ForEach(taskOptions, id: \.self) { task in
-                                        Text(task).tag(task)
-                                    }
-                                }
-                                .frame(width: 200)
-                                .onChange(of: chatViewModel.selectedTask) { _, _ in
-                                    updateSystemPrompt()
-                                }
-                            }
-                            .padding(.vertical, 8)
-                        }
-                    }
-
-                    // Center: Client Picker
-                    ToolbarItem(placement: .principal) {
-                        VStack(spacing: 4) {
-                            Text("Client")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(Color.euniSecondary)
-                            Picker("Choose Client", selection: Binding(
-                                get: { chatViewModel.selectedClientID ?? UUID(uuidString: "00000000-0000-0000-0000-000000000001")! },
-                                set: { newValue in
-                                    if newValue == UUID(uuidString: "00000000-0000-0000-0000-000000000000") {
-                                        showAddClientSheet = true
-                                    } else if newValue != UUID(uuidString: "00000000-0000-0000-0000-000000000001") {
-                                        chatViewModel.selectedClientID = newValue
-                                    }
-                                }
-                            )) {
-                                Text("Choose Client").tag(UUID(uuidString: "00000000-0000-0000-0000-000000000001")!)
-                                ForEach(chatViewModel.clients) { client in
-                                    Text(client.identifier).tag(client.id)
-                                }
-                                Text("Add New Client").tag(UUID(uuidString: "00000000-0000-0000-0000-000000000000")!)
-                            }
-                            .frame(width: 200)
-                        }
-                        .padding(.vertical, 8)
-                    }
-
-                    // Right side items
-                    ToolbarItem(placement: .automatic) {
-                        HStack(spacing: 16) {
-                            VStack(spacing: 4) {
-                                Text("Assistant")
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(Color.euniSecondary)
-                                Picker("Choose an Assistant", selection: Binding(
-                                    get: { chatViewModel.activeChat?.model ?? "" },
-                                    set: { newModel in
-                                        chatViewModel.activeChat?.model = newModel
-                                    }
-                                )) {
-                                    ForEach(chatViewModel.models, id: \.self) { model in
-                                        Text(AssistantModel.nameFor(modelId: model)).tag(model)
-                                    }
-                                }
-                                .frame(width: 200)
-                            }
-                            
-                            // Preferences button
-                            Button(action: { isPreferencesPresented.toggle() }) {
-                                Image(systemName: "sidebar.trailing")
-                            }
-                            .foregroundColor(Color.euniSecondary)
-                        }
-                        .padding(.vertical, 8)
-                    }
-                }
+                toolbarContent
             }
             .sheet(isPresented: $showAddClientSheet, onDismiss: {
                 if let last = chatViewModel.clients.last {
                     chatViewModel.selectedClientID = last.id
                 }
             }) {
-                NavigationStack {
-                    AddClientView()
-                }
-                .frame(minWidth: 600, minHeight: 900)
+                addClientSheet
             }
             .inspector(isPresented: $isPreferencesPresented) {
-                ChatPreferencesView(ollamaKit: $ollamaKit)
-                    .inspectorColumnWidth(min: 320, ideal: 320)
+                inspectorContent
             }
             .onChange(of: chatViewModel.activeChat?.id) { oldValue, newValue in
                 print("DEBUG: ChatView - Active chat changed: \(oldValue?.uuidString ?? "nil") -> \(newValue?.uuidString ?? "nil")")
                 onActiveChatChanged()
             }
+        }
+        
+        private func mainContentView(proxy: ScrollViewProxy) -> some View {
+            VStack {
+                MessagesListView(
+                    messages: messageViewModel.messages,
+                    tempResponse: messageViewModel.tempResponse,
+                    isGenerating: messageViewModel.loading == .generate,
+                    copyAction: copyAction,
+                    regenerateAction: regenerateAction
+                )
+                .scrollContentBackground(.hidden)
+                .background(Color.euniFieldBackground.opacity(0.5))
+                
+                ChatInputView(
+                    prompt: $prompt,
+                    isEasyNotePresented: $isEasyNotePresented,
+                    messageViewModel: messageViewModel,
+                    chatViewModel: chatViewModel,
+                    fontSize: fontSize,
+                    isFocused: _isFocused,
+                    generateAction: generateAction,
+                    onActiveChatChanged: onActiveChatChanged
+                )
+                .padding(.top, 8)
+                .padding(.bottom, 12)
+                .padding(.horizontal)
+                .visible(if: chatViewModel.activeChat.isNotNil, removeCompletely: true)
+            }
+            .onAppear {
+                self.scrollProxy = proxy
+            }
+            .onChange(of: chatViewModel.activeChat?.id) { _, _ in
+                onActiveChatChanged()
+            }
+            .onChange(of: messageViewModel.tempResponse) { _, _ in
+                if let proxy = scrollProxy {
+                    scrollToBottom(proxy: proxy, messages: messageViewModel.messages)
+                }
+            }
+            .onChange(of: fontSize) { _, _ in
+                codeHighlighter.fontSize = fontSize
+            }
+            .onChange(of: experimentalCodeHighlighting) { _, _ in
+                codeHighlighter.enabled = experimentalCodeHighlighting
+            }
+        }
+        
+        @ToolbarContentBuilder
+        private var toolbarContent: some ToolbarContent {
+            leftToolbarItems
+            centerToolbarItem
+            rightToolbarItems
+        }
+        
+        private var leftToolbarItems: some ToolbarContent {
+            ToolbarItem(placement: .navigation) {
+                HStack(spacing: 16) {
+                    newSessionButton
+                    activityPicker
+                }
+            }
+        }
+        
+        private var newSessionButton: some View {
+            Button(action: {
+                chatViewModel.createNewActivity()
+                
+                // Ensure the view resets to the new activity
+                prompt = ""
+                if let newActivityId = chatViewModel.selectedActivityID {
+                    DispatchQueue.main.async {
+                        // Force loading the activity chat
+                        if let clientIndex = chatViewModel.clients.firstIndex(where: { $0.id == chatViewModel.selectedClientID }),
+                           let activity = chatViewModel.clients[clientIndex].activities.first(where: { $0.id == newActivityId }) {
+                            chatViewModel.loadActivityChat(activity)
+                            messageViewModel.load(of: chatViewModel.activeChat)
+                        }
+                    }
+                }
+            }) {
+                Image(systemName: "square.and.pencil")
+                    .foregroundColor(Color.euniPrimary)
+            }
+            .keyboardShortcut("n")
+            .help("Create new activity")
+        }
+        
+        private var activityPicker: some View {
+            VStack(spacing: 4) {
+                Text("Activity")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(Color.euniSecondary)
+                
+                Picker("Choose Activity", selection: activityPickerBinding) {
+                    ForEach(taskOptions, id: \.self) { task in
+                        Text(task).tag(task)
+                    }
+                }
+                .frame(width: 200)
+                .onChange(of: chatViewModel.selectedTask) { _, newValue in
+                    handleActivityChange(newValue)
+                }
+            }
+            .padding(.vertical, 8)
+        }
+        
+        private var activityPickerBinding: Binding<String> {
+            Binding(
+                get: { chatViewModel.selectedTask },
+                set: { chatViewModel.selectedTask = $0 }
+            )
+        }
+        
+        private func handleActivityChange(_ newTask: String) {
+            print("DEBUG: Toolbar selectedTask changed to '\(newTask)'")
+            updateActiveEasySheet()
+        }
+        
+        private func updateActiveEasySheet() {
+            // This method updates the easy sheet type based on selected task
+            // Implementation will be in the ChatFieldView where the state exists
+        }
+        
+        private var centerToolbarItem: some ToolbarContent {
+            ToolbarItem(placement: .principal) {
+                clientPicker
+            }
+        }
+        
+        private var clientPicker: some View {
+            VStack(spacing: 4) {
+                Text("Client")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(Color.euniSecondary)
+                
+                Picker("Choose Client", selection: clientPickerBinding) {
+                    Text("Choose Client").tag(UUID(uuidString: "00000000-0000-0000-0000-000000000001")!)
+                    ForEach(chatViewModel.clients) { client in
+                        Text(client.identifier).tag(client.id)
+                    }
+                    Text("Add New Client").tag(UUID(uuidString: "00000000-0000-0000-0000-000000000000")!)
+                }
+                .frame(width: 200)
+                .onChange(of: chatViewModel.selectedClientID) { _, newValue in
+                    handleClientChange(newValue)
+                }
+            }
+            .padding(.vertical, 8)
+        }
+        
+        private var clientPickerBinding: Binding<UUID> {
+            Binding(
+                get: { chatViewModel.selectedClientID ?? UUID(uuidString: "00000000-0000-0000-0000-000000000001")! },
+                set: { newValue in
+                    if newValue == UUID(uuidString: "00000000-0000-0000-0000-000000000000") {
+                        showAddClientSheet = true
+                    } else if newValue != UUID(uuidString: "00000000-0000-0000-0000-000000000001") {
+                        chatViewModel.selectedClientID = newValue
+                    }
+                }
+            )
+        }
+        
+        private func handleClientChange(_ newClientID: UUID?) {
+            print("DEBUG: Client selection changed to \(newClientID?.uuidString ?? "nil")")
+            
+            // Only call onClientSelected if we're actually switching to a valid client
+            if let newValue = newClientID, 
+               newValue != UUID(uuidString: "00000000-0000-0000-0000-000000000001") {
+                chatViewModel.onClientSelected()
+            }
+        }
+        
+        private var rightToolbarItems: some ToolbarContent {
+            ToolbarItem(placement: .automatic) {
+                HStack(spacing: 16) {
+                    assistantPicker
+                    preferencesButton
+                }
+                .padding(.vertical, 8)
+            }
+        }
+        
+        private var assistantPicker: some View {
+            VStack(spacing: 4) {
+                Text("Assistant")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(Color.euniSecondary)
+                
+                Picker("Choose an Assistant", selection: assistantPickerBinding) {
+                    ForEach(chatViewModel.models, id: \.self) { model in
+                        Text(AssistantModel.nameFor(modelId: model)).tag(model)
+                    }
+                }
+                .frame(width: 200)
+            }
+        }
+        
+        private var assistantPickerBinding: Binding<String> {
+            Binding(
+                get: { chatViewModel.activeChat?.model ?? "" },
+                set: { newModel in
+                    chatViewModel.activeChat?.model = newModel
+                }
+            )
+        }
+        
+        private var preferencesButton: some View {
+            Button(action: { isPreferencesPresented.toggle() }) {
+                Image(systemName: "sidebar.trailing")
+            }
+            .foregroundColor(Color.euniSecondary)
+        }
+        
+        private var addClientSheet: some View {
+            NavigationStack {
+                AddClientView()
+            }
+            .frame(minWidth: 600, minHeight: 900)
+        }
+        
+        private var inspectorContent: some View {
+            ChatPreferencesView(ollamaKit: $ollamaKit)
+                .inspectorColumnWidth(min: 320, ideal: 320)
         }
         
         private func scrollToBottom(proxy: ScrollViewProxy, messages: [Message]) {
@@ -684,92 +788,127 @@ struct ChatFieldView: View {
     
     var body: some View {
         VStack {
-            HStack(alignment: .top, spacing: 8) {
-                // Left column with Easy Button and Microphone Button
-                VStack(spacing: 8) {
-                    // Easy Button - only shown for Session Note and Treatment Plan
-                    if showEasyButton {
-                        Button(action: handleEasyButtonTap) {
-                            Image(systemName: easyButtonIcon)
-                                .foregroundStyle(.white)
-                                .fontWeight(.bold)
-                                .padding(8)
-                        }
-                        .help(easyButtonLabel)
-                        .background(Color.euniPrimary)
-                        .buttonStyle(.borderless)
-                        .clipShape(.circle)
-                    }
-                    
-                    // Microphone Button - always visible for all activity types
-                    Button {
-                        if speechRecognitionVM.isRecording {
-                            speechRecognitionVM.stopRecording()
-                        } else {
-                            speechRecognitionVM.startRecording { transcribedText in
-                                prompt = transcribedText
-                            }
-                        }
-                    } label: {
-                        Image(systemName: speechRecognitionVM.isRecording ? "stop.circle.fill" : "mic.circle")
-                            .foregroundStyle(Color.euniText)
-                            .fontWeight(.bold)
-                            .padding(8)
-                    }
-                    .background(speechRecognitionVM.isRecording ? Color.euniError : Color.euniSecondary)
-                    .buttonStyle(.borderless)
-                    .clipShape(.circle)
+            mainChatFieldContent
+            footerContent
+        }
+        .alert("Microphone Access Required", isPresented: $speechRecognitionVM.showingPermissionAlert) {
+            Button("Open Settings") {
+                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+                    NSWorkspace.shared.open(url)
                 }
-                
-                // Chat Field
-                TextEditor(text: $prompt)
-                    .font(.system(size: fontSize))
-                    .frame(height: max(40, textHeight))
-                    .scrollContentBackground(.hidden)
-                    .background(Color.euniFieldBackground)
-                    .cornerRadius(8)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.euniBorder, lineWidth: 1)
-                    )
-                    .focused($isFocused)
-                    .onChange(of: prompt) { _, newValue in
-                        let size = CGSize(width: NSScreen.main?.frame.width ?? 800 - 100, height: .infinity)
-                        let estimatedHeight = newValue.boundingRect(
-                            with: size,
-                            options: [.usesLineFragmentOrigin, .usesFontLeading],
-                            attributes: [.font: NSFont.systemFont(ofSize: fontSize)],
-                            context: nil
-                        ).height
-                        textHeight = min(max(40, estimatedHeight + 20), 200)
-                    }
-                    .onSubmit {
-                        if messageViewModel.loading != .generate {
-                            generateAction()
-                        }
-                    }
-                
-                // Send Button
-                Button(action: generateAction) {
-                    Image(systemName: messageViewModel.loading == .generate ? "stop.fill" : "arrow.up")
-                        .foregroundStyle(Color.euniText)
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Please grant microphone access in System Settings to use voice input.")
+        }
+        .alert("Speech Recognition Error", isPresented: $speechRecognitionVM.showingErrorAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(speechRecognitionVM.errorMessage)
+        }
+        .onAppear {
+            updateActiveEasySheet()
+        }
+        .onChange(of: chatViewModel.selectedTask) { oldValue, newValue in
+            handleTaskChange(oldValue: oldValue, newValue: newValue)
+        }
+        .sheet(isPresented: $showEasySheet, onDismiss: {
+            print("DEBUG: Sheet dismissed, activeEasySheet was: \(activeEasySheet)")
+            activeEasySheet = .none
+            print("DEBUG: Reset activeEasySheet to .none")
+        }) {
+            easySheetContent
+        }
+    }
+    
+    private var mainChatFieldContent: some View {
+        HStack(alignment: .top, spacing: 8) {
+            leftColumnButtons
+            chatTextEditor
+            sendButton
+        }
+        .padding(8)
+        .background(Color.euniFieldBackground)
+        .cornerRadius(20)
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(Color.euniBorder, lineWidth: 1)
+        )
+    }
+    
+    private var leftColumnButtons: some View {
+        VStack(spacing: 8) {
+            if showEasyButton {
+                Button(action: handleEasyButtonTap) {
+                    Image(systemName: easyButtonIcon)
+                        .foregroundStyle(.white)
                         .fontWeight(.bold)
                         .padding(8)
                 }
-                .background(messageViewModel.loading == .generate ? Color.euniError : Color.euniPrimary)
+                .help(easyButtonLabel)
+                .background(Color.euniPrimary)
                 .buttonStyle(.borderless)
                 .clipShape(.circle)
-                .disabled(prompt.isEmpty && messageViewModel.loading != .generate)
             }
-            .padding(8)
+            
+            Button {
+                if speechRecognitionVM.isRecording {
+                    speechRecognitionVM.stopRecording()
+                } else {
+                    speechRecognitionVM.startRecording { transcribedText in
+                        prompt = transcribedText
+                    }
+                }
+            } label: {
+                Image(systemName: speechRecognitionVM.isRecording ? "stop.circle.fill" : "mic.circle")
+                    .foregroundStyle(Color.euniText)
+                    .fontWeight(.bold)
+                    .padding(8)
+            }
+            .background(speechRecognitionVM.isRecording ? Color.euniError : Color.euniSecondary)
+            .buttonStyle(.borderless)
+            .clipShape(.circle)
+        }
+    }
+    
+    private var chatTextEditor: some View {
+        TextEditor(text: $prompt)
+            .font(.system(size: fontSize))
+            .frame(height: max(40, textHeight))
+            .scrollContentBackground(.hidden)
             .background(Color.euniFieldBackground)
-            .cornerRadius(20)
+            .cornerRadius(8)
             .overlay(
-                RoundedRectangle(cornerRadius: 20)
+                RoundedRectangle(cornerRadius: 8)
                     .stroke(Color.euniBorder, lineWidth: 1)
             )
-            
-            // Footer
+            .focused($isFocused)
+            .onChange(of: prompt) { _, newValue in
+                updateTextHeight(for: newValue)
+            }
+            .onSubmit {
+                handleSubmit()
+            }
+            .onKeyPress(.return) {
+                return handleReturnKey()
+            }
+    }
+    
+    private var sendButton: some View {
+        Button(action: generateAction) {
+            Image(systemName: messageViewModel.loading == .generate ? "stop.fill" : "arrow.up")
+                .foregroundStyle(Color.euniText)
+                .fontWeight(.bold)
+                .padding(8)
+        }
+        .background(messageViewModel.loading == .generate ? Color.euniError : Color.euniPrimary)
+        .buttonStyle(.borderless)
+        .clipShape(.circle)
+        .disabled(prompt.isEmpty && messageViewModel.loading != .generate)
+    }
+    
+    private var footerContent: some View {
+        Group {
             if chatViewModel.loading != nil {
                 ProgressView()
                     .controlSize(.small)
@@ -793,54 +932,81 @@ struct ChatFieldView: View {
                     .foregroundColor(.secondary)
             }
         }
-        .alert("Microphone Access Required", isPresented: $speechRecognitionVM.showingPermissionAlert) {
-            Button("Open Settings") {
-                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
-                    NSWorkspace.shared.open(url)
-                }
+    }
+    
+    @ViewBuilder
+    private var easySheetContent: some View {
+        switch activeEasySheet {
+        case .note:
+            NavigationView {
+                EasyNoteSheet(prompt: $prompt, generateAction: {
+                    if !prompt.isEmpty {
+                        generateAction()
+                    }
+                })
             }
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text("Please grant microphone access in System Settings to use voice input.")
-        }
-        .alert("Speech Recognition Error", isPresented: $speechRecognitionVM.showingErrorAlert) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(speechRecognitionVM.errorMessage)
-        }
-        .onAppear {
-            // Initialize the activeEasySheet based on the default task
-            updateActiveEasySheet()
-        }
-        .onChange(of: chatViewModel.selectedTask) { oldValue, newValue in
-            // Update activeEasySheet whenever the task changes
-            updateActiveEasySheet()
-        }
-        .sheet(isPresented: $showEasySheet, onDismiss: {
-            print("DEBUG: Sheet dismissed, activeEasySheet was: \(activeEasySheet)")
-            activeEasySheet = .none
-            print("DEBUG: Reset activeEasySheet to .none")
-        }) {
-            switch activeEasySheet {
-            case .note:
-                NavigationView {
-                    EasyNoteSheet(prompt: $prompt, generateAction: {
-                        if !prompt.isEmpty {
-                            generateAction()
-                        }
-                    })
-                }
-                .frame(minWidth: 1000, minHeight: 800)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            case .treatmentPlan:
-                NavigationView {
-                    EasyTreatmentPlanSheet(prompt: $prompt, generateAction: generateAction)
-                }
-                .frame(minWidth: 1000, minHeight: 800)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            case .none:
-                EmptyView()
+            .frame(minWidth: 1000, minHeight: 800)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        case .treatmentPlan:
+            NavigationView {
+                EasyTreatmentPlanSheet(prompt: $prompt, generateAction: generateAction)
             }
+            .frame(minWidth: 1000, minHeight: 800)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        case .none:
+            EmptyView()
         }
+    }
+    
+    private func updateTextHeight(for text: String) {
+        let size = CGSize(width: NSScreen.main?.frame.width ?? 800 - 100, height: .infinity)
+        let estimatedHeight = text.boundingRect(
+            with: size,
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: NSFont.systemFont(ofSize: fontSize)],
+            context: nil
+        ).height
+        textHeight = min(max(40, estimatedHeight + 20), 200)
+    }
+    
+    private func handleTaskChange(oldValue: String, newValue: String) {
+        print("DEBUG: ChatFieldView - selectedTask changed from '\(oldValue)' to '\(newValue)'")
+        
+        // Update activeEasySheet whenever the task changes
+        updateActiveEasySheet()
+        
+        // Check if we're switching between different activity types
+        let oldActivityType = chatViewModel.getActivityTypeFromTask(oldValue)
+        let newActivityType = chatViewModel.getActivityTypeFromTask(newValue)
+        
+        print("DEBUG: ChatFieldView Activity type change: \(oldActivityType.rawValue) → \(newActivityType.rawValue)")
+        
+        // If we're switching to a different activity type, force a clean start
+        if oldActivityType != newActivityType {
+            print("DEBUG: ChatFieldView - Forcing clean activity type transition")
+            chatViewModel.clearChatForNewActivityType()
+        }
+    }
+    
+    private func handleSubmit() {
+        print("DEBUG: TextEditor onSubmit triggered")
+        if messageViewModel.loading != .generate && !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            print("DEBUG: Submitting via Enter key")
+            generateAction()
+        }
+    }
+    
+    private func handleReturnKey() -> KeyPress.Result {
+        print("DEBUG: Return key pressed")
+        
+        // Send the message when Enter is pressed (without modifiers)
+        let promptToSend = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !promptToSend.isEmpty && messageViewModel.loading != .generate {
+            print("DEBUG: Sending message via Enter key")
+            generateAction()
+            return .handled
+        }
+        
+        return .ignored
     }
 }
