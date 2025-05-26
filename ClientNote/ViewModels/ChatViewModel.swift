@@ -689,6 +689,14 @@ final class ChatViewModel {
         let activityType = getActivityTypeFromTask(selectedTask)
         print("DEBUG: Generating with activity type: \(activityType.rawValue)")
         
+        // For recording session activities, skip AI generation entirely
+        if activityType == .recordSession {
+            print("DEBUG: ===== RECORD SESSION ACTIVITY =====")
+            print("DEBUG: Record Session activities don't use AI generation")
+            print("DEBUG: Content is managed by RecordingView directly")
+            return
+        }
+        
         // For brainstorm activities, use simple generation
         if activityType == .brainstorm {
             print("DEBUG: ===== BRAINSTORM GENERATION START =====")
@@ -1113,6 +1121,7 @@ final class ChatViewModel {
     /// - "Create a Client Session Note" → .sessionNote
     /// - "Create a Treatment Plan" → .treatmentPlan
     /// - "Brainstorm" → .brainstorm
+    /// - "Record Therapy Session" → .recordSession
     /// - Default → .sessionNote
     func getActivityTypeFromTask(_ task: String) -> ActivityType {
         switch task {
@@ -1122,6 +1131,8 @@ final class ChatViewModel {
             return .treatmentPlan
         case "Brainstorm":
             return .brainstorm
+        case "Record Therapy Session":
+            return .recordSession
         default:
             return .sessionNote
         }
@@ -1140,6 +1151,8 @@ final class ChatViewModel {
             return "Create a Treatment Plan"
         case .brainstorm:
             return "Brainstorm"
+        case .recordSession:
+            return "Record Therapy Session"
         case .all:
             return "Create a Client Session Note"
         }
@@ -1330,6 +1343,8 @@ final class ChatViewModel {
             return isEasyNote ? SystemPrompts.easyTreatmentPlan : SystemPrompts.treatmentPlan
         case .brainstorm:
             return SystemPrompts.brainstorm
+        case .recordSession:
+            return SystemPrompts.recordSession
         case .all:
             return SystemPrompts.brainstorm
         }
@@ -1509,6 +1524,20 @@ final class ChatViewModel {
         4. Set clear timeframes
         
         [Placeholder for full Easy Treatment Plan prompt]
+        """
+        
+        // Record Session prompt
+        static let recordSession = """
+        You are viewing a therapy session recording transcript. This transcript was captured during a live therapy session and contains the raw conversation between therapist and client.
+
+        This transcript can be used to:
+        1. Generate session notes by copying and pasting into a Session Note activity
+        2. Create treatment plans by copying relevant sections into a Treatment Plan activity
+        3. Review session content for clinical documentation purposes
+
+        The transcript is automatically saved to the client's record for future reference. You can copy portions or the entire transcript to use as input for generating clinical documentation.
+
+        Simply view the transcript content below. No AI processing is performed on this activity type - it serves as a repository for the recorded session content.
         """
     }
     
