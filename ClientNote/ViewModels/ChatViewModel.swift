@@ -625,9 +625,9 @@ final class ChatViewModel {
                     
                     if isUserContent {
                         let message = Message(prompt: trimmedContent)
-                        message.chat = chat
-                        chat.messages.append(message)
-                        messagesLoaded = 1
+                message.chat = chat
+                chat.messages.append(message)
+                messagesLoaded = 1
                         print("DEBUG: Created single legacy message from content")
                     } else {
                         print("DEBUG: Legacy content appears to be system/analysis content, not loading as user message")
@@ -709,7 +709,7 @@ final class ChatViewModel {
             print("DEBUG: Current activeChat systemPrompt: \(String(activeChat.systemPrompt?.prefix(100) ?? "nil")...)") 
             
             // CRITICAL: Ensure we're using the clean brainstorm prompt
-            activeChat.systemPrompt = expectedPrompt
+                activeChat.systemPrompt = expectedPrompt
             print("DEBUG: Set activeChat systemPrompt to brainstorm prompt")
             
             // CRITICAL: Clear all previous messages to prevent contamination
@@ -827,7 +827,7 @@ final class ChatViewModel {
                         messageViewModel?.load(of: activeChat)
                         
                         // Save the activity content
-                        saveActivityContent()
+            saveActivityContent()
                         
                         print("DEBUG: Treatment plan generation completed successfully")
                     }
@@ -2084,7 +2084,7 @@ final class ChatViewModel {
             print("DEBUG: Analysis generation successful")
             return trimmedResponse
             
-        } catch {
+                } catch {
             print("DEBUG: Analysis generation failed: \(error)")
             throw ChatViewModelError.generate("Analysis generation failed: \(error.localizedDescription)")
         }

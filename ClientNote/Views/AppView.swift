@@ -20,13 +20,13 @@ struct AppView: View {
                     .background(Color.euniBackground)
             } else {
                 // Normal mode: Split view with sidebar
-                NavigationSplitView {
-                    SidebarView()
-                        .navigationSplitViewColumnWidth(min: 256, ideal: 256)
-                } detail: {
-                    ChatView()
-                }
-                .background(Color.euniBackground)
+        NavigationSplitView {
+            SidebarView()
+                .navigationSplitViewColumnWidth(min: 256, ideal: 256)
+        } detail: {
+            ChatView()
+        }
+        .background(Color.euniBackground)
             }
         }
     }

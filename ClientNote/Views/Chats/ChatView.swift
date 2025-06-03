@@ -1057,17 +1057,17 @@ struct ChatView: View {
         }
         
         private func mainContentView(proxy: ScrollViewProxy) -> some View {
-            VStack {
-                MessagesListView(
-                    messages: messageViewModel.messages,
-                    tempResponse: messageViewModel.tempResponse,
-                    isGenerating: messageViewModel.loading == .generate,
-                    copyAction: copyAction,
-                    regenerateAction: regenerateAction
-                )
-                .scrollContentBackground(.hidden)
-                .background(Color.euniFieldBackground.opacity(0.5))
-                
+                VStack {
+                    MessagesListView(
+                        messages: messageViewModel.messages,
+                        tempResponse: messageViewModel.tempResponse,
+                        isGenerating: messageViewModel.loading == .generate,
+                        copyAction: copyAction,
+                        regenerateAction: regenerateAction
+                    )
+                    .scrollContentBackground(.hidden)
+                    .background(Color.euniFieldBackground.opacity(0.5))
+                    
                 // Show RecordingView for Record Therapy Session activity, otherwise show ChatInputView
                 if chatViewModel.getActivityTypeFromTask(chatViewModel.selectedTask) == .recordSession {
                     RecordingView()
@@ -1091,25 +1091,25 @@ struct ChatView: View {
                     .padding(.horizontal)
                     .visible(if: chatViewModel.activeChat.isNotNil, removeCompletely: true)
                 }
-            }
-            .onAppear {
-                self.scrollProxy = proxy
-            }
-            .onChange(of: chatViewModel.activeChat?.id) { _, _ in
-                onActiveChatChanged()
-            }
-            .onChange(of: messageViewModel.tempResponse) { _, _ in
-                if let proxy = scrollProxy {
-                    scrollToBottom(proxy: proxy, messages: messageViewModel.messages)
+                }
+                .onAppear {
+                    self.scrollProxy = proxy
+                }
+                .onChange(of: chatViewModel.activeChat?.id) { _, _ in
+                    onActiveChatChanged()
+                }
+                .onChange(of: messageViewModel.tempResponse) { _, _ in
+                    if let proxy = scrollProxy {
+                        scrollToBottom(proxy: proxy, messages: messageViewModel.messages)
+                    }
+                }
+                .onChange(of: fontSize) { _, _ in
+                    codeHighlighter.fontSize = fontSize
+                }
+                .onChange(of: experimentalCodeHighlighting) { _, _ in
+                    codeHighlighter.enabled = experimentalCodeHighlighting
                 }
             }
-            .onChange(of: fontSize) { _, _ in
-                codeHighlighter.fontSize = fontSize
-            }
-            .onChange(of: experimentalCodeHighlighting) { _, _ in
-                codeHighlighter.enabled = experimentalCodeHighlighting
-            }
-        }
         
         @ToolbarContentBuilder
         private var toolbarContent: some ToolbarContent {
@@ -1127,8 +1127,8 @@ struct ChatView: View {
         }
         
         private var leftToolbarItems: some ToolbarContent {
-            ToolbarItem(placement: .navigation) {
-                HStack(spacing: 16) {
+                    ToolbarItem(placement: .navigation) {
+                        HStack(spacing: 16) {
                     newSessionButton
                     activityPicker
                 }
@@ -1136,47 +1136,47 @@ struct ChatView: View {
         }
         
         private var newSessionButton: some View {
-            Button(action: {
-                chatViewModel.createNewActivity()
-                
-                // Ensure the view resets to the new activity
-                prompt = ""
-                if let newActivityId = chatViewModel.selectedActivityID {
-                    DispatchQueue.main.async {
-                        // Force loading the activity chat
-                        if let clientIndex = chatViewModel.clients.firstIndex(where: { $0.id == chatViewModel.selectedClientID }),
-                           let activity = chatViewModel.clients[clientIndex].activities.first(where: { $0.id == newActivityId }) {
-                            chatViewModel.loadActivityChat(activity)
-                            messageViewModel.load(of: chatViewModel.activeChat)
-                        }
-                    }
-                }
-            }) {
-                Image(systemName: "square.and.pencil")
-                    .foregroundColor(Color.euniPrimary)
-            }
-            .keyboardShortcut("n")
+                            Button(action: {
+                                chatViewModel.createNewActivity()
+                                
+                                // Ensure the view resets to the new activity
+                                prompt = ""
+                                if let newActivityId = chatViewModel.selectedActivityID {
+                                    DispatchQueue.main.async {
+                                        // Force loading the activity chat
+                                        if let clientIndex = chatViewModel.clients.firstIndex(where: { $0.id == chatViewModel.selectedClientID }),
+                                           let activity = chatViewModel.clients[clientIndex].activities.first(where: { $0.id == newActivityId }) {
+                                            chatViewModel.loadActivityChat(activity)
+                                            messageViewModel.load(of: chatViewModel.activeChat)
+                                        }
+                                    }
+                                }
+                            }) {
+                                Image(systemName: "square.and.pencil")
+                                    .foregroundColor(Color.euniPrimary)
+                            }
+                            .keyboardShortcut("n")
             .help(chatViewModel.isDPKNYMode ? "Start new brainstorm" : "Create new activity")
         }
-        
+                            
         private var activityPicker: some View {
-            VStack(spacing: 4) {
-                Text("Activity")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(Color.euniSecondary)
+                            VStack(spacing: 4) {
+                                Text("Activity")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(Color.euniSecondary)
                 
                 Picker("Choose Activity", selection: activityPickerBinding) {
-                    ForEach(taskOptions, id: \.self) { task in
-                        Text(task).tag(task)
-                    }
-                }
-                .frame(width: 200)
+                                    ForEach(taskOptions, id: \.self) { task in
+                                        Text(task).tag(task)
+                                    }
+                                }
+                                .frame(width: 200)
                 .onChange(of: chatViewModel.selectedTask) { _, newValue in
                     handleActivityChange(newValue)
-                }
-            }
-            .padding(.vertical, 8)
-        }
+                                }
+                            }
+                            .padding(.vertical, 8)
+                        }
         
         private var activityPickerBinding: Binding<String> {
             Binding(
@@ -1196,16 +1196,16 @@ struct ChatView: View {
         }
         
         private var centerToolbarItem: some ToolbarContent {
-            ToolbarItem(placement: .principal) {
+                    ToolbarItem(placement: .principal) {
                 clientPicker
             }
         }
         
         private var clientPicker: some View {
-            VStack(spacing: 4) {
-                Text("Client")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(Color.euniSecondary)
+                        VStack(spacing: 4) {
+                            Text("Client")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Color.euniSecondary)
                 
                 Picker("Choose Client", selection: clientPickerBinding) {
                     Text("Choose Client").tag(UUID(uuidString: "00000000-0000-0000-0000-000000000001")!)
@@ -1224,14 +1224,14 @@ struct ChatView: View {
         
         private var clientPickerBinding: Binding<UUID> {
             Binding(
-                get: { chatViewModel.selectedClientID ?? UUID(uuidString: "00000000-0000-0000-0000-000000000001")! },
-                set: { newValue in
-                    if newValue == UUID(uuidString: "00000000-0000-0000-0000-000000000000") {
-                        showAddClientSheet = true
-                    } else if newValue != UUID(uuidString: "00000000-0000-0000-0000-000000000001") {
-                        chatViewModel.selectedClientID = newValue
-                    }
-                }
+                                get: { chatViewModel.selectedClientID ?? UUID(uuidString: "00000000-0000-0000-0000-000000000001")! },
+                                set: { newValue in
+                                    if newValue == UUID(uuidString: "00000000-0000-0000-0000-000000000000") {
+                                        showAddClientSheet = true
+                                    } else if newValue != UUID(uuidString: "00000000-0000-0000-0000-000000000001") {
+                                        chatViewModel.selectedClientID = newValue
+                                    }
+                                }
             )
         }
         
@@ -1242,12 +1242,12 @@ struct ChatView: View {
             if let newValue = newClientID, 
                newValue != UUID(uuidString: "00000000-0000-0000-0000-000000000001") {
                 chatViewModel.onClientSelected()
-            }
+                    }
         }
         
         private var rightToolbarItems: some ToolbarContent {
-            ToolbarItem(placement: .automatic) {
-                HStack(spacing: 16) {
+                    ToolbarItem(placement: .automatic) {
+                        HStack(spacing: 16) {
                     assistantPicker
                     preferencesButton
                 }
@@ -1256,18 +1256,18 @@ struct ChatView: View {
         }
         
         private var assistantPicker: some View {
-            VStack(spacing: 4) {
-                Text("Assistant")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(Color.euniSecondary)
+                            VStack(spacing: 4) {
+                                Text("Assistant")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(Color.euniSecondary)
                 
                 Picker("Choose an Assistant", selection: assistantPickerBinding) {
-                    ForEach(chatViewModel.models, id: \.self) { model in
-                        Text(AssistantModel.nameFor(modelId: model)).tag(model)
-                    }
-                }
-                .frame(width: 200)
-            }
+                                    ForEach(chatViewModel.models, id: \.self) { model in
+                                        Text(AssistantModel.nameFor(modelId: model)).tag(model)
+                                    }
+                                }
+                                .frame(width: 200)
+                            }
         }
         
         private var assistantPickerBinding: Binding<String> {
@@ -1280,22 +1280,22 @@ struct ChatView: View {
         }
         
         private var preferencesButton: some View {
-            Button(action: { isPreferencesPresented.toggle() }) {
-                Image(systemName: "sidebar.trailing")
-            }
-            .foregroundColor(Color.euniSecondary)
-        }
+                            Button(action: { isPreferencesPresented.toggle() }) {
+                                Image(systemName: "sidebar.trailing")
+                            }
+                            .foregroundColor(Color.euniSecondary)
+                        }
         
         private var addClientSheet: some View {
-            NavigationStack {
-                AddClientView()
+                NavigationStack {
+                    AddClientView()
+                }
+                .frame(minWidth: 600, minHeight: 900)
             }
-            .frame(minWidth: 600, minHeight: 900)
-        }
         
         private var inspectorContent: some View {
-            ChatPreferencesView(ollamaKit: $ollamaKit)
-                .inspectorColumnWidth(min: 320, ideal: 320)
+                ChatPreferencesView(ollamaKit: $ollamaKit)
+                    .inspectorColumnWidth(min: 320, ideal: 320)
         }
         
         private func scrollToBottom(proxy: ScrollViewProxy, messages: [Message]) {
@@ -1607,7 +1607,7 @@ struct ChatFieldView: View {
     }
     
     private var mainChatFieldContent: some View {
-        HStack(alignment: .top, spacing: 8) {
+            HStack(alignment: .top, spacing: 8) {
             leftColumnButtons
             chatTextEditor
             sendButton
@@ -1622,75 +1622,75 @@ struct ChatFieldView: View {
     }
     
     private var leftColumnButtons: some View {
-        VStack(spacing: 8) {
-            if showEasyButton {
-                Button(action: handleEasyButtonTap) {
-                    Image(systemName: easyButtonIcon)
-                        .foregroundStyle(.white)
-                        .fontWeight(.bold)
-                        .padding(8)
-                }
-                .help(easyButtonLabel)
-                .background(Color.euniPrimary)
-                .buttonStyle(.borderless)
-                .clipShape(.circle)
-            }
-            
-            Button {
-                if speechRecognitionVM.isRecording {
-                    speechRecognitionVM.stopRecording()
-                } else {
-                    speechRecognitionVM.startRecording { transcribedText in
-                        prompt = transcribedText
+                VStack(spacing: 8) {
+                if showEasyButton {
+                        Button(action: handleEasyButtonTap) {
+                            Image(systemName: easyButtonIcon)
+                                .foregroundStyle(.white)
+                                .fontWeight(.bold)
+                                .padding(8)
+                        }
+                        .help(easyButtonLabel)
+                        .background(Color.euniPrimary)
+                        .buttonStyle(.borderless)
+                        .clipShape(.circle)
                     }
-                }
-            } label: {
-                Image(systemName: speechRecognitionVM.isRecording ? "stop.circle.fill" : "mic.circle")
-                    .foregroundStyle(Color.euniText)
-                    .fontWeight(.bold)
-                    .padding(8)
-            }
-            .background(speechRecognitionVM.isRecording ? Color.euniError : Color.euniSecondary)
-            .buttonStyle(.borderless)
-            .clipShape(.circle)
+                        
+                        Button {
+                            if speechRecognitionVM.isRecording {
+                                speechRecognitionVM.stopRecording()
+                            } else {
+                                speechRecognitionVM.startRecording { transcribedText in
+                                    prompt = transcribedText
+                                }
+                            }
+                        } label: {
+                            Image(systemName: speechRecognitionVM.isRecording ? "stop.circle.fill" : "mic.circle")
+                                .foregroundStyle(Color.euniText)
+                                .fontWeight(.bold)
+                                .padding(8)
+                        }
+                        .background(speechRecognitionVM.isRecording ? Color.euniError : Color.euniSecondary)
+                        .buttonStyle(.borderless)
+                        .clipShape(.circle)
         }
-    }
-    
+                }
+                
     private var chatTextEditor: some View {
-        TextEditor(text: $prompt)
-            .font(.system(size: fontSize))
-            .frame(height: max(40, textHeight))
-            .scrollContentBackground(.hidden)
-            .background(Color.euniFieldBackground)
-            .cornerRadius(8)
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.euniBorder, lineWidth: 1)
-            )
-            .focused($isFocused)
-            .onChange(of: prompt) { _, newValue in
+                TextEditor(text: $prompt)
+                    .font(.system(size: fontSize))
+                    .frame(height: max(40, textHeight))
+                    .scrollContentBackground(.hidden)
+                    .background(Color.euniFieldBackground)
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.euniBorder, lineWidth: 1)
+                    )
+                    .focused($isFocused)
+                    .onChange(of: prompt) { _, newValue in
                 updateTextHeight(for: newValue)
-            }
-            .onSubmit {
+                    }
+                    .onSubmit {
                 handleSubmit()
             }
             .onKeyPress(.return) {
                 return handleReturnKey()
-            }
-    }
-    
+                        }
+                    }
+                
     private var sendButton: some View {
-        Button(action: generateAction) {
-            Image(systemName: messageViewModel.loading == .generate ? "stop.fill" : "arrow.up")
-                .foregroundStyle(Color.euniText)
-                .fontWeight(.bold)
-                .padding(8)
-        }
-        .background(messageViewModel.loading == .generate ? Color.euniError : Color.euniPrimary)
-        .buttonStyle(.borderless)
-        .clipShape(.circle)
-        .disabled(prompt.isEmpty && messageViewModel.loading != .generate)
-    }
+                Button(action: generateAction) {
+                    Image(systemName: messageViewModel.loading == .generate ? "stop.fill" : "arrow.up")
+                        .foregroundStyle(Color.euniText)
+                        .fontWeight(.bold)
+                        .padding(8)
+                }
+                .background(messageViewModel.loading == .generate ? Color.euniError : Color.euniPrimary)
+                .buttonStyle(.borderless)
+                .clipShape(.circle)
+                .disabled(prompt.isEmpty && messageViewModel.loading != .generate)
+            }
     
     private var footerContent: some View {
         Group {
@@ -1709,9 +1709,9 @@ struct ChatFieldView: View {
                 .font(.callout)
             } else if messageViewModel.messages.isEmpty == false {
                 HStack {
-                    Text("\u{2318}+R to regenerate the response")
-                        .font(.callout)
-                        .foregroundColor(.secondary)
+                Text("\u{2318}+R to regenerate the response")
+                    .font(.callout)
+                    .foregroundColor(.secondary)
                     
                     Spacer()
                     
@@ -1719,9 +1719,9 @@ struct ChatFieldView: View {
                 }
             } else {
                 HStack {
-                    Text("AI can make mistakes. Please double-check responses.")
-                        .font(.callout)
-                        .foregroundColor(.secondary)
+                Text("AI can make mistakes. Please double-check responses.")
+                    .font(.callout)
+                    .foregroundColor(.secondary)
                     
                     Spacer()
                     
@@ -1752,27 +1752,27 @@ struct ChatFieldView: View {
     
     @ViewBuilder
     private var easySheetContent: some View {
-        switch activeEasySheet {
-        case .note:
-            NavigationView {
-                EasyNoteSheet(prompt: $prompt, generateAction: {
-                    if !prompt.isEmpty {
-                        generateAction()
-                    }
-                })
+            switch activeEasySheet {
+            case .note:
+                NavigationView {
+                    EasyNoteSheet(prompt: $prompt, generateAction: {
+                        if !prompt.isEmpty {
+                            generateAction()
+                        }
+                    })
+                }
+                .frame(minWidth: 1000, minHeight: 800)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            case .treatmentPlan:
+                NavigationView {
+                    EasyTreatmentPlanSheet(prompt: $prompt, generateAction: generateAction)
+                }
+                .frame(minWidth: 1000, minHeight: 800)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            case .none:
+                EmptyView()
             }
-            .frame(minWidth: 1000, minHeight: 800)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        case .treatmentPlan:
-            NavigationView {
-                EasyTreatmentPlanSheet(prompt: $prompt, generateAction: generateAction)
-            }
-            .frame(minWidth: 1000, minHeight: 800)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        case .none:
-            EmptyView()
         }
-    }
     
     private func updateTextHeight(for text: String) {
         let size = CGSize(width: NSScreen.main?.frame.width ?? 800 - 100, height: .infinity)
