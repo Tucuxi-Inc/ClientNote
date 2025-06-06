@@ -5,12 +5,12 @@ import SwiftUI
 import Foundation
 
 /// ChatViewModel is the central coordinator for the Euni™ Client Notes application.
-/// It manages client data, activities, chat interactions, and integration with the Ollama AI service.
+/// It manages client data, activities, chat interactions, and integration with the AI service.
 ///
 /// Key responsibilities:
 /// - Client management (adding, selecting, saving clients)
 /// - Activity tracking (session notes, treatment plans, brainstorming)
-/// - Chat interaction with Ollama AI
+/// - Chat interaction with AI backends (LlamaKit/OllamaKit)
 /// - Note format management and template handling
 /// - Therapeutic modality analysis and engagement tracking
 ///
@@ -23,6 +23,9 @@ final class ChatViewModel {
     
     /// The SwiftData context for managing persistent storage
     private var modelContext: ModelContext
+    
+    /// The AI backend manager for handling different inference backends
+    private var aiBackendManager: AIBackendManager
     
     /// Temporary storage for chat renaming operations
     private var _chatNameTemp: String = ""
@@ -202,9 +205,11 @@ final class ChatViewModel {
     /// Initialize the ChatViewModel
     /// - Parameters:
     ///   - modelContext: SwiftData context for persistence
+    ///   - aiBackendManager: The AI backend manager for handling inference
     ///   - messageViewModel: Optional message handling view model
-    init(modelContext: ModelContext, messageViewModel: MessageViewModel? = nil) {
+    init(modelContext: ModelContext, aiBackendManager: AIBackendManager, messageViewModel: MessageViewModel? = nil) {
         self.modelContext = modelContext
+        self.aiBackendManager = aiBackendManager
         self.messageViewModel = messageViewModel
         loadClients()
     }
@@ -866,16 +871,6 @@ final class ChatViewModel {
         // For session notes only, use two-pass generation
         print("DEBUG: Using two-pass generation for \(activityType.rawValue)")
         
-        // Get OllamaKit instance
-        guard let host = activeChat.host,
-              let baseURL = URL(string: host) else {
-            print("DEBUG: Invalid host URL for OllamaKit")
-            self.error = .generate("Invalid host configuration")
-            return
-        }
-        
-        let ollamaKit = OllamaKit(baseURL: baseURL)
-        
         // CRITICAL: Clear all previous messages to prevent contamination
         // This ensures session notes don't see treatment plan or brainstorm history
         print("DEBUG: Clearing \(activeChat.messages.count) previous messages for clean session note")
@@ -907,7 +902,6 @@ final class ChatViewModel {
                 // Perform two-pass generation internally without creating additional messages
                 let finalNote = try await performTwoPassGeneration(
                     userInput: prompt,
-                    ollamaKit: ollamaKit,
                     isEasyNote: noteFormat != nil,
                     providedModalities: providedModalities,
                     noteFormat: noteFormat
@@ -1948,14 +1942,12 @@ final class ChatViewModel {
     /// Performs comprehensive analysis of a therapy session
     /// - Parameters:
     ///   - transcript: The session transcript to analyze
-    ///   - ollamaKit: The OllamaKit instance for AI analysis
     ///   - isEasyNote: Whether this is an EasyNote format
     ///   - providedModalities: Pre-selected modalities for EasyNote
     /// - Returns: A tuple containing modalities analysis and engagement analysis
     /// - Throws: ChatViewModelError if analysis fails
     private func performSessionAnalysis(
         transcript: String,
-        ollamaKit: OllamaKit,
         isEasyNote: Bool = false,
         providedModalities: [String: [String]]? = nil
     ) async throws -> (modalities: String, engagement: String) {
@@ -1981,7 +1973,7 @@ final class ChatViewModel {
         } else {
             print("DEBUG: Generating modalities analysis with AI")
             let analysisPrompt = getModalitiesAnalysisPrompt() + "\n\nSession Transcript:\n" + transcript
-            modalitiesAnalysis = try await generateAnalysis(prompt: analysisPrompt, ollamaKit: ollamaKit)
+            modalitiesAnalysis = try await generateAnalysisWithBackend(prompt: analysisPrompt)
             print("DEBUG: Modalities analysis completed, length: \(modalitiesAnalysis.count)")
         }
         
@@ -1996,7 +1988,7 @@ final class ChatViewModel {
         while retryCount <= maxRetries {
             do {
                 print("DEBUG: Engagement analysis attempt \(retryCount + 1) of \(maxRetries + 1)")
-                engagementAnalysis = try await generateAnalysis(prompt: engagementPrompt, ollamaKit: ollamaKit)
+                engagementAnalysis = try await generateAnalysisWithBackend(prompt: engagementPrompt)
                 print("DEBUG: Engagement analysis completed, length: \(engagementAnalysis.count)")
                 break
             } catch {
@@ -2268,7 +2260,6 @@ final class ChatViewModel {
     /// Performs complete two-pass note generation for session notes and treatment plans
     /// - Parameters:
     ///   - userInput: The original user input (transcript or form data)
-    ///   - ollamaKit: The OllamaKit instance for AI analysis
     ///   - isEasyNote: Whether this is an EasyNote format
     ///   - providedModalities: Pre-selected modalities for EasyNote
     ///   - noteFormat: Override note format (for EasyNote)
@@ -2276,7 +2267,6 @@ final class ChatViewModel {
     /// - Throws: ChatViewModelError if generation fails
     func performTwoPassGeneration(
         userInput: String,
-        ollamaKit: OllamaKit,
         isEasyNote: Bool = false,
         providedModalities: [String: [String]]? = nil,
         noteFormat: String? = nil
@@ -2295,7 +2285,6 @@ final class ChatViewModel {
         print("DEBUG: First Pass - Analyzing session content")
         let analysis = try await performSessionAnalysis(
             transcript: userInput,
-            ollamaKit: ollamaKit,
             isEasyNote: isEasyNote,
             providedModalities: providedModalities
         )
@@ -2309,7 +2298,6 @@ final class ChatViewModel {
         let finalNote = try await generateStructuredNote(
             userInput: userInput,
             analysis: analysis,
-            ollamaKit: ollamaKit,
             activityType: activityType,
             isEasyNote: isEasyNote,
             noteFormat: noteFormat
@@ -2323,7 +2311,6 @@ final class ChatViewModel {
     /// - Parameters:
     ///   - userInput: Original user input
     ///   - analysis: Analysis from first pass
-    ///   - ollamaKit: OllamaKit instance
     ///   - activityType: Type of activity being generated
     ///   - isEasyNote: Whether this is EasyNote format
     ///   - noteFormat: Override note format
@@ -2332,7 +2319,6 @@ final class ChatViewModel {
     private func generateStructuredNote(
         userInput: String,
         analysis: (modalities: String, engagement: String),
-        ollamaKit: OllamaKit,
         activityType: ActivityType,
         isEasyNote: Bool,
         noteFormat: String? = nil
@@ -2436,7 +2422,7 @@ final class ChatViewModel {
         print("DEBUG: \(String(formatInstructions.prefix(200)))...")
         
         // Generate the final note with streaming feedback for better UX
-        return try await generateAnalysisWithStreaming(prompt: secondPassPrompt, ollamaKit: ollamaKit)
+        return try await generateAnalysisWithStreamingBackend(prompt: secondPassPrompt)
     }
     
     /// Enhanced session note generation with modality and engagement analysis (Legacy method for compatibility)
@@ -2826,6 +2812,168 @@ final class ChatViewModel {
         brainstormClient = newBrainstormClient
         
         print("DEBUG: Created new BrainStorm Client for DPKNY mode")
+    }
+    
+    // MARK: - AI Backend Integration
+    
+    /// Generates an AI response using the configured backend
+    /// - Parameters:
+    ///   - prompt: The user prompt
+    ///   - systemPrompt: Optional system prompt override
+    ///   - onPartialResponse: Callback for streaming responses
+    /// - Returns: The complete AI response
+    /// - Throws: ChatViewModelError if generation fails
+    private func generateAIResponse(
+        prompt: String,
+        systemPrompt: String? = nil,
+        onPartialResponse: @escaping (String) -> Void = { _ in }
+    ) async throws -> String {
+        guard let activeChat = self.activeChat else {
+            throw ChatViewModelError.generate("No active chat available")
+        }
+        
+        guard let backend = aiBackendManager.currentBackend, backend.isReady else {
+            throw ChatViewModelError.generate("AI backend not ready. Please check your settings.")
+        }
+        
+        print("DEBUG: Using AI backend: \(aiBackendManager.selectedBackendType.displayName)")
+        
+        let messages = [
+            AIMessage(role: .system, content: systemPrompt ?? activeChat.systemPrompt ?? ""),
+            AIMessage(role: .user, content: prompt)
+        ]
+        
+        let request = AIChatRequest(
+            model: activeChat.model,
+            messages: messages,
+            temperature: activeChat.temperature,
+            topP: activeChat.topP,
+            topK: activeChat.topK
+        )
+        
+        do {
+            let response = try await backend.chat(request: request, onPartialResponse: onPartialResponse)
+            return response.trimmingCharacters(in: .whitespacesAndNewlines)
+        } catch {
+            print("DEBUG: AI generation failed: \(error)")
+            throw ChatViewModelError.generate("AI generation failed: \(error.localizedDescription)")
+        }
+    }
+    
+    /// Backend-agnostic version of generateAnalysis
+    /// - Parameters:
+    ///   - prompt: The analysis prompt
+    /// - Returns: The generated analysis
+    /// - Throws: ChatViewModelError if generation fails
+    private func generateAnalysisWithBackend(prompt: String) async throws -> String {
+        guard self.activeChat != nil else {
+            throw ChatViewModelError.generate("No active chat available")
+        }
+        
+        print("DEBUG: Starting analysis generation with prompt length: \(prompt.count)")
+        print("DEBUG: Analysis prompt preview: \(String(prompt.prefix(100)))...")
+        
+        let response = try await generateAIResponse(prompt: prompt) { partialContent in
+            // Handle streaming updates if needed
+        }
+        
+        // Validate we got a meaningful response
+        guard !response.isEmpty else {
+            throw ChatViewModelError.generate("Empty response from analysis generation")
+        }
+        
+        print("DEBUG: Analysis generation successful")
+        return response
+    }
+    
+    /// Backend-agnostic version of generateAnalysisWithStreaming
+    /// - Parameters:
+    ///   - prompt: The analysis prompt
+    /// - Returns: The generated analysis
+    /// - Throws: ChatViewModelError if generation fails
+    private func generateAnalysisWithStreamingBackend(prompt: String) async throws -> String {
+        return try await generateAnalysisWithBackend(prompt: prompt)
+    }
+    
+    /// Fetches available AI models from the current backend
+    ///
+    /// This method performs several key operations:
+    /// 1. Checks if the backend is ready
+    /// 2. Retrieves the list of available models
+    /// 3. Updates the UI state based on the results
+    /// 4. Handles error conditions appropriately
+    func fetchModelsFromBackend() {
+        self.loading = .fetchModels
+        self.error = nil
+        
+        Task {
+            do {
+                defer { self.loading = nil }
+                
+                guard let backend = aiBackendManager.currentBackend else {
+                    // During first startup, don't show errors - let splash screen handle setup
+                    return
+                }
+                
+                guard backend.isReady else {
+                    // During first startup or when backend is initializing, don't show harsh errors
+                    // The splash screen and settings will guide users through setup
+                    return
+                }
+                
+                let models = try await backend.listModels()
+                self.models = models
+                
+                // If we don't have models, that's expected during first setup - don't show error
+                guard !self.models.isEmpty else {
+                    return
+                }
+                
+                // Update active chat model if needed
+                if let host = activeChat?.host, host.isEmpty {
+                    self.activeChat?.host = self.models.first
+                }
+                
+                self.isHostReachable = true
+                
+            } catch {
+                self.isHostReachable = false
+                // Only show actual technical errors, not setup guidance
+                if Defaults[.defaultHasLaunched] && error.localizedDescription.contains("Connection") {
+                    self.error = .fetchModels("Connection issue with AI backend")
+                }
+            }
+        }
+    }
+    
+    /// Updates the AI backend based on user preference
+    func updateAIBackend() {
+        Task {
+            do {
+                let selectedBackend = Defaults[.selectedAIBackend]
+                try await aiBackendManager.initializeBackend(selectedBackend)
+                
+                // If we switched to OllamaKit, update the host
+                if selectedBackend == .ollamaKit {
+                    let host = Defaults[.defaultHost]
+                    aiBackendManager.updateOllamaHost(host)
+                }
+                
+                // If we switched to LlamaKit, try to load the configured model
+                if selectedBackend == .llamaCpp {
+                    let modelPath = Defaults[.llamaKitModelPath]
+                    if !modelPath.isEmpty {
+                        try await aiBackendManager.loadModelForLlamaCpp(modelPath)
+                    }
+                }
+                
+                // Refresh the models list
+                fetchModelsFromBackend()
+                
+            } catch {
+                self.error = .fetchModels("Failed to switch AI backend: \(error.localizedDescription)")
+            }
+        }
     }
 }
 

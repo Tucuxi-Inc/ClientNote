@@ -20,6 +20,9 @@
 	<key>com.apple.security.temporary-exception.files.home-relative-path.read-write</key>
 	<array>
 		<string>/Library/Application Support/$(PRODUCT_BUNDLE_IDENTIFIER)/</string>
+		<string>/Desktop/</string>
+		<string>/Downloads/</string>
+		<string>/downloads/</string>
 	</array>
 	<key>com.apple.security.temporary-exception.shared-preference.read-write</key>
 	<array>

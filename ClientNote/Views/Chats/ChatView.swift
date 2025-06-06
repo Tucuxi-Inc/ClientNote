@@ -1392,50 +1392,60 @@ struct ChatView: View {
             }
         }
 
-        if let activeChat = chatViewModel.activeChat, 
-           let host = activeChat.host, 
-           let baseURL = URL(string: host) {
-            print("DEBUG: ChatView - Updating OllamaKit with host: \(host)")
-            self.ollamaKit = OllamaKit(baseURL: baseURL)
-            
-            // Check Ollama connection with retry
-            Task {
-                var retryCount = 0
-                let maxRetries = 3
+        // Only check Ollama connection if OllamaKit is the selected backend
+        let selectedBackend = Defaults[.selectedAIBackend]
+        print("DEBUG: ChatView - Selected backend: \(selectedBackend.displayName)")
+        
+        if selectedBackend == .ollamaKit {
+            if let activeChat = chatViewModel.activeChat, 
+               let host = activeChat.host, 
+               let baseURL = URL(string: host) {
+                print("DEBUG: ChatView - Using OllamaKit, updating with host: \(host)")
+                self.ollamaKit = OllamaKit(baseURL: baseURL)
                 
-                while retryCount < maxRetries {
-                    do {
-                        let isReachable = await ollamaKit.reachable()
-                        if isReachable {
-                            print("DEBUG: ChatView - Successfully connected to Ollama")
-                            self.chatViewModel.isHostReachable = true
-                            self.chatViewModel.fetchModels(self.ollamaKit)
-                            break
-                        } else {
-                            print("DEBUG: ChatView - Ollama not reachable, attempt \(retryCount + 1) of \(maxRetries)")
-                            self.chatViewModel.isHostReachable = false
+                // Check Ollama connection with retry
+                Task {
+                    var retryCount = 0
+                    let maxRetries = 3
+                    
+                    while retryCount < maxRetries {
+                        do {
+                            let isReachable = await ollamaKit.reachable()
+                            if isReachable {
+                                print("DEBUG: ChatView - Successfully connected to Ollama")
+                                self.chatViewModel.isHostReachable = true
+                                self.chatViewModel.fetchModels(self.ollamaKit)
+                                break
+                            } else {
+                                print("DEBUG: ChatView - Ollama not reachable, attempt \(retryCount + 1) of \(maxRetries)")
+                                self.chatViewModel.isHostReachable = false
+                                retryCount += 1
+                                if retryCount < maxRetries {
+                                    try await Task.sleep(for: .seconds(2))
+                                }
+                            }
+                        } catch {
+                            print("DEBUG: ChatView - Error connecting to Ollama: \(error)")
                             retryCount += 1
                             if retryCount < maxRetries {
                                 try await Task.sleep(for: .seconds(2))
                             }
                         }
-                    } catch {
-                        print("DEBUG: ChatView - Error connecting to Ollama: \(error)")
-                        retryCount += 1
-                        if retryCount < maxRetries {
-                            try await Task.sleep(for: .seconds(2))
+                    }
+                    
+                    if retryCount >= maxRetries {
+                        print("DEBUG: ChatView - Failed to connect to Ollama after \(maxRetries) attempts")
+                        // Update UI to show connection error
+                        DispatchQueue.main.async {
+                            self.chatViewModel.error = .fetchModels("Unable to connect to Ollama server after multiple attempts. Please verify that Ollama is running and accessible at \(host)")
                         }
                     }
                 }
-                
-                if retryCount >= maxRetries {
-                    print("DEBUG: ChatView - Failed to connect to Ollama after \(maxRetries) attempts")
-                    // Update UI to show connection error
-                    DispatchQueue.main.async {
-                        self.chatViewModel.error = .fetchModels("Unable to connect to Ollama server after multiple attempts. Please verify that Ollama is running and accessible at \(host)")
-                    }
-                }
             }
+        } else {
+            print("DEBUG: ChatView - Using LlamaCpp, skipping Ollama connection check")
+            // When using LlamaCpp, fetch models from the backend manager
+            self.chatViewModel.fetchModelsFromBackend()
         }
     }
     

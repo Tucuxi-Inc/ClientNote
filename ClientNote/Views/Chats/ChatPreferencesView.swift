@@ -12,6 +12,7 @@ import SwiftUIIntrospect
 
 struct ChatPreferencesView: View {
     @Environment(ChatViewModel.self) private var chatViewModel
+    @Environment(AIBackendManager.self) private var aiBackendManager
     
     @Binding private var ollamaKit: OllamaKit
     
@@ -34,6 +35,7 @@ struct ChatPreferencesView: View {
     @Default(.defaultTemperature) private var temperature
     @Default(.defaultTopP) private var topP
     @Default(.defaultTopK) private var topK
+    @Default(.selectedAIBackend) private var selectedAIBackend
     
     private let availableModels = [
         "qwen3:0.6b",
@@ -72,6 +74,25 @@ struct ChatPreferencesView: View {
             
             // Additional Assistants Section
             Section {
+                // Show current backend
+                HStack {
+                    Text("Using:")
+                        .foregroundColor(.secondary)
+                    Text(selectedAIBackend.displayName)
+                        .fontWeight(.medium)
+                        .foregroundColor(Color.euniPrimary)
+                    Spacer()
+                    if selectedAIBackend == .ollamaKit {
+                        Text("Downloads from Ollama")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    } else {
+                        Text("Downloads from HuggingFace")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
                 // Picker for selecting model to download
                 Picker("Choose an Assistant", selection: $selectedDownloadModel) {
                     ForEach(AssistantModel.all, id: \.modelId) { assistant in
@@ -87,7 +108,10 @@ struct ChatPreferencesView: View {
                             Text("Downloading... \(Int(pullProgress * 100))%")
                         }
                     } else {
-                        Text("Download Assistant")
+                        HStack {
+                            Image(systemName: selectedAIBackend == .ollamaKit ? "arrow.down.circle" : "arrow.down.doc")
+                            Text("Download Assistant")
+                        }
                     }
                 }
                 .disabled(isPullingModel)
@@ -132,6 +156,19 @@ struct ChatPreferencesView: View {
                             
                             Text("These Assistants use large language models optimized to work on most MacBooks with Apple Silicon and at least 8GB of memory.")
                                 .foregroundColor(Color.euniText)
+                            
+                            // Show backend-specific info
+                            if selectedAIBackend == .llamaCpp {
+                                Text("Using built-in Llama: Models are downloaded directly from HuggingFace and run with our integrated llama.cpp engine.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .padding(.top, 4)
+                            } else {
+                                Text("Using Ollama: Models are downloaded through the Ollama application and managed by the Ollama server.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .padding(.top, 4)
+                            }
                             
                             Text("Assistant Information:")
                                 .font(.subheadline)
@@ -217,8 +254,11 @@ struct ChatPreferencesView: View {
                 self.selectedDownloadModel = model
             }
             
-            if let host = newValue?.host {
-                self.host = host
+            // Only update host for OllamaKit
+            if selectedAIBackend == .ollamaKit {
+                if let host = newValue?.host {
+                    self.host = host
+                }
             }
             
             if let systemPrompt = newValue?.systemPrompt {
@@ -237,6 +277,14 @@ struct ChatPreferencesView: View {
                 self.topK = topK
             }
         }
+        .onChange(of: selectedAIBackend) { _, _ in
+            // Refresh models when backend changes
+            if selectedAIBackend == .ollamaKit {
+                chatViewModel.fetchModels(ollamaKit)
+            } else {
+                chatViewModel.fetchModelsFromBackend()
+            }
+        }
         .sheet(isPresented: $isUpdateOllamaHostPresented) {
             UpdateOllamaHostSheet(host: host) { host in
                 self.host = host
@@ -248,7 +296,11 @@ struct ChatPreferencesView: View {
             }
         }
         .onAppear {
-            chatViewModel.fetchModels(ollamaKit)
+            if selectedAIBackend == .ollamaKit {
+                chatViewModel.fetchModels(ollamaKit)
+            } else {
+                chatViewModel.fetchModelsFromBackend()
+            }
         }
         .alert("Delete Client?", isPresented: $showDeleteClientConfirmation) {
             Button("Cancel", role: .cancel) {
@@ -337,7 +389,7 @@ struct ChatPreferencesView: View {
         showingNoteFormatInfo = true
     }
     
-    // Keep the model pulling functionality
+    // Backend-aware model pulling functionality
     func pullModel(_ modelName: String) {
         guard !isPullingModel else { return }
         
@@ -346,29 +398,52 @@ struct ChatPreferencesView: View {
         pullStatus = "Starting download..."
         
         Task {
-            await pullOllamaModel(modelName)
+            if selectedAIBackend == .ollamaKit {
+                await pullOllamaModel(modelName)
+            } else {
+                await pullLlamaKitModel(modelName)
+            }
+            
             await MainActor.run {
                 isPullingModel = false
                 
                 // Refresh models list to show the newly pulled model
-                chatViewModel.fetchModels(ollamaKit)
+                if selectedAIBackend == .ollamaKit {
+                    chatViewModel.fetchModels(ollamaKit)
+                } else {
+                    chatViewModel.fetchModelsFromBackend()
+                }
                 
                 // If the model was successfully pulled, update the selected model
                 if pullStatus == "success" {
                     // Set a short delay to allow models list to refresh
                     Task {
                         try? await Task.sleep(for: .seconds(1))
-                        if chatViewModel.models.contains(modelName) {
-                            selectedDownloadModel = modelName
-                            // Also update the active chat's model
-                            chatViewModel.activeChat?.model = modelName
+                        
+                        if selectedAIBackend == .ollamaKit {
+                            if chatViewModel.models.contains(modelName) {
+                                selectedDownloadModel = modelName
+                                // Also update the active chat's model
+                                chatViewModel.activeChat?.model = modelName
+                            }
+                        } else {
+                            // For LlamaKit, update the default model path
+                            if let assistant = AssistantModel.all.first(where: { $0.modelId == modelName }),
+                               let fileName = assistant.llamaKitFileName {
+                                let modelPath = getModelDownloadPath().appendingPathComponent(fileName).path
+                                Defaults[.llamaKitModelPath] = modelPath
+                                
+                                // Try to load the model in the backend
+                                try? await aiBackendManager.loadModelForLlamaCpp(modelPath)
+                            }
                         }
                         
                         // Show success status briefly, then clear
-                        pullStatus = "Successfully downloaded \(modelName)"
+                        let assistant = AssistantModel.all.first(where: { $0.modelId == modelName })
+                        pullStatus = "Successfully downloaded \(assistant?.name ?? modelName)"
                         
                         try? await Task.sleep(for: .seconds(3))
-                        if pullStatus == "Successfully downloaded \(modelName)" {
+                        if pullStatus == "Successfully downloaded \(assistant?.name ?? modelName)" {
                             pullStatus = ""
                         }
                     }
@@ -493,6 +568,95 @@ struct ChatPreferencesView: View {
         }
     }
     
+    func pullLlamaKitModel(_ modelName: String) async {
+        guard let assistant = AssistantModel.all.first(where: { $0.modelId == modelName }),
+              let downloadURL = assistant.downloadURL,
+              let fileName = assistant.llamaKitFileName,
+              let url = URL(string: downloadURL) else {
+            await MainActor.run {
+                pullStatus = "Error: Invalid model configuration for \(modelName)"
+                isPullingModel = false
+            }
+            return
+        }
+        
+        let downloadPath = getModelDownloadPath()
+        let destinationURL = downloadPath.appendingPathComponent(fileName)
+        
+        // Create models directory if it doesn't exist
+        do {
+            try FileManager.default.createDirectory(at: downloadPath, withIntermediateDirectories: true)
+        } catch {
+            await MainActor.run {
+                pullStatus = "Error: Could not create models directory"
+                isPullingModel = false
+            }
+            return
+        }
+        
+        // Check if model already exists
+        if FileManager.default.fileExists(atPath: destinationURL.path) {
+            await MainActor.run {
+                pullProgress = 1.0
+                pullStatus = "success"
+            }
+            return
+        }
+        
+        do {
+            await MainActor.run {
+                pullStatus = "Downloading \(assistant.name) from HuggingFace..."
+            }
+            
+            // Create a delegate to track download progress
+            let delegate = DownloadDelegate { progress in
+                Task { @MainActor in
+                    self.pullProgress = progress
+                    self.pullStatus = "Downloading \(assistant.name)... \(Int(progress * 100))%"
+                }
+            }
+            
+            let session = URLSession(configuration: .default, delegate: delegate, delegateQueue: nil)
+            let (tempURL, response) = try await session.download(from: url)
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                if httpResponse.statusCode >= 400 {
+                    await MainActor.run {
+                        pullStatus = "Error: HTTP \(httpResponse.statusCode) from HuggingFace"
+                        isPullingModel = false
+                    }
+                    return
+                }
+            }
+            
+            // Move downloaded file to final location
+            try FileManager.default.moveItem(at: tempURL, to: destinationURL)
+            
+            await MainActor.run {
+                pullProgress = 1.0
+                pullStatus = "success"
+            }
+            
+        } catch {
+            await MainActor.run {
+                pullStatus = "Error: \(error.localizedDescription)"
+                isPullingModel = false
+            }
+        }
+    }
+    
+    private func getModelDownloadPath() -> URL {
+        // Use the app's Application Support directory (proper location for app-specific data)
+        let appSupportPaths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
+        let appSupportPath = appSupportPaths.first!
+        
+        // Create app-specific subdirectory
+        let appName = Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "ClientNote"
+        return appSupportPath
+            .appendingPathComponent(appName, isDirectory: true)
+            .appendingPathComponent("LlamaKitModels", isDirectory: true)
+    }
+    
     @ViewBuilder
     func assistantRow(name: String, description: String, size: String, model: String) -> some View {
         HStack(alignment: .top) {
@@ -526,5 +690,24 @@ struct ChatPreferencesView: View {
         
         // Reset our local state
         clientToDelete = nil
+    }
+}
+
+// Download delegate for tracking progress
+class DownloadDelegate: NSObject, URLSessionDownloadDelegate {
+    private let progressHandler: (Double) -> Void
+    
+    init(progressHandler: @escaping (Double) -> Void) {
+        self.progressHandler = progressHandler
+    }
+    
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+        guard totalBytesExpectedToWrite > 0 else { return }
+        let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
+        progressHandler(progress)
+    }
+    
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+        progressHandler(1.0)
     }
 }

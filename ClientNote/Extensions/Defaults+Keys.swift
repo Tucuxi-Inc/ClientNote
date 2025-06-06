@@ -9,6 +9,29 @@ import Defaults
 import Foundation
 import AppKit.NSFont
 
+enum AIBackend: String, CaseIterable, Defaults.Serializable {
+    case llamaCpp = "llamaCpp"
+    case ollamaKit = "ollamaKit"
+    
+    var displayName: String {
+        switch self {
+        case .llamaCpp:
+            return "Integrated Model Server"
+        case .ollamaKit:
+            return "Third Party (Ollama)"
+        }
+    }
+    
+    var description: String {
+        switch self {
+        case .llamaCpp:
+            return "Direct integration with your compiled llama.cpp binaries"
+        case .ollamaKit:
+            return "Third-party local inference via Ollama application"
+        }
+    }
+}
+
 extension Defaults.Keys {
     static let defaultChatName = Key<String>("defaultChatName", default: "New Chat")
     static let defaultModel = Key<String>("defaultModel", default: "qwen3:0.6b")
@@ -35,6 +58,10 @@ extension Defaults.Keys {
     static let defaultTemperature = Key<Double>("defaultTemperature", default: 0.7)
     static let defaultTopP = Key<Double>("defaultTopP", default: 0.9)
     static let defaultTopK = Key<Int>("defaultTopK", default: 40)
+    
+    // AI Backend Settings
+    static let selectedAIBackend = Key<AIBackend>("selectedAIBackend", default: .llamaCpp)
+    static let llamaKitModelPath = Key<String>("llamaKitModelPath", default: "")
     
     static let experimentalCodeHighlighting = Key<Bool>("experimentalCodeHighlighting", default: false)
 }
