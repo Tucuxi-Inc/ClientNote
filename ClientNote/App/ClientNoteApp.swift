@@ -41,8 +41,8 @@ struct ClientNoteApp: App {
         let appUpdater = AppUpdater()
         self._appUpdater = State(initialValue: appUpdater)
         
-        // Initialize AI Backend Manager
-        let aiBackendManager = AIBackendManager()
+        // Use shared AI Backend Manager (singleton)
+        let aiBackendManager = AIBackendManager.shared
         self._aiBackendManager = State(initialValue: aiBackendManager)
         
         // Create view models with circular references
@@ -57,11 +57,8 @@ struct ClientNoteApp: App {
         let codeHighlighter = CodeHighlighter(colorScheme: .light, fontSize: Defaults[.fontSize], enabled: Defaults[.experimentalCodeHighlighting])
         _codeHighlighter = State(initialValue: codeHighlighter)
 
-        // Initialize the AI backend based on user preference
-        Task {
-            let selectedBackend = Defaults[.selectedAIBackend]
-            try? await aiBackendManager.initializeBackend(selectedBackend)
-        }
+        // Backend initialization is handled automatically by singleton
+        // No need for manual initialization here
 
         // Only create initial chat if not first launch (Flash will be downloaded during first launch)
         // OR if using LlamaKit and no model is configured yet

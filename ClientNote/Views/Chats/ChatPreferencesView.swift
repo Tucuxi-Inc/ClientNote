@@ -21,7 +21,7 @@ struct ChatPreferencesView: View {
     @State private var showAdvancedSettings: Bool = false
     @State private var showModelInfoPopover: Bool = false
     @State private var showingNoteFormatInfo: Bool = false
-    @State private var selectedDownloadModel: String = "qwen3:0.6b"
+    @State private var selectedDownloadModel: String = "Flash"
     @State private var isPullingModel: Bool = false
     @State private var pullProgress: Double = 0.0
     @State private var pullStatus: String = ""
@@ -38,12 +38,12 @@ struct ChatPreferencesView: View {
     @Default(.selectedAIBackend) private var selectedAIBackend
     
     private let availableModels = [
-        "qwen3:0.6b",
-        "gemma3:1b",
-        "qwen3:1.7b",
-        "granite3.3:2b",
-        "gemma3:4b",
-        "granite3.3:8b"
+        "Flash",
+        "Scout", 
+        "Runner",
+        "Focus",
+        "Sage",
+        "Deep Thought"
     ]
     
     init(ollamaKit: Binding<OllamaKit>) {
@@ -95,8 +95,8 @@ struct ChatPreferencesView: View {
                 
                 // Picker for selecting model to download
                 Picker("Choose an Assistant", selection: $selectedDownloadModel) {
-                    ForEach(AssistantModel.all, id: \.modelId) { assistant in
-                        Text(assistant.name).tag(assistant.modelId)
+                    ForEach(AssistantModel.all, id: \.name) { assistant in
+                        Text(assistant.name).tag(assistant.name)
                     }
                 }
                 
@@ -390,8 +390,14 @@ struct ChatPreferencesView: View {
     }
     
     // Backend-aware model pulling functionality
-    func pullModel(_ modelName: String) {
+    func pullModel(_ assistantName: String) {
         guard !isPullingModel else { return }
+        
+        // Find the assistant by name
+        guard let assistant = AssistantModel.all.first(where: { $0.name == assistantName }) else {
+            pullStatus = "Error: Unknown assistant \(assistantName)"
+            return
+        }
         
         isPullingModel = true
         pullProgress = 0.0
@@ -399,9 +405,9 @@ struct ChatPreferencesView: View {
         
         Task {
             if selectedAIBackend == .ollamaKit {
-                await pullOllamaModel(modelName)
+                await pullOllamaModel(assistant.modelId) // Use modelId for Ollama
             } else {
-                await pullLlamaKitModel(modelName)
+                await pullLlamaKitModel(assistantName) // Use name for LlamaKit
             }
             
             await MainActor.run {
@@ -415,35 +421,32 @@ struct ChatPreferencesView: View {
                 }
                 
                 // If the model was successfully pulled, update the selected model
-                if pullStatus == "success" {
+                if pullStatus.starts(with: "Successfully downloaded") {
                     // Set a short delay to allow models list to refresh
                     Task {
                         try? await Task.sleep(for: .seconds(1))
                         
                         if selectedAIBackend == .ollamaKit {
-                            if chatViewModel.models.contains(modelName) {
-                                selectedDownloadModel = modelName
+                            // For Ollama, check if the model ID is available
+                            if chatViewModel.models.contains(assistant.modelId) {
+                                selectedDownloadModel = assistantName
                                 // Also update the active chat's model
-                                chatViewModel.activeChat?.model = modelName
+                                chatViewModel.activeChat?.model = assistant.modelId
                             }
                         } else {
-                            // For LlamaKit, update the default model path
-                            if let assistant = AssistantModel.all.first(where: { $0.modelId == modelName }),
-                               let fileName = assistant.llamaKitFileName {
-                                let modelPath = getModelDownloadPath().appendingPathComponent(fileName).path
-                                Defaults[.llamaKitModelPath] = modelPath
-                                
-                                // Try to load the model in the backend
-                                try? await aiBackendManager.loadModelForLlamaCpp(modelPath)
+                            // For LlamaKit, check if the friendly name is available
+                            if chatViewModel.models.contains(assistantName) {
+                                selectedDownloadModel = assistantName
+                                // Update the active chat's model to use the friendly name
+                                chatViewModel.activeChat?.model = assistantName
                             }
                         }
                         
                         // Show success status briefly, then clear
-                        let assistant = AssistantModel.all.first(where: { $0.modelId == modelName })
-                        pullStatus = "Successfully downloaded \(assistant?.name ?? modelName)"
+                        pullStatus = "Successfully downloaded \(assistantName)"
                         
                         try? await Task.sleep(for: .seconds(3))
-                        if pullStatus == "Successfully downloaded \(assistant?.name ?? modelName)" {
+                        if pullStatus == "Successfully downloaded \(assistantName)" {
                             pullStatus = ""
                         }
                     }
@@ -568,13 +571,13 @@ struct ChatPreferencesView: View {
         }
     }
     
-    func pullLlamaKitModel(_ modelName: String) async {
-        guard let assistant = AssistantModel.all.first(where: { $0.modelId == modelName }),
+    func pullLlamaKitModel(_ assistantName: String) async {
+        guard let assistant = AssistantModel.all.first(where: { $0.name == assistantName }),
               let downloadURL = assistant.downloadURL,
               let fileName = assistant.llamaKitFileName,
               let url = URL(string: downloadURL) else {
             await MainActor.run {
-                pullStatus = "Error: Invalid model configuration for \(modelName)"
+                pullStatus = "Error: Invalid model configuration for \(assistantName)"
                 isPullingModel = false
             }
             return
@@ -583,22 +586,25 @@ struct ChatPreferencesView: View {
         let downloadPath = getModelDownloadPath()
         let destinationURL = downloadPath.appendingPathComponent(fileName)
         
-        // Create models directory if it doesn't exist
+        // Ensure models directory exists with proper permissions
         do {
-            try FileManager.default.createDirectory(at: downloadPath, withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(at: downloadPath, withIntermediateDirectories: true, attributes: [
+                .posixPermissions: 0o755
+            ])
+            print("DEBUG: Created/verified models directory at: \(downloadPath.path)")
         } catch {
             await MainActor.run {
-                pullStatus = "Error: Could not create models directory"
+                pullStatus = "Error: Could not create models directory: \(error.localizedDescription)"
                 isPullingModel = false
             }
             return
         }
         
-        // Check if model already exists
+        // Check if file already exists
         if FileManager.default.fileExists(atPath: destinationURL.path) {
             await MainActor.run {
-                pullProgress = 1.0
-                pullStatus = "success"
+                pullStatus = "\(assistantName) already downloaded"
+                isPullingModel = false
             }
             return
         }
@@ -606,41 +612,97 @@ struct ChatPreferencesView: View {
         do {
             await MainActor.run {
                 pullStatus = "Downloading \(assistant.name) from HuggingFace..."
+                pullProgress = 0.0
             }
             
-            // Create a delegate to track download progress
-            let delegate = DownloadDelegate { progress in
+            // Create progress delegate
+            let progressDelegate = ProgressDelegate { progress in
                 Task { @MainActor in
                     self.pullProgress = progress
                     self.pullStatus = "Downloading \(assistant.name)... \(Int(progress * 100))%"
                 }
             }
             
-            let session = URLSession(configuration: .default, delegate: delegate, delegateQueue: nil)
-            let (tempURL, response) = try await session.download(from: url)
+            // Use URLSessionDownloadTask with progress tracking
+            let config = URLSessionConfiguration.default
+            config.timeoutIntervalForRequest = 300 // 5 minute timeout
+            config.timeoutIntervalForResource = 1800 // 30 minute timeout
+            let session = URLSession(configuration: config, delegate: progressDelegate, delegateQueue: nil)
             
+            // Start download with proper error handling
+            let downloadTask = session.downloadTask(with: url)
+            
+            let (tempURL, response) = try await withCheckedThrowingContinuation { continuation in
+                progressDelegate.completion = { result in
+                    continuation.resume(with: result)
+                }
+                downloadTask.resume()
+            }
+            
+            // Validate response
             if let httpResponse = response as? HTTPURLResponse {
-                if httpResponse.statusCode >= 400 {
-                    await MainActor.run {
-                        pullStatus = "Error: HTTP \(httpResponse.statusCode) from HuggingFace"
-                        isPullingModel = false
-                    }
-                    return
+                guard httpResponse.statusCode == 200 else {
+                    throw URLError(.badServerResponse)
                 }
             }
             
-            // Move downloaded file to final location
-            try FileManager.default.moveItem(at: tempURL, to: destinationURL)
+            await MainActor.run {
+                pullStatus = "Download complete, installing \(assistant.name)..."
+            }
+            
+            // Ensure the temporary file exists before moving
+            guard FileManager.default.fileExists(atPath: tempURL.path) else {
+                throw NSError(domain: "ModelDownload", code: 1, userInfo: [
+                    NSLocalizedDescriptionKey: "Downloaded file not found at temporary location"
+                ])
+            }
+            
+            // Remove existing file if it exists (race condition protection)
+            if FileManager.default.fileExists(atPath: destinationURL.path) {
+                try FileManager.default.removeItem(at: destinationURL)
+            }
+            
+            // Move the file to final destination with error handling
+            do {
+                try FileManager.default.moveItem(at: tempURL, to: destinationURL)
+                print("DEBUG: Successfully moved model file to: \(destinationURL.path)")
+            } catch let moveError as NSError {
+                print("DEBUG: Move error: \(moveError)")
+                
+                // If move fails, try copy and delete instead
+                do {
+                    try FileManager.default.copyItem(at: tempURL, to: destinationURL)
+                    try FileManager.default.removeItem(at: tempURL)
+                    print("DEBUG: Successfully copied model file to: \(destinationURL.path)")
+                } catch {
+                    throw NSError(domain: "ModelDownload", code: 2, userInfo: [
+                        NSLocalizedDescriptionKey: "Failed to install model file: \(error.localizedDescription)"
+                    ])
+                }
+            }
+            
+            // Verify the file exists at destination
+            guard FileManager.default.fileExists(atPath: destinationURL.path) else {
+                throw NSError(domain: "ModelDownload", code: 3, userInfo: [
+                    NSLocalizedDescriptionKey: "Model file not found after installation"
+                ])
+            }
             
             await MainActor.run {
+                pullStatus = "\(assistant.name) downloaded successfully!"
                 pullProgress = 1.0
-                pullStatus = "success"
+                isPullingModel = false
             }
+            
+            // Clean up session
+            session.invalidateAndCancel()
             
         } catch {
             await MainActor.run {
-                pullStatus = "Error: \(error.localizedDescription)"
+                pullStatus = "Error downloading \(assistant.name): \(error.localizedDescription)"
                 isPullingModel = false
+                pullProgress = 0.0
+                print("DEBUG: Download error for \(assistantName): \(error)")
             }
         }
     }
@@ -652,9 +714,33 @@ struct ChatPreferencesView: View {
         
         // Create app-specific subdirectory
         let appName = Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "ClientNote"
-        return appSupportPath
-            .appendingPathComponent(appName, isDirectory: true)
-            .appendingPathComponent("LlamaKitModels", isDirectory: true)
+        let appDirectory = appSupportPath.appendingPathComponent(appName, isDirectory: true)
+        let modelsDirectory = appDirectory.appendingPathComponent("LlamaKitModels", isDirectory: true)
+        
+        // Ensure directory exists with proper permissions
+        do {
+            try FileManager.default.createDirectory(at: modelsDirectory, 
+                                                  withIntermediateDirectories: true,
+                                                  attributes: [.posixPermissions: 0o755])
+            print("DEBUG: Created/verified models directory at: \(modelsDirectory.path)")
+        } catch {
+            print("DEBUG: Failed to create models directory: \(error)")
+            // Fallback to Downloads if Application Support fails
+            let downloadsPath = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first!
+            let fallbackPath = downloadsPath.appendingPathComponent("ClientNote-LlamaKitModels", isDirectory: true)
+            
+            do {
+                try FileManager.default.createDirectory(at: fallbackPath,
+                                                      withIntermediateDirectories: true,
+                                                      attributes: [.posixPermissions: 0o755])
+                print("DEBUG: Using fallback models directory at: \(fallbackPath.path)")
+                return fallbackPath
+            } catch {
+                print("DEBUG: Even fallback directory creation failed: \(error)")
+            }
+        }
+        
+        return modelsDirectory
     }
     
     @ViewBuilder
@@ -693,21 +779,41 @@ struct ChatPreferencesView: View {
     }
 }
 
-// Download delegate for tracking progress
-class DownloadDelegate: NSObject, URLSessionDownloadDelegate {
+// MARK: - Download Progress Delegate
+
+private class ProgressDelegate: NSObject, URLSessionDownloadDelegate {
     private let progressHandler: (Double) -> Void
+    var completion: ((Result<(URL, URLResponse), Error>) -> Void)?
     
     init(progressHandler: @escaping (Double) -> Void) {
         self.progressHandler = progressHandler
+        super.init()
     }
     
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
         guard totalBytesExpectedToWrite > 0 else { return }
         let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
-        progressHandler(progress)
+        DispatchQueue.main.async {
+            self.progressHandler(progress)
+        }
     }
     
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-        progressHandler(1.0)
+        // Store the temporary location and response for completion
+        if let response = downloadTask.response {
+            completion?(.success((location, response)))
+        } else {
+            let error = NSError(domain: "DownloadError", code: 1, userInfo: [
+                NSLocalizedDescriptionKey: "No response received"
+            ])
+            completion?(.failure(error))
+        }
+    }
+    
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        if let error = error {
+            completion?(.failure(error))
+        }
+        // Success case is handled in didFinishDownloadingTo
     }
 }

@@ -36,7 +36,7 @@ struct AppView: View {
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
     let container = try! ModelContainer(for: Chat.self, Message.self, configurations: config)
     
-    let aiBackendManager = AIBackendManager()
+    let aiBackendManager = AIBackendManager.shared
     let chatViewModel = ChatViewModel(modelContext: container.mainContext, aiBackendManager: aiBackendManager)
     let messageViewModel = MessageViewModel(modelContext: container.mainContext, chatViewModel: chatViewModel)
     let codeHighlighter = CodeHighlighter(colorScheme: .light, fontSize: 13, enabled: false)

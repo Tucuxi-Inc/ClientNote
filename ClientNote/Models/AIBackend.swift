@@ -109,11 +109,57 @@ class LlamaKitBackend: AIBackendProtocol {
     }
     
     func listModels() async throws -> [String] {
+        // Return all available models, not just the currently loaded one
+        var availableModels: [String] = []
+        
+        // First, add the currently loaded model if any
         if let modelPath = currentModelPath {
             let friendlyName = friendlyModelName(for: modelPath)
-            return [friendlyName]
+            availableModels.append(friendlyName)
         }
-        return []
+        
+        // Then scan for other available models in the download directory
+        let downloadPaths = [
+            // Standard Application Support path
+            getModelDownloadPath(),
+            // Alternative paths where models might be stored
+            FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first?.appendingPathComponent("LlamaKitModels"),
+            // Desktop path for development
+            URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Desktop/LlamaKitModels")
+        ].compactMap { $0 }
+        
+        for downloadPath in downloadPaths {
+            do {
+                let contents = try FileManager.default.contentsOfDirectory(at: downloadPath, 
+                                                                         includingPropertiesForKeys: nil)
+                
+                for fileURL in contents {
+                    if fileURL.pathExtension == "gguf" {
+                        let friendlyName = friendlyModelName(for: fileURL.path)
+                        // Avoid duplicates
+                        if !availableModels.contains(friendlyName) {
+                            availableModels.append(friendlyName)
+                        }
+                    }
+                }
+            } catch {
+                // Directory doesn't exist or can't be read - that's okay
+                print("DEBUG: Could not scan directory \(downloadPath): \(error)")
+            }
+        }
+        
+        // If no models found anywhere, return empty array
+        return availableModels
+    }
+    
+    /// Get the standard model download path
+    private func getModelDownloadPath() -> URL {
+        let appSupportPaths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
+        let appSupportPath = appSupportPaths.first!
+        let appName = Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "ClientNote"
+        return appSupportPath
+            .appendingPathComponent(appName, isDirectory: true)
+            .appendingPathComponent("LlamaKitModels", isDirectory: true)
     }
     
     func chat(request: AIChatRequest, onPartialResponse: @escaping (String) -> Void) async throws -> String {
@@ -588,6 +634,16 @@ class OllamaKitBackend: AIBackendProtocol {
         }
     }
     
+    /// Get the standard model download path
+    private func getModelDownloadPath() -> URL {
+        let appSupportPaths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
+        let appSupportPath = appSupportPaths.first!
+        let appName = Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "ClientNote"
+        return appSupportPath
+            .appendingPathComponent(appName, isDirectory: true)
+            .appendingPathComponent("LlamaKitModels", isDirectory: true)
+    }
+    
     func chat(request: AIChatRequest, onPartialResponse: @escaping (String) -> Void) async throws -> String {
         guard isReady else {
             throw AIBackendError.notReady
@@ -657,61 +713,232 @@ extension AIMessage {
     }
 }
 
-// MARK: - AI Backend Manager
+// MARK: - Singleton AI Backend Manager
 
 @MainActor
 @Observable
 class AIBackendManager {
+    // CRITICAL: Use singleton pattern to prevent multiple instances
+    static let shared = AIBackendManager()
+    
     var currentBackend: (any AIBackendProtocol)?
     var selectedBackendType: AIBackend = Defaults[.selectedAIBackend]
     
-    init() {
+    // Track initialization state to prevent duplicate initialization
+    private var isInitializing = false
+    private var initializationTask: Task<Void, Error>?
+    
+    // Preview environment detection
+    private var isPreviewEnvironment: Bool {
+        // Check for Xcode preview environment indicators
+        let environment = ProcessInfo.processInfo.environment
+        
+        // More specific detection - only consider it a preview if we have the preview dylib
+        // AND we're specifically running for previews (not just running from Xcode)
+        let hasPreviewDylib = environment["DYLD_INSERT_LIBRARIES"]?.contains("__preview.dylib") == true
+        let isRunningForPreviews = environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+        
+        // Additional preview indicators that are more specific
+        let hasPreviewProcess = ProcessInfo.processInfo.processName.contains("PreviewsAgent") ||
+                               ProcessInfo.processInfo.processName.contains("PreviewHost")
+        
+        return hasPreviewDylib && (isRunningForPreviews || hasPreviewProcess)
+    }
+    
+    // Private initializer to enforce singleton
+    private init() {
+        print("DEBUG: AIBackendManager.shared - Creating singleton instance")
+        
+        // Don't initialize backend during preview - prevents crashes
+        guard !isPreviewEnvironment else {
+            print("DEBUG: AIBackendManager - Preview environment detected, skipping backend initialization")
+            return
+        }
+        
+        // Initialize backend on startup
         Task {
-            try? await initializeBackend(selectedBackendType)
+            do {
+                try await initializeBackend(selectedBackendType)
+            } catch {
+                print("DEBUG: AIBackendManager - Failed to initialize backend: \(error)")
+            }
         }
     }
     
     func initializeBackend(_ backendType: AIBackend) async throws {
-        selectedBackendType = backendType
-        
-        switch backendType {
-        case .llamaCpp:
-            let backend = LlamaCppBackend()
-            try await backend.initialize()
-            currentBackend = backend
-            
-        case .ollamaKit:
-            let host = Defaults[.defaultHost]
-            let backend = OllamaKitBackend(host: host)
-            try await backend.initialize()
-            currentBackend = backend
+        // Skip initialization in preview environment
+        guard !isPreviewEnvironment else {
+            print("DEBUG: AIBackendManager - Skipping backend initialization in preview environment")
+            return
         }
+        
+        // Prevent concurrent initialization
+        if isInitializing {
+            print("DEBUG: AIBackendManager - Backend initialization already in progress, waiting...")
+            try await initializationTask?.value
+            return
+        }
+        
+        // Check if we already have the right backend type running
+        if let backend = currentBackend,
+           selectedBackendType == backendType,
+           backend.isReady {
+            print("DEBUG: AIBackendManager - Backend already initialized and ready, skipping")
+            return
+        }
+        
+        isInitializing = true
+        
+        initializationTask = Task {
+            defer { 
+                isInitializing = false 
+                initializationTask = nil
+            }
+            
+            selectedBackendType = backendType
+            
+            print("DEBUG: AIBackendManager - Initializing backend type: \(backendType)")
+            
+            switch backendType {
+            case .llamaCpp:
+                // Only create new backend if we don't have one or it's the wrong type
+                if !(currentBackend is LlamaCppBackend) {
+                    print("DEBUG: AIBackendManager - Creating new LlamaCppBackend")
+                    let backend = LlamaCppBackend()
+                    try await backend.initialize()
+                    currentBackend = backend
+                } else {
+                    print("DEBUG: AIBackendManager - Reusing existing LlamaCppBackend")
+                }
+                
+            case .ollamaKit:
+                if !(currentBackend is OllamaKitBackend) {
+                    print("DEBUG: AIBackendManager - Creating new OllamaKitBackend")
+                    let host = Defaults[.defaultHost]
+                    let backend = OllamaKitBackend(host: host)
+                    try await backend.initialize()
+                    currentBackend = backend
+                } else {
+                    print("DEBUG: AIBackendManager - Reusing existing OllamaKitBackend")
+                }
+            }
+            
+            // Store the selection
+            Defaults[.selectedAIBackend] = backendType
+        }
+        
+        try await initializationTask?.value
     }
     
     func loadModelForLlamaCpp(_ modelPath: String) async throws {
+        // Skip in preview environment
+        guard !isPreviewEnvironment else {
+            print("DEBUG: AIBackendManager - Skipping model loading in preview environment")
+            return
+        }
+        
         guard selectedBackendType == .llamaCpp else {
             throw AIBackendError.invalidBackend("LlamaCpp not selected")
+        }
+        
+        // Ensure we have a LlamaCpp backend
+        if !(currentBackend is LlamaCppBackend) {
+            try await initializeBackend(.llamaCpp)
         }
         
         guard let llamaCppBackend = currentBackend as? LlamaCppBackend else {
             throw AIBackendError.backendNotReady("LlamaCpp backend not available")
         }
         
+        print("DEBUG: AIBackendManager - Loading model: \(modelPath)")
         try await llamaCppBackend.loadModel(at: modelPath)
         
         // Update the stored model path
         Defaults[.llamaKitModelPath] = modelPath
         
-        print("DEBUG: Successfully loaded LlamaCpp model: \(modelPath)")
+        print("DEBUG: AIBackendManager - Successfully loaded LlamaCpp model: \(modelPath)")
     }
     
     func updateOllamaHost(_ host: String) {
+        // Skip in preview environment
+        guard !isPreviewEnvironment else {
+            print("DEBUG: AIBackendManager - Skipping host update in preview environment")
+            return
+        }
+        
         guard selectedBackendType == .ollamaKit,
               let backend = currentBackend as? OllamaKitBackend else {
             return
         }
         
         backend.updateHost(host)
+    }
+    
+    // MARK: - Helper Methods for Views
+    
+    /// Get the current backend, ensuring it's initialized
+    func getBackend() async throws -> any AIBackendProtocol {
+        // Return mock backend in preview environment
+        guard !isPreviewEnvironment else {
+            return MockBackend()
+        }
+        
+        if let backend = currentBackend, backend.isReady {
+            return backend
+        }
+        
+        // Backend not ready, try to initialize
+        try await initializeBackend(selectedBackendType)
+        
+        guard let backend = currentBackend else {
+            throw AIBackendError.backendNotReady("No backend available after initialization")
+        }
+        
+        return backend
+    }
+    
+    /// Check if backend is ready without initializing
+    var isBackendReady: Bool {
+        // Return false in preview environment
+        guard !isPreviewEnvironment else {
+            return false
+        }
+        
+        return currentBackend?.isReady ?? false
+    }
+    
+    /// Get current backend status
+    var backendStatus: String {
+        // Return preview status in preview environment
+        guard !isPreviewEnvironment else {
+            return "Preview Mode"
+        }
+        
+        return currentBackend?.status ?? "No backend"
+    }
+}
+
+// MARK: - Mock Backend for Previews
+
+/// Mock backend implementation for preview environments
+private class MockBackend: AIBackendProtocol {
+    @Published var isReady: Bool = true
+    @Published var status: String = "Mock Backend"
+    
+    func initialize() async throws {
+        // No-op for mock
+    }
+    
+    func loadModel(at path: String) async throws {
+        // No-op for mock
+    }
+    
+    func listModels() async throws -> [String] {
+        return ["Preview Model"]
+    }
+    
+    func chat(request: AIChatRequest, onPartialResponse: @escaping (String) -> Void) async throws -> String {
+        return "Mock response for preview"
     }
 }
 
@@ -751,6 +978,92 @@ enum AIBackendError: LocalizedError {
 
 // MARK: - Direct Llama.cpp Backend Implementation
 
+// MARK: - Llama.cpp Configuration and Server Management
+
+struct LlamaModelConfig {
+    let modelPath: String
+    let contextSize: Int
+    let gpuLayers: Int
+    let threadCount: Int
+    
+    // Auto-detect optimal settings based on model metadata
+    static func autoDetect(for modelPath: String) -> LlamaModelConfig {
+        // Parse model metadata to determine optimal settings
+        // For now, use heuristics based on model size
+        let modelName = URL(fileURLWithPath: modelPath).lastPathComponent
+        
+        var contextSize = 8192  // Safe default
+        var gpuLayers = 20      // Conservative GPU usage
+        
+        // Model-specific optimizations
+        if modelName.contains("Qwen3") {
+            contextSize = 32768  // Use 32K instead of full 40K for stability
+            if modelName.contains("0.6B") {
+                gpuLayers = 28   // Offload all layers for small model
+            } else if modelName.contains("1.7B") {
+                gpuLayers = 26
+            }
+        } else if modelName.contains("gemma-3-1b") {
+            contextSize = 16384
+            gpuLayers = 18
+        } else if modelName.contains("gemma-3-4b") {
+            contextSize = 16384
+            gpuLayers = 26
+        } else if modelName.contains("granite-3.3-2b") {
+            contextSize = 32768  // Granite supports large context
+            gpuLayers = 20
+        } else if modelName.contains("granite-3.3-8b") {
+            contextSize = 32768
+            gpuLayers = 32
+        } else if modelName.contains("7B") || modelName.contains("8B") {
+            contextSize = 16384
+            gpuLayers = 24
+        } else if modelName.contains("13B") {
+            contextSize = 8192
+            gpuLayers = 20
+        }
+        
+        // Thread optimization for Apple Silicon
+        let threadCount = Self.calculateOptimalThreads()
+        
+        return LlamaModelConfig(
+            modelPath: modelPath,
+            contextSize: contextSize,
+            gpuLayers: gpuLayers,
+            threadCount: threadCount
+        )
+    }
+    
+    private static func calculateOptimalThreads() -> Int {
+        let totalCores = ProcessInfo.processInfo.processorCount
+        
+        // Apple Silicon core detection heuristic
+        var performanceCores: Int
+        switch totalCores {
+        case 8:  // M1, M2 base
+            performanceCores = 4
+        case 10: // M1 Pro, M2 Pro
+            performanceCores = 8
+        case 12: // M2 Pro variant
+            performanceCores = 8
+        case 14: // M3 Pro
+            performanceCores = 10
+        case 16: // M1 Max
+            performanceCores = 10
+        case 20: // M1 Ultra
+            performanceCores = 16
+        case 24: // M2 Ultra
+            performanceCores = 16
+        default:
+            // Conservative estimate: 2/3 are performance cores
+            performanceCores = (totalCores * 2) / 3
+        }
+        
+        // Leave 1 core for system/UI responsiveness
+        return max(1, performanceCores - 1)
+    }
+}
+
 @MainActor
 class LlamaCppBackend: AIBackendProtocol {
     @Published var isReady: Bool = false
@@ -759,11 +1072,12 @@ class LlamaCppBackend: AIBackendProtocol {
     nonisolated(unsafe) private var serverProcess: Process?
     nonisolated(unsafe) private var watchdogProcess: Process?
     private var currentModelPath: String?
+    private var currentConfig: LlamaModelConfig?
     private let host = "127.0.0.1"
     private let port = "8080" // Standard llama-server port
-    private var contextLength = 8000
     private var serverExecutablePath: String?
     private var libPath: String?
+    private var isStarting = false // Prevent concurrent starts
     
     init() {}
     
@@ -784,7 +1098,21 @@ class LlamaCppBackend: AIBackendProtocol {
         print("DEBUG: LlamaCpp - Using library path: \(dylibPath)")
         
         // Check if we have a configured model path and auto-load it
-        let modelPath = Defaults[.llamaKitModelPath]
+        var modelPath = Defaults[.llamaKitModelPath]
+        
+        // MIGRATION: Replace old Q8_0 models with Q4_0 equivalents
+        if !modelPath.isEmpty {
+            let fileName = URL(fileURLWithPath: modelPath).lastPathComponent
+            let migratedPath = migrateToQ4Model(currentPath: modelPath, currentFileName: fileName)
+            if migratedPath != modelPath {
+                print("DEBUG: LlamaCpp - Migrating from Q8_0 to Q4_0 model")
+                print("DEBUG: LlamaCpp - Old: \(fileName)")
+                print("DEBUG: LlamaCpp - New: \(URL(fileURLWithPath: migratedPath).lastPathComponent)")
+                modelPath = migratedPath
+                Defaults[.llamaKitModelPath] = modelPath
+            }
+        }
+        
         if !modelPath.isEmpty {
             print("DEBUG: LlamaCpp - Auto-loading configured model: \(modelPath)")
             do {
@@ -798,6 +1126,310 @@ class LlamaCppBackend: AIBackendProtocol {
             print("DEBUG: LlamaCpp - No model path configured, waiting for manual model selection")
             status = "No model configured"
         }
+    }
+    
+    /// Migrates old Q8_0 model paths to Q4_0 equivalents
+    private func migrateToQ4Model(currentPath: String, currentFileName: String) -> String {
+        // Mapping of old Q8_0 files to new Q4_0 files
+        let migrationMap: [String: String] = [
+            "Qwen3-0.6B-Q8_0.gguf": "Qwen3-0.6B-Q4_0.gguf",
+            "gemma-3-1b-it-Q8_0.gguf": "gemma-3-1b-it-Q4_0.gguf", 
+            "Qwen3-1.7B-Q8_0.gguf": "Qwen3-1.7B-Q4_0.gguf",
+            "granite-3.3-2b-instruct-Q8_0.gguf": "granite-3.3-2b-instruct-Q4_0.gguf",
+            "gemma-3-4b-it-Q8_0.gguf": "gemma-3-4b-it-Q4_0.gguf",
+            "granite-3.3-8b-instruct-Q8_0.gguf": "granite-3.3-8b-instruct-Q4_0.gguf"
+        ]
+        
+        guard let newFileName = migrationMap[currentFileName] else {
+            // No migration needed
+            return currentPath
+        }
+        
+        // Replace the filename in the path
+        let directory = URL(fileURLWithPath: currentPath).deletingLastPathComponent()
+        let newPath = directory.appendingPathComponent(newFileName).path
+        
+        // Check if the new Q4_0 file exists
+        if FileManager.default.fileExists(atPath: newPath) {
+            print("DEBUG: LlamaCpp - Found Q4_0 replacement at: \(newPath)")
+            return newPath
+        } else {
+            print("DEBUG: LlamaCpp - Q4_0 replacement not found, keeping original: \(currentPath)")
+            return currentPath
+        }
+    }
+    
+    func loadModel(at path: String) async throws {
+        status = "Loading model..."
+        isReady = false
+        
+        print("DEBUG: LlamaCpp - Loading model at: \(path)")
+        
+        // Check if model file exists
+        guard FileManager.default.fileExists(atPath: path) else {
+            let errorMsg = "Model file not found at path: \(path)"
+            status = "Error: \(errorMsg)"
+            throw AIBackendError.modelLoadFailed(errorMsg)
+        }
+        
+        // Prevent concurrent starts
+        guard !isStarting else {
+            throw AIBackendError.modelLoadFailed("Server startup already in progress")
+        }
+        isStarting = true
+        
+        defer {
+            isStarting = false
+        }
+        
+        // Auto-detect optimal configuration for this model
+        let config = LlamaModelConfig.autoDetect(for: path)
+        print("DEBUG: LlamaCpp - Auto-detected config: ctx=\(config.contextSize), gpu_layers=\(config.gpuLayers), threads=\(config.threadCount)")
+        
+        // Stop any existing server and watchdog
+        await stopServer()
+        
+        // Start the server with optimized configuration
+        try await startServer(config: config)
+        
+        currentModelPath = path
+        currentConfig = config
+        status = "Model loaded: \(friendlyModelName(for: path))"
+        isReady = true
+        
+        print("DEBUG: LlamaCpp - Model loaded successfully with optimized settings")
+    }
+    
+    func listModels() async throws -> [String] {
+        // For LlamaCpp, we need to return models that are actually available
+        var availableModels: [String] = []
+        
+        // First, if we have a currently loaded model, add it with friendly name
+        if let modelPath = currentModelPath,
+           let fileName = URL(fileURLWithPath: modelPath).lastPathComponent.removingPercentEncoding {
+            let friendlyName = friendlyModelName(for: fileName)
+            availableModels.append(friendlyName)
+            print("DEBUG: LlamaCpp listModels - Added current model: \(friendlyName) (from \(fileName))")
+        }
+        
+        // Then scan for other available models in the primary download directory only
+        let downloadPath = getModelDownloadPath()
+        
+        do {
+            let files = try FileManager.default.contentsOfDirectory(at: downloadPath, includingPropertiesForKeys: [.isRegularFileKey])
+            
+            for file in files {
+                let fileName = file.lastPathComponent
+                
+                // Only include .gguf files
+                guard fileName.hasSuffix(".gguf") else { continue }
+                
+                // Skip if this is already the current model
+                if let currentPath = currentModelPath,
+                   file.path == currentPath {
+                    continue
+                }
+                
+                // Convert to friendly name and add if it's a known model
+                let friendlyName = friendlyModelName(for: fileName)
+                
+                // Only add models that have friendly name mappings (are in our supported list)
+                if friendlyName != fileName {
+                    availableModels.append(friendlyName)
+                    print("DEBUG: LlamaCpp listModels - Added available model: \(friendlyName) (from \(fileName))")
+                }
+            }
+        } catch {
+            print("DEBUG: LlamaCpp listModels - Could not scan primary directory \(downloadPath.path): \(error)")
+            // Don't throw error, just continue with current model if available
+        }
+        
+        // Remove duplicates and sort
+        availableModels = Array(Set(availableModels)).sorted()
+        
+        print("DEBUG: LlamaCpp listModels - Final list: \(availableModels)")
+        
+        // If no models found, return a default to prevent empty picker
+        if availableModels.isEmpty {
+            print("DEBUG: LlamaCpp listModels - No models found, returning 'Flash' as fallback")
+            return ["Flash"]
+        }
+        
+        return availableModels
+    }
+    
+    /// Get the standard model download path
+    private func getModelDownloadPath() -> URL {
+        let appSupportPaths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
+        let appSupportPath = appSupportPaths.first!
+        let appName = Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "ClientNote"
+        return appSupportPath
+            .appendingPathComponent(appName, isDirectory: true)
+            .appendingPathComponent("LlamaKitModels", isDirectory: true)
+    }
+    
+    func chat(request: AIChatRequest, onPartialResponse: @escaping (String) -> Void) async throws -> String {
+        guard isReady else {
+            print("DEBUG: LlamaCpp - Chat called but backend not ready")
+            throw AIBackendError.notReady
+        }
+        
+        print("DEBUG: LlamaCpp - Starting chat with \(request.messages.count) messages")
+        
+        // Convert AIMessage to OpenAI format
+        let chatMessages = request.messages.map { message in
+            OpenAIChatMessage(role: message.openAIRole, content: message.content)
+        }
+        
+        do {
+            let response = try await performChat(
+                messages: chatMessages,
+                temperature: request.temperature,
+                progressHandler: onPartialResponse
+            )
+            
+            print("DEBUG: LlamaCpp - Chat completed successfully. Response length: \(response.count)")
+            return response
+            
+        } catch {
+            print("DEBUG: LlamaCpp - Chat failed with error: \(error)")
+            throw AIBackendError.chatFailed(error.localizedDescription)
+        }
+    }
+    
+    // MARK: - Private Server Management
+    
+    private func startServer(config: LlamaModelConfig) async throws {
+        guard serverProcess?.isRunning != true else { return }
+        
+        print("DEBUG: LlamaCpp - Starting llama-server with optimized config")
+        
+        guard let serverExecutable = serverExecutablePath,
+              let libraryPath = libPath else {
+            throw AIBackendError.modelLoadFailed("llama-server executable path not configured")
+        }
+        
+        serverProcess = Process()
+        serverProcess!.executableURL = URL(fileURLWithPath: serverExecutable)
+        
+        // Enhanced environment cleanup
+        var environment = ProcessInfo.processInfo.environment
+        environment["DYLD_LIBRARY_PATH"] = libraryPath
+        
+        // Remove all Xcode injection variables
+        let xcodePrefixes = ["DYLD_INSERT_LIBRARIES", "__XCODE_", "__XPC_DYLD_"]
+        for key in environment.keys {
+            if xcodePrefixes.contains(where: { key.hasPrefix($0) }) {
+                environment[key] = ""
+            }
+        }
+        
+        // Clean specific variables that cause issues
+        environment["DYLD_INSERT_LIBRARIES"] = ""
+        environment["__XCODE_BUILT_PRODUCTS_DIR_PATHS"] = ""
+        environment["__XPC_DYLD_INSERT_LIBRARIES"] = ""
+        environment["__XPC_DYLD_FRAMEWORK_PATH"] = ""
+        environment["__XPC_DYLD_LIBRARY_PATH"] = ""
+        
+        serverProcess!.environment = environment
+        
+        // Build optimized arguments without unsupported flags
+        var arguments = [
+            "--model", config.modelPath,
+            "--threads", "\(config.threadCount)",
+            "--ctx-size", "\(config.contextSize)",
+            "--port", port,
+            "--n-gpu-layers", "\(config.gpuLayers)",
+            "--host", host,
+            "--no-warmup"  // Skip warmup for faster startup
+        ]
+        
+        // Add flash attention if supported (newer builds)
+        if supportsFlashAttention() {
+            arguments.append("--flash-attn")
+        }
+        
+        serverProcess!.arguments = arguments
+        
+        print("DEBUG: LlamaCpp - Server command: \(serverExecutable) \(arguments.joined(separator: " "))")
+        print("DEBUG: LlamaCpp - Library path: \(libraryPath)")
+        print("DEBUG: LlamaCpp - Context size: \(config.contextSize), GPU layers: \(config.gpuLayers), Threads: \(config.threadCount)")
+        
+        // Setup enhanced I/O handling
+        setupProcessOutput(for: serverProcess!)
+        
+        do {
+            try serverProcess!.run()
+            print("DEBUG: LlamaCpp - Process started successfully, PID: \(serverProcess!.processIdentifier)")
+        } catch {
+            print("DEBUG: LlamaCpp - Failed to start process: \(error)")
+            throw AIBackendError.modelLoadFailed("Failed to start server process: \(error.localizedDescription)")
+        }
+        
+        // Start watchdog
+        startWatchdog(serverPID: serverProcess!.processIdentifier)
+        
+        print("DEBUG: LlamaCpp - Process started, waiting for server to be ready...")
+        
+        // Wait for server to be ready with enhanced timeout
+        try await waitForServerReady()
+        
+        print("DEBUG: LlamaCpp - Server started successfully on port \(port)")
+    }
+    
+    private func setupProcessOutput(for process: Process) {
+        let outputPipe = Pipe()
+        let errorPipe = Pipe()
+        
+        process.standardOutput = outputPipe
+        process.standardError = errorPipe
+        
+        // Enhanced output parsing
+        outputPipe.fileHandleForReading.readabilityHandler = { handle in
+            let data = handle.availableData
+            guard !data.isEmpty,
+                  let output = String(data: data, encoding: .utf8) else { return }
+            
+            Task { @MainActor in
+                self.parseServerOutput(output)
+            }
+        }
+        
+        errorPipe.fileHandleForReading.readabilityHandler = { handle in
+            let data = handle.availableData
+            guard !data.isEmpty,
+                  let output = String(data: data, encoding: .utf8) else { return }
+            
+            Task { @MainActor in
+                self.parseServerError(output)
+            }
+        }
+    }
+    
+    private func parseServerOutput(_ output: String) {
+        // Extract useful metrics from server output
+        if output.contains("n_ctx_per_seq") {
+            print("DEBUG: llama-server context info: \(output.trimmingCharacters(in: .whitespacesAndNewlines))")
+        } else if output.contains("model loaded") || output.contains("HTTP server listening") {
+            print("DEBUG: llama-server ready: \(output.trimmingCharacters(in: .whitespacesAndNewlines))")
+        } else {
+            print("DEBUG: llama-server stdout: \(output.trimmingCharacters(in: .whitespacesAndNewlines))")
+        }
+    }
+    
+    private func parseServerError(_ output: String) {
+        // Check for critical errors
+        if output.contains("error:") || output.contains("failed") {
+            print("ERROR: llama-server: \(output.trimmingCharacters(in: .whitespacesAndNewlines))")
+        } else {
+            print("DEBUG: llama-server stderr: \(output.trimmingCharacters(in: .whitespacesAndNewlines))")
+        }
+    }
+    
+    private func supportsFlashAttention() -> Bool {
+        // For now, assume newer builds support flash attention
+        // Could be enhanced to check server version
+        return true
     }
     
     private func findLlamaServerExecutable() -> (String, String)? {
@@ -870,150 +1502,6 @@ class LlamaCppBackend: AIBackendProtocol {
         return nil
     }
     
-    func loadModel(at path: String) async throws {
-        status = "Loading model..."
-        isReady = false
-        
-        print("DEBUG: LlamaCpp - Loading model at: \(path)")
-        
-        // Check if model file exists
-        guard FileManager.default.fileExists(atPath: path) else {
-            let errorMsg = "Model file not found at path: \(path)"
-            status = "Error: \(errorMsg)"
-            throw AIBackendError.modelLoadFailed(errorMsg)
-        }
-        
-        // Stop any existing server and watchdog
-        stopServer()
-        
-        // Start the server with the model
-        try await startServer(modelPath: path)
-        
-        currentModelPath = path
-        status = "Model loaded: \(friendlyModelName(for: path))"
-        isReady = true
-        
-        print("DEBUG: LlamaCpp - Model loaded successfully")
-    }
-    
-    func listModels() async throws -> [String] {
-        if let modelPath = currentModelPath {
-            let friendlyName = friendlyModelName(for: modelPath)
-            return [friendlyName]
-        }
-        return []
-    }
-    
-    func chat(request: AIChatRequest, onPartialResponse: @escaping (String) -> Void) async throws -> String {
-        guard isReady else {
-            print("DEBUG: LlamaCpp - Chat called but backend not ready")
-            throw AIBackendError.notReady
-        }
-        
-        print("DEBUG: LlamaCpp - Starting chat with \(request.messages.count) messages")
-        
-        // Convert AIMessage to OpenAI format
-        let chatMessages = request.messages.map { message in
-            OpenAIChatMessage(role: message.openAIRole, content: message.content)
-        }
-        
-        do {
-            let response = try await performChat(
-                messages: chatMessages,
-                temperature: request.temperature,
-                progressHandler: onPartialResponse
-            )
-            
-            print("DEBUG: LlamaCpp - Chat completed successfully. Response length: \(response.count)")
-            return response
-            
-        } catch {
-            print("DEBUG: LlamaCpp - Chat failed with error: \(error)")
-            throw AIBackendError.chatFailed(error.localizedDescription)
-        }
-    }
-    
-    // MARK: - Private Server Management
-    
-    private func startServer(modelPath: String) async throws {
-        guard serverProcess?.isRunning != true else { return }
-        
-        print("DEBUG: LlamaCpp - Starting llama-server")
-        
-        guard let serverExecutable = serverExecutablePath,
-              let libraryPath = libPath else {
-            throw AIBackendError.modelLoadFailed("llama-server executable path not configured")
-        }
-        
-        serverProcess = Process()
-        serverProcess!.executableURL = URL(fileURLWithPath: serverExecutable)
-        
-        // Set environment variables to find the bundled libraries
-        var environment = ProcessInfo.processInfo.environment
-        environment["DYLD_LIBRARY_PATH"] = libraryPath
-        
-        // Disable Xcode preview dylib injection to prevent __preview.dylib errors
-        environment["DYLD_INSERT_LIBRARIES"] = ""
-        environment["__XCODE_BUILT_PRODUCTS_DIR_PATHS"] = ""
-        environment["__XPC_DYLD_INSERT_LIBRARIES"] = ""
-        environment["__XPC_DYLD_FRAMEWORK_PATH"] = ""
-        environment["__XPC_DYLD_LIBRARY_PATH"] = ""
-        
-        serverProcess!.environment = environment
-        
-        let threads = max(1, ProcessInfo.processInfo.activeProcessorCount - 2)
-        
-        serverProcess!.arguments = [
-            "--model", modelPath,
-            "--threads", "\(threads)",
-            "--ctx-size", "\(contextLength)",
-            "--port", port,
-            "--n-gpu-layers", "99",
-            "--host", host
-        ]
-        
-        print("DEBUG: LlamaCpp - Server command: \(serverExecutable) \(serverProcess!.arguments!.joined(separator: " "))")
-        print("DEBUG: LlamaCpp - Library path: \(libraryPath)")
-        
-        // Capture output for debugging
-        let outputPipe = Pipe()
-        let errorPipe = Pipe()
-        serverProcess!.standardOutput = outputPipe
-        serverProcess!.standardError = errorPipe
-        
-        outputPipe.fileHandleForReading.readabilityHandler = { handle in
-            let data = handle.availableData
-            if !data.isEmpty, let output = String(data: data, encoding: .utf8) {
-                print("DEBUG: llama-server stdout: \(output.trimmingCharacters(in: .whitespacesAndNewlines))")
-            }
-        }
-        
-        errorPipe.fileHandleForReading.readabilityHandler = { handle in
-            let data = handle.availableData
-            if !data.isEmpty, let output = String(data: data, encoding: .utf8) {
-                print("DEBUG: llama-server stderr: \(output.trimmingCharacters(in: .whitespacesAndNewlines))")
-            }
-        }
-        
-        do {
-            try serverProcess!.run()
-            print("DEBUG: LlamaCpp - Process started successfully, PID: \(serverProcess!.processIdentifier)")
-        } catch {
-            print("DEBUG: LlamaCpp - Failed to start process: \(error)")
-            throw AIBackendError.modelLoadFailed("Failed to start server process: \(error.localizedDescription)")
-        }
-        
-        // Start watchdog
-        startWatchdog(serverPID: serverProcess!.processIdentifier)
-        
-        print("DEBUG: LlamaCpp - Process started, waiting for server to be ready...")
-        
-        // Wait for server to be ready
-        try await waitForServerReady()
-        
-        print("DEBUG: LlamaCpp - Server started successfully on port \(port)")
-    }
-    
     private func startWatchdog(serverPID: Int32) {
         print("DEBUG: LlamaCpp - Starting watchdog for server PID \(serverPID)")
         
@@ -1059,11 +1547,21 @@ class LlamaCppBackend: AIBackendProtocol {
         }
     }
     
-    nonisolated private func stopServer() {
+    func stopServer() async {
+        print("DEBUG: LlamaCpp - Stopping server with graceful shutdown")
+        
+        // Stop watchdog first
+        if let watchdog = watchdogProcess, watchdog.isRunning {
+            print("DEBUG: LlamaCpp - Stopping watchdog")
+            watchdog.terminate()
+            watchdogProcess = nil
+        }
+        
+        // Graceful server shutdown sequence
         if let process = serverProcess, process.isRunning {
-            print("DEBUG: LlamaCpp - Stopping server")
+            print("DEBUG: LlamaCpp - Gracefully shutting down server PID: \(process.processIdentifier)")
             
-            // Clean up pipe handlers
+            // Clean up pipe handlers first
             if let stdout = process.standardOutput as? Pipe {
                 stdout.fileHandleForReading.readabilityHandler = nil
             }
@@ -1071,34 +1569,82 @@ class LlamaCppBackend: AIBackendProtocol {
                 stderr.fileHandleForReading.readabilityHandler = nil
             }
             
+            // Step 1: SIGTERM (graceful shutdown)
             process.terminate()
             
-            DispatchQueue.global().asyncAfter(deadline: .now() + 2) {
+            // Give it time to clean up
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
+            
+            if process.isRunning {
+                print("DEBUG: LlamaCpp - Server still running, sending SIGINT")
+                // Step 2: SIGINT (interrupt)
+                process.interrupt()
+                
+                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
+                
                 if process.isRunning {
-                    process.terminate()
-                    print("DEBUG: LlamaCpp - Force terminated server process")
+                    print("DEBUG: LlamaCpp - Force killing server process")
+                    // Step 3: SIGKILL (force kill as last resort)
+                    kill(process.processIdentifier, SIGKILL)
                 }
             }
         }
         
+        serverProcess = nil
+        print("DEBUG: LlamaCpp - Server shutdown complete")
+    }
+    
+    // Synchronous version for deinit and other non-async contexts
+    nonisolated private func stopServerSync() {
+        print("DEBUG: LlamaCpp - Stopping server (sync)")
+        
+        // Stop watchdog first
         if let watchdog = watchdogProcess, watchdog.isRunning {
             print("DEBUG: LlamaCpp - Stopping watchdog")
             watchdog.terminate()
+            watchdogProcess = nil
+        }
+        
+        // Immediate shutdown for deinit
+        if let process = serverProcess, process.isRunning {
+            print("DEBUG: LlamaCpp - Force stopping server PID: \(process.processIdentifier)")
+            
+            // Clean up pipe handlers first
+            if let stdout = process.standardOutput as? Pipe {
+                stdout.fileHandleForReading.readabilityHandler = nil
+            }
+            if let stderr = process.standardError as? Pipe {
+                stderr.fileHandleForReading.readabilityHandler = nil
+            }
+            
+            // Force terminate immediately
+            process.terminate()
+            
+            // Brief synchronous wait
+            Thread.sleep(forTimeInterval: 0.1)
+            
+            if process.isRunning {
+                print("DEBUG: LlamaCpp - Force killing server process")
+                kill(process.processIdentifier, SIGKILL)
+            }
         }
         
         serverProcess = nil
-        watchdogProcess = nil
+        print("DEBUG: LlamaCpp - Server shutdown complete (sync)")
     }
     
     private func waitForServerReady() async throws {
         let healthURL = URL(string: "http://\(host):\(port)/v1/models")!
         print("DEBUG: LlamaCpp - Waiting for server at: \(healthURL)")
         
-        var timeout = 120 // 2 minutes for large model loading
-        let tickInterval = 2
+        let deadline = Date().addingTimeInterval(120) // 2 minutes timeout
+        let checkInterval: TimeInterval = 2.0  // Check every 2 seconds to give model time to load
+        var lastError: String = ""
+        var modelLoadingDetected = false
         
-        while timeout > 0 {
-            print("DEBUG: LlamaCpp - Health check attempt, timeout remaining: \(timeout)s")
+        while Date() < deadline {
+            let remainingTime = Int(deadline.timeIntervalSinceNow)
+            print("DEBUG: LlamaCpp - Health check attempt, timeout remaining: \(remainingTime)s")
             
             // Check if process is still running
             guard let process = serverProcess, process.isRunning else {
@@ -1108,7 +1654,7 @@ class LlamaCppBackend: AIBackendProtocol {
             
             do {
                 let config = URLSessionConfiguration.default
-                config.timeoutIntervalForRequest = 3
+                config.timeoutIntervalForRequest = 5 // Longer timeout for model loading
                 
                 let (data, response) = try await URLSession(configuration: config).data(from: healthURL)
                 
@@ -1116,31 +1662,100 @@ class LlamaCppBackend: AIBackendProtocol {
                     print("DEBUG: LlamaCpp - Health check response: \(httpResponse.statusCode)")
                     
                     if httpResponse.statusCode == 200 {
-                        // Parse response to check if models are available
+                        // Parse response to verify models are available
                         if let responseString = String(data: data, encoding: .utf8) {
                             print("DEBUG: LlamaCpp - Models response: \(responseString)")
                             
-                            // If we get a valid JSON response with models, server is ready
-                            if responseString.contains("\"data\"") || responseString.contains("\"models\"") {
-                                print("DEBUG: LlamaCpp - Server is ready!")
-                                return
+                            // Check for valid JSON response with models
+                            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                               let models = json["data"] as? [[String: Any]], !models.isEmpty {
+                                
+                                // Additional check: Try a simple completion request to verify model is actually ready
+                                if await isModelActuallyReady() {
+                                    print("DEBUG: LlamaCpp - Server is ready with \(models.count) model(s)!")
+                                    return
+                                } else {
+                                    print("DEBUG: LlamaCpp - Models endpoint ready but model still loading...")
+                                    modelLoadingDetected = true
+                                    lastError = "Model still loading"
+                                }
+                            } else if responseString.contains("\"models\"") || responseString.contains("\"data\"") {
+                                // Fallback check for different response format
+                                if await isModelActuallyReady() {
+                                    print("DEBUG: LlamaCpp - Server is ready!")
+                                    return
+                                } else {
+                                    modelLoadingDetected = true
+                                    lastError = "Model still loading"
+                                }
                             }
                         }
                     } else if httpResponse.statusCode == 503 {
                         // Server is loading
-                        print("DEBUG: LlamaCpp - Server loading...")
-                        timeout = max(timeout, 60) // Extend timeout when loading
+                        print("DEBUG: LlamaCpp - Server loading model...")
+                        modelLoadingDetected = true
+                        lastError = "Loading"
+                    } else {
+                        lastError = "HTTP \(httpResponse.statusCode)"
                     }
                 }
             } catch {
-                print("DEBUG: LlamaCpp - Health check failed: \(error.localizedDescription)")
+                lastError = error.localizedDescription
+                if lastError.contains("Connection refused") {
+                    // Server not ready yet, continue waiting
+                } else {
+                    print("DEBUG: LlamaCpp - Health check failed: \(lastError)")
+                }
             }
             
-            try await Task.sleep(for: .seconds(tickInterval))
-            timeout -= tickInterval
+            // If we detected model loading, give it more time
+            if modelLoadingDetected && deadline.timeIntervalSinceNow > 30 {
+                print("DEBUG: LlamaCpp - Model loading detected, extending timeout")
+                // Don't extend infinitely, but give substantial time for large models
+            }
+            
+            try await Task.sleep(nanoseconds: UInt64(checkInterval * 1_000_000_000))
         }
         
-        throw AIBackendError.modelLoadFailed("Server failed to become ready within timeout")
+        print("DEBUG: LlamaCpp - Timeout reached. Last error: \(lastError)")
+        throw AIBackendError.modelLoadFailed("Server failed to become ready within timeout. Last error: \(lastError)")
+    }
+    
+    /// Test if the model is actually ready by making a simple completion request
+    private func isModelActuallyReady() async -> Bool {
+        let testURL = URL(string: "http://\(host):\(port)/v1/chat/completions")!
+        
+        let testRequest = [
+            "model": "test",
+            "messages": [
+                ["role": "user", "content": "Hi"]
+            ],
+            "max_tokens": 1,
+            "stream": false
+        ] as [String : Any]
+        
+        do {
+            var request = URLRequest(url: testURL)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.timeoutInterval = 3
+            
+            request.httpBody = try JSONSerialization.data(withJSONObject: testRequest)
+            
+            let (_, response) = try await URLSession.shared.data(for: request)
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                // Any response other than 503 means the model is loaded
+                let isReady = httpResponse.statusCode != 503
+                print("DEBUG: LlamaCpp - Model readiness test: \(httpResponse.statusCode) -> \(isReady ? "Ready" : "Loading")")
+                return isReady
+            }
+        } catch {
+            // Network errors or timeouts suggest model not ready
+            print("DEBUG: LlamaCpp - Model readiness test failed: \(error.localizedDescription)")
+        }
+        
+        return false
     }
     
     private func performChat(
@@ -1232,34 +1847,52 @@ class LlamaCppBackend: AIBackendProtocol {
         return fullResponse
     }
     
-    private func friendlyModelName(for filePath: String) -> String {
-        let fileName = URL(fileURLWithPath: filePath).lastPathComponent
+    private func friendlyModelName(for modelPath: String) -> String {
+        // Extract just the filename from the path
+        let fileName = URL(fileURLWithPath: modelPath).lastPathComponent
         
+        // Handle direct filename mappings first
         let modelMappings: [String: String] = [
             "Qwen3-0.6B-Q4_0.gguf": "Flash",
-            "gemma-3-1b-it-Q4_0.gguf": "Scout",
+            "gemma-3-1b-it-Q4_0.gguf": "Scout", 
             "Qwen3-1.7B-Q4_0.gguf": "Runner",
             "granite-3.3-2b-instruct-Q4_0.gguf": "Focus",
             "gemma-3-4b-it-Q4_0.gguf": "Sage",
             "granite-3.3-8b-instruct-Q4_0.gguf": "Deep Thought"
         ]
         
+        // Check for exact match first
         if let friendlyName = modelMappings[fileName] {
             return friendlyName
         }
         
-        let lowercaseFileName = fileName.lowercased()
-        for (pattern, friendlyName) in modelMappings {
-            if lowercaseFileName.contains(pattern.lowercased()) {
-                return friendlyName
-            }
+        // Handle legacy Q8_0 models by mapping them to Q4_0 equivalents
+        let legacyMappings: [String: String] = [
+            "Qwen3-0.6B-Q8_0.gguf": "Flash",
+            "gemma-3-1b-it-Q8_0.gguf": "Scout",
+            "Qwen3-1.7B-Q8_0.gguf": "Runner", 
+            "granite-3.3-2b-instruct-Q8_0.gguf": "Focus",
+            "gemma-3-4b-it-Q8_0.gguf": "Sage",
+            "granite-3.3-8b-instruct-Q8_0.gguf": "Deep Thought"
+        ]
+        
+        if let friendlyName = legacyMappings[fileName] {
+            print("DEBUG: Found legacy Q8_0 model \(fileName), mapping to \(friendlyName)")
+            return friendlyName
         }
         
-        return fileName.replacingOccurrences(of: ".gguf", with: "")
+        // Use AssistantModel mapping as fallback
+        let assistantName = AssistantModel.nameFor(fileName: fileName)
+        if assistantName != fileName {
+            return assistantName
+        }
+        
+        // If no mapping found, return the original filename (this will be filtered out in listModels)
+        return fileName
     }
     
     deinit {
-        stopServer()
+        stopServerSync()
     }
 }
 

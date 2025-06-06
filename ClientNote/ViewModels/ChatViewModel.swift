@@ -711,10 +711,10 @@ final class ChatViewModel {
             
             let expectedPrompt = getSystemPromptForActivityType(activityType)
             print("DEBUG: Expected brainstorm prompt: \(String(expectedPrompt.prefix(100)))...")
-            print("DEBUG: Current activeChat systemPrompt: \(String(activeChat.systemPrompt?.prefix(100) ?? "nil")...)") 
+            print("DEBUG: Current activeChat systemPrompt: \(String(activeChat.systemPrompt?.prefix(100) ?? "nil")...)")
             
             // CRITICAL: Ensure we're using the clean brainstorm prompt
-                activeChat.systemPrompt = expectedPrompt
+            activeChat.systemPrompt = expectedPrompt
             print("DEBUG: Set activeChat systemPrompt to brainstorm prompt")
             
             // CRITICAL: Clear all previous messages to prevent contamination
@@ -791,35 +791,25 @@ final class ChatViewModel {
             // Update MessageViewModel immediately to show the user message
             messageViewModel?.load(of: activeChat)
             
-            // Set initial loading state
+            // CRITICAL: Set thinking indicator immediately
             messageViewModel?.loading = .generate
+            messageViewModel?.tempResponse = ""
             
             // Start streaming generation for treatment plan
             Task {
                 do {
                     print("DEBUG: Starting treatment plan streaming generation")
                     
-                    // Get OllamaKit instance
-                    guard let host = activeChat.host,
-                          let baseURL = URL(string: host) else {
-                        throw ChatViewModelError.generate("Invalid host configuration")
-                    }
-                    
-                    let ollamaKit = OllamaKit(baseURL: baseURL)
-                    
-                    // Get client context for treatment plan
-                    let clientContext = getClientContext()
-                    
                     // Generate treatment plan with streaming feedback
-                    let treatmentPlan = try await generateAnalysisWithStreaming(prompt: """
+                    let treatmentPlan = try await generateAnalysisWithStreamingBackend(prompt: """
                         AVAILABLE CLIENT CONTEXT:
-                        \(clientContext)
+                        \(getClientContext())
                         
                         USER REQUEST:
                         \(prompt)
                         
                         Please create a comprehensive treatment plan using the structured format outlined in the system prompt. Follow the 7-section format exactly and provide detailed, clinically appropriate content for each section.
-                        """, ollamaKit: ollamaKit)
+                        """)
                     
                     await MainActor.run {
                         userMessage.response = treatmentPlan
@@ -827,12 +817,13 @@ final class ChatViewModel {
                         
                         // Clear loading state
                         messageViewModel?.loading = nil
+                        messageViewModel?.tempResponse = ""
                         
                         // Update MessageViewModel to reflect the completed message
                         messageViewModel?.load(of: activeChat)
                         
                         // Save the activity content
-            saveActivityContent()
+                        saveActivityContent()
                         
                         print("DEBUG: Treatment plan generation completed successfully")
                     }
@@ -854,7 +845,7 @@ final class ChatViewModel {
                         \(prompt)
                         
                         **Suggested Action:**
-                        Please try regenerating this treatment plan or check your connection to Ollama.
+                        Please try regenerating this treatment plan or check your connection.
                         """
                         
                         userMessage.response = fallbackResponse
@@ -891,8 +882,9 @@ final class ChatViewModel {
         // Update MessageViewModel immediately to show the user message
         messageViewModel?.load(of: activeChat)
         
-        // Set initial loading state (will be updated during streaming)
+        // CRITICAL: Set thinking indicator immediately
         messageViewModel?.loading = .generate
+        messageViewModel?.tempResponse = ""
         
         // Start the two-pass generation process
         Task {
@@ -914,6 +906,7 @@ final class ChatViewModel {
                     
                     // Clear loading state (streaming will have already cleared tempResponse)
                     messageViewModel?.loading = nil
+                    messageViewModel?.tempResponse = ""
                     
                     // Update MessageViewModel to reflect the completed message
                     messageViewModel?.load(of: activeChat)
@@ -1096,7 +1089,15 @@ final class ChatViewModel {
     ///   - activity: The activity to create a chat for
     ///   - isEasyNote: Whether this is an EasyNote format
     private func createFreshChatForActivity(_ activity: ClientActivity, isEasyNote: Bool = false) {
-        let chat = Chat(model: Defaults[.defaultModel])
+        // Ensure we have valid models available
+        if models.isEmpty {
+            fetchModelsFromBackend()
+        }
+        
+        // Use the first available model or fallback to default
+        let modelToUse = models.first ?? Defaults[.defaultModel]
+        
+        let chat = Chat(model: modelToUse)
         chat.systemPrompt = getSystemPromptForActivityType(activity.type, isEasyNote: isEasyNote)
         modelContext.insert(chat)
         chats.insert(chat, at: 0)
@@ -1104,7 +1105,7 @@ final class ChatViewModel {
         
         // Load the empty chat in MessageViewModel
         messageViewModel?.load(of: chat)
-        print("DEBUG: Created fresh chat for \(activity.type.rawValue): \(chat.id)")
+        print("DEBUG: Created fresh chat for \(activity.type.rawValue): \(chat.id) with model: \(modelToUse)")
     }
     
     /// Converts a task name to its corresponding activity type
@@ -1971,14 +1972,15 @@ final class ChatViewModel {
             }
             modalitiesAnalysis = analysis
         } else {
-            print("DEBUG: Generating modalities analysis with AI")
+            print("DEBUG: Generating modalities analysis with AI (non-streaming)")
             let analysisPrompt = getModalitiesAnalysisPrompt() + "\n\nSession Transcript:\n" + transcript
+            // Use non-streaming generation for analysis to avoid UI confusion
             modalitiesAnalysis = try await generateAnalysisWithBackend(prompt: analysisPrompt)
             print("DEBUG: Modalities analysis completed, length: \(modalitiesAnalysis.count)")
         }
         
         // Get engagement patterns analysis with retry
-        print("DEBUG: Starting engagement analysis")
+        print("DEBUG: Starting engagement analysis (non-streaming)")
         let engagementPrompt = getEngagementPatternsPrompt() + "\n\nSession Transcript:\n" + transcript
         
         var engagementAnalysis: String = ""
@@ -1988,6 +1990,7 @@ final class ChatViewModel {
         while retryCount <= maxRetries {
             do {
                 print("DEBUG: Engagement analysis attempt \(retryCount + 1) of \(maxRetries + 1)")
+                // Use non-streaming generation for analysis to avoid UI confusion
                 engagementAnalysis = try await generateAnalysisWithBackend(prompt: engagementPrompt)
                 print("DEBUG: Engagement analysis completed, length: \(engagementAnalysis.count)")
                 break
@@ -2281,8 +2284,14 @@ final class ChatViewModel {
         
         print("DEBUG: Starting two-pass generation for activity type: \(activityType.rawValue)")
         
-        // FIRST PASS: Analyze the session content
+        // FIRST PASS: Analyze the session content (non-streaming to avoid UI confusion)
         print("DEBUG: First Pass - Analyzing session content")
+        
+        // Clear tempResponse before first pass
+        await MainActor.run {
+            messageViewModel?.tempResponse = ""
+        }
+        
         let analysis = try await performSessionAnalysis(
             transcript: userInput,
             isEasyNote: isEasyNote,
@@ -2293,7 +2302,12 @@ final class ChatViewModel {
         print("DEBUG: Waiting briefly between first and second pass...")
         try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
         
-        // SECOND PASS: Generate the structured note
+        // Clear tempResponse before second pass
+        await MainActor.run {
+            messageViewModel?.tempResponse = ""
+        }
+        
+        // SECOND PASS: Generate the structured note (with streaming)
         print("DEBUG: Second Pass - Generating structured note")
         let finalNote = try await generateStructuredNote(
             userInput: userInput,
@@ -2823,7 +2837,7 @@ final class ChatViewModel {
     ///   - onPartialResponse: Callback for streaming responses
     /// - Returns: The complete AI response
     /// - Throws: ChatViewModelError if generation fails
-    private func generateAIResponse(
+    func generateAIResponse(
         prompt: String,
         systemPrompt: String? = nil,
         onPartialResponse: @escaping (String) -> Void = { _ in }
@@ -2873,8 +2887,10 @@ final class ChatViewModel {
         print("DEBUG: Starting analysis generation with prompt length: \(prompt.count)")
         print("DEBUG: Analysis prompt preview: \(String(prompt.prefix(100)))...")
         
-        let response = try await generateAIResponse(prompt: prompt) { partialContent in
-            // Handle streaming updates if needed
+        // Use non-streaming generation for analysis to avoid UI confusion
+        // Analysis should be internal and not shown to users
+        let response = try await generateAIResponse(prompt: prompt) { _ in
+            // No streaming updates for analysis - keep it internal
         }
         
         // Validate we got a meaningful response
@@ -2892,7 +2908,38 @@ final class ChatViewModel {
     /// - Returns: The generated analysis
     /// - Throws: ChatViewModelError if generation fails
     private func generateAnalysisWithStreamingBackend(prompt: String) async throws -> String {
-        return try await generateAnalysisWithBackend(prompt: prompt)
+        guard self.activeChat != nil else {
+            throw ChatViewModelError.generate("No active chat available")
+        }
+        
+        print("DEBUG: Starting streaming analysis generation with prompt length: \(prompt.count)")
+        print("DEBUG: Analysis prompt preview: \(String(prompt.prefix(100)))...")
+        
+        // Clear any existing temp response and set loading state
+        await MainActor.run {
+            messageViewModel?.tempResponse = ""
+            messageViewModel?.loading = .generate
+        }
+        
+        let response = try await generateAIResponse(prompt: prompt) { partialContent in
+            // Forward streaming updates to MessageViewModel for real-time display
+            Task { @MainActor in
+                self.messageViewModel?.tempResponse += partialContent
+            }
+        }
+        
+        // Clear loading state
+        await MainActor.run {
+            messageViewModel?.loading = nil
+        }
+        
+        // Validate we got a meaningful response
+        guard !response.isEmpty else {
+            throw ChatViewModelError.generate("Empty response from streaming analysis generation")
+        }
+        
+        print("DEBUG: Streaming analysis generation successful")
+        return response
     }
     
     /// Fetches available AI models from the current backend
@@ -2929,10 +2976,8 @@ final class ChatViewModel {
                     return
                 }
                 
-                // Update active chat model if needed
-                if let host = activeChat?.host, host.isEmpty {
-                    self.activeChat?.host = self.models.first
-                }
+                // Clean up any old model references in active chat
+                cleanupActiveChat()
                 
                 self.isHostReachable = true
                 
@@ -2943,6 +2988,28 @@ final class ChatViewModel {
                     self.error = .fetchModels("Connection issue with AI backend")
                 }
             }
+        }
+    }
+    
+    /// Cleans up old model references in the active chat
+    private func cleanupActiveChat() {
+        guard let activeChat = activeChat else { return }
+        
+        // Check if the current model is in the available models list
+        if !models.contains(activeChat.model) {
+            print("DEBUG: Active chat model '\(activeChat.model)' not in available models: \(models)")
+            
+            // Try to find a suitable replacement
+            if let firstModel = models.first {
+                print("DEBUG: Updating active chat model from '\(activeChat.model)' to '\(firstModel)'")
+                activeChat.model = firstModel
+            }
+        }
+        
+        // Also clean up the host field if it contains old model references
+        if let host = activeChat.host, !host.contains("://") && !models.contains(host) {
+            print("DEBUG: Cleaning up old host reference: \(host)")
+            activeChat.host = Defaults[.defaultHost]
         }
     }
     
@@ -2973,6 +3040,44 @@ final class ChatViewModel {
             } catch {
                 self.error = .fetchModels("Failed to switch AI backend: \(error.localizedDescription)")
             }
+        }
+    }
+    
+    /// Initializes the view model and cleans up any legacy settings
+    func initializeAndCleanup() {
+        // Clean up any legacy model references in user defaults
+        migrateLegacyModelReferences()
+        
+        // Load clients and validate selections
+        loadClients()
+        
+        // Initialize the AI backend
+        updateAIBackend()
+    }
+    
+    /// Migrates legacy model references in user defaults
+    private func migrateLegacyModelReferences() {
+        let defaultModel = Defaults[.defaultModel]
+        
+        // Map legacy model references to new friendly names
+        let legacyModelMappings: [String: String] = [
+            "Qwen3-0.6B-Q8_0.gguf": "Flash",
+            "gemma3:1b": "Scout",
+            "qwen3:0.6b": "Flash",
+            "granite:2b": "Focus"
+        ]
+        
+        if let newModel = legacyModelMappings[defaultModel] {
+            print("DEBUG: Migrating legacy default model from '\(defaultModel)' to '\(newModel)'")
+            Defaults[.defaultModel] = newModel
+        }
+        
+        // Also check llamaKitModelPath for old Q8_0 references
+        let modelPath = Defaults[.llamaKitModelPath]
+        if modelPath.contains("Q8_0") {
+            let newPath = modelPath.replacingOccurrences(of: "Q8_0", with: "Q4_0")
+            print("DEBUG: Migrating legacy model path from Q8_0 to Q4_0: \(newPath)")
+            Defaults[.llamaKitModelPath] = newPath
         }
     }
 }

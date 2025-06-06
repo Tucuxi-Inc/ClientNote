@@ -1094,6 +1094,9 @@ struct ChatView: View {
                 }
                 .onAppear {
                     self.scrollProxy = proxy
+                    
+                    // Refresh models list to ensure picker shows current models
+                    chatViewModel.fetchModelsFromBackend()
                 }
                 .onChange(of: chatViewModel.activeChat?.id) { _, _ in
                     onActiveChatChanged()
@@ -1256,25 +1259,39 @@ struct ChatView: View {
         }
         
         private var assistantPicker: some View {
-                            VStack(spacing: 4) {
-                                Text("Assistant")
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(Color.euniSecondary)
-                
+            VStack(spacing: 4) {
+                Text("Assistant")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(Color.euniSecondary)
+
                 Picker("Choose an Assistant", selection: assistantPickerBinding) {
-                                    ForEach(chatViewModel.models, id: \.self) { model in
-                                        Text(AssistantModel.nameFor(modelId: model)).tag(model)
-                                    }
-                                }
-                                .frame(width: 200)
-                            }
+                    ForEach(chatViewModel.models, id: \.self) { model in
+                        // For LlamaCpp, models are already friendly names like "Flash"
+                        // For OllamaKit, models are IDs like "qwen3:0.6b", so we convert them
+                        let displayName = AssistantModel.nameFor(modelId: model)
+                        Text(displayName).tag(model)
+                    }
+                }
+                .frame(width: 200)
+            }
         }
-        
+
         private var assistantPickerBinding: Binding<String> {
             Binding(
-                get: { chatViewModel.activeChat?.model ?? "" },
+                get: { 
+                    // Return the actual model value, ensuring it matches what's in the models array
+                    let currentModel = chatViewModel.activeChat?.model ?? ""
+                    // If current model is not in the models list, return the first available model
+                    if !chatViewModel.models.contains(currentModel) && !chatViewModel.models.isEmpty {
+                        return chatViewModel.models.first ?? ""
+                    }
+                    return currentModel
+                },
                 set: { newModel in
-                    chatViewModel.activeChat?.model = newModel
+                    // Only update if the new model is valid and in our models list
+                    if chatViewModel.models.contains(newModel) {
+                        chatViewModel.activeChat?.model = newModel
+                    }
                 }
             )
         }
@@ -1330,12 +1347,22 @@ struct ChatView: View {
                                     copyAction: copyAction,
                                     regenerateAction: regenerateAction
                                 )
+                            } else if message == messages.last && isGenerating {
+                                // Show thinking indicator for the last message with no response when generating
+                                AssistantMessageView(
+                                    content: tempResponse,
+                                    isGenerating: true,
+                                    isLastMessage: true,
+                                    copyAction: copyAction,
+                                    regenerateAction: regenerateAction
+                                )
                             }
                         }
                         .padding(.horizontal)
                     }
                     
-                    if !tempResponse.isEmpty {
+                    // Only show this if tempResponse is not empty and not already shown above
+                    if !tempResponse.isEmpty && (messages.isEmpty || messages.last?.response != nil) {
                         AssistantMessageView(
                             content: tempResponse,
                             isGenerating: true,

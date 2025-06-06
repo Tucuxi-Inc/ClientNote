@@ -248,7 +248,7 @@ struct GeneralView: View {
 }
 
 #Preview("General Settings") {
-    let aiBackendManager = AIBackendManager()
+    let aiBackendManager = AIBackendManager.shared
     let config = ModelConfiguration(isStoredInMemoryOnly: true)
     let container = try! ModelContainer(for: Chat.self, Message.self, configurations: config)
     let chatViewModel = ChatViewModel(modelContext: container.mainContext, aiBackendManager: aiBackendManager)

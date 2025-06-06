@@ -65,6 +65,18 @@ extension AssistantModel {
         return all.first(where: { $0.modelId.lowercased() == modelId.lowercased() })?.name ?? modelId
     }
     
+    public static func nameFor(fileName: String) -> String {
+        return all.first(where: { $0.llamaKitFileName == fileName })?.name ?? fileName
+    }
+    
+    public static func modelIdFor(name: String) -> String {
+        return all.first(where: { $0.name == name })?.modelId ?? name
+    }
+    
+    public static func fileNameFor(name: String) -> String? {
+        return all.first(where: { $0.name == name })?.llamaKitFileName
+    }
+    
     public static func modelFor(fileName: String) -> AssistantModel? {
         return all.first(where: { $0.llamaKitFileName == fileName })
     }
