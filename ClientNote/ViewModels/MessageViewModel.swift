@@ -31,13 +31,21 @@ final class MessageViewModel {
     }
     
     func load(of chat: Chat?) {
+        print("DEBUG: MessageViewModel.load() called")
+        
         // Clear current messages and state
         self.messages = []
         self.tempResponse = ""
         self.loading = nil
         self.error = nil
         
-        guard let chat = chat else { return }
+        guard let chat = chat else { 
+            print("DEBUG: MessageViewModel - No chat provided, returning")
+            return 
+        }
+        
+        print("DEBUG: MessageViewModel - Loading chat: \(chat.id)")
+        print("DEBUG: MessageViewModel - Chat has \(chat.messages.count) messages directly attached")
         
         let chatId = chat.id
         let predicate = #Predicate<Message> { $0.chat?.id == chatId }
@@ -48,8 +56,17 @@ final class MessageViewModel {
         
         do {
             defer { self.loading = nil }
-            self.messages = try self.modelContext.fetch(fetchDescriptor)
+            let fetchedMessages = try self.modelContext.fetch(fetchDescriptor)
+            print("DEBUG: MessageViewModel - Fetched \(fetchedMessages.count) messages from database")
+            
+            for (index, message) in fetchedMessages.enumerated() {
+                print("DEBUG: MessageViewModel - Fetched message \(index + 1): prompt='\(String(message.prompt.prefix(50)))...', hasResponse=\(message.response != nil)")
+            }
+            
+            self.messages = fetchedMessages
+            print("DEBUG: MessageViewModel - Final message count: \(self.messages.count)")
         } catch {
+            print("DEBUG: MessageViewModel - Error loading messages: \(error)")
             self.error = .load(error.localizedDescription)
         }
     }

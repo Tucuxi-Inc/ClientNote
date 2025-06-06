@@ -12,6 +12,491 @@ import SwiftUI
 import ViewCondition
 import Speech
 import AVFoundation
+import SwiftData
+import Foundation
+import Combine
+
+// MARK: - Recording Support Classes
+
+// MARK: - Speaker Identification
+class SpeakerIdentifier: ObservableObject {
+    private var voiceProfiles: [String: VoiceProfile] = [:]
+    private var currentSpeaker: String = "Speaker 1"
+    private var lastSpeechTime: Date = Date()
+    private let silenceThreshold: TimeInterval = 2.0 // 2 seconds of silence indicates speaker change
+    
+    struct VoiceProfile {
+        let id: String
+        var averagePitch: Float
+        var speechRate: Float
+        var energyLevel: Float
+        var sampleCount: Int
+        
+        mutating func updateProfile(pitch: Float, rate: Float, energy: Float) {
+            let newCount = sampleCount + 1
+            averagePitch = (averagePitch * Float(sampleCount) + pitch) / Float(newCount)
+            speechRate = (speechRate * Float(sampleCount) + rate) / Float(newCount)
+            energyLevel = (energyLevel * Float(sampleCount) + energy) / Float(newCount)
+            sampleCount = newCount
+        }
+    }
+    
+    func identifySpeaker(audioBuffer: AVAudioPCMBuffer, transcribedText: String) -> String {
+        let now = Date()
+        let timeSinceLastSpeech = now.timeIntervalSince(lastSpeechTime)
+        
+        // Simple heuristics for speaker identification
+        let textLength = transcribedText.count
+        let estimatedSpeechRate = Float(textLength) / Float(max(1, timeSinceLastSpeech))
+        
+        // Basic audio analysis (simplified)
+        let frameLength = Int(audioBuffer.frameLength)
+        let channelData = audioBuffer.floatChannelData?[0]
+        
+        var averageEnergy: Float = 0
+        var averagePitch: Float = 0
+        
+        if let data = channelData, frameLength > 0 {
+            // Calculate average energy
+            for i in 0..<frameLength {
+                averageEnergy += abs(data[i])
+            }
+            averageEnergy /= Float(frameLength)
+            
+            // Simplified pitch estimation (zero-crossing rate)
+            var zeroCrossings = 0
+            for i in 1..<frameLength {
+                if (data[i] >= 0) != (data[i-1] >= 0) {
+                    zeroCrossings += 1
+                }
+            }
+            averagePitch = Float(zeroCrossings) / Float(frameLength) * 1000 // Rough pitch estimate
+        }
+        
+        // Determine speaker based on silence gaps and voice characteristics
+        if timeSinceLastSpeech > silenceThreshold {
+            // Potential speaker change - analyze voice characteristics
+            let speakerID = findBestMatchingSpeaker(pitch: averagePitch, rate: estimatedSpeechRate, energy: averageEnergy)
+            currentSpeaker = speakerID
+        }
+        
+        // Update voice profile
+        updateVoiceProfile(speakerID: currentSpeaker, pitch: averagePitch, rate: estimatedSpeechRate, energy: averageEnergy)
+        
+        lastSpeechTime = now
+        return currentSpeaker
+    }
+    
+    private func findBestMatchingSpeaker(pitch: Float, rate: Float, energy: Float) -> String {
+        var bestMatch = "Speaker 1"
+        var bestScore = Float.infinity
+        
+        for (speakerID, profile) in voiceProfiles {
+            let pitchDiff = abs(profile.averagePitch - pitch)
+            let rateDiff = abs(profile.speechRate - rate)
+            let energyDiff = abs(profile.energyLevel - energy)
+            
+            let score = pitchDiff + rateDiff * 10 + energyDiff * 100 // Weighted scoring
+            
+            if score < bestScore {
+                bestScore = score
+                bestMatch = speakerID
+            }
+        }
+        
+        // If no good match found and we have fewer than 4 speakers, create new speaker
+        if bestScore > 50 && voiceProfiles.count < 4 {
+            let newSpeakerID = "Speaker \(voiceProfiles.count + 1)"
+            return newSpeakerID
+        }
+        
+        return bestMatch
+    }
+    
+    private func updateVoiceProfile(speakerID: String, pitch: Float, rate: Float, energy: Float) {
+        if var profile = voiceProfiles[speakerID] {
+            profile.updateProfile(pitch: pitch, rate: rate, energy: energy)
+            voiceProfiles[speakerID] = profile
+        } else {
+            voiceProfiles[speakerID] = VoiceProfile(
+                id: speakerID,
+                averagePitch: pitch,
+                speechRate: rate,
+                energyLevel: energy,
+                sampleCount: 1
+            )
+        }
+    }
+    
+    func getSpeakerLabel(_ speakerID: String) -> String {
+        // For now, use generic labels. Could be enhanced to allow custom naming
+        switch speakerID {
+        case "Speaker 1":
+            return "Clinician" // Assume first speaker is clinician
+        case "Speaker 2":
+            return "Client"
+        case "Speaker 3":
+            return "Client 2"
+        case "Speaker 4":
+            return "Client 3"
+        default:
+            return speakerID
+        }
+    }
+    
+    func reset() {
+        voiceProfiles.removeAll()
+        currentSpeaker = "Speaker 1"
+        lastSpeechTime = Date()
+    }
+}
+
+// MARK: - Transcript Management
+class TranscriptManager: ObservableObject {
+    struct TranscriptSegment: Identifiable {
+        let id = UUID()
+        let index: Int
+        let text: String
+        let speaker: String
+        let timestamp: Date
+    }
+
+    @Published private(set) var transcriptSegments: [TranscriptSegment] = []
+    let speakerIdentifier = SpeakerIdentifier()
+
+    var fullTranscript: String {
+        transcriptSegments
+            .sorted(by: { $0.index < $1.index })
+            .map { segment in
+                let speaker = speakerIdentifier.getSpeakerLabel(segment.speaker)
+                return "\(speaker): \(segment.text)"
+            }
+            .joined(separator: "\n\n")
+    }
+
+    init() {}
+
+    func appendTranscript(for index: Int, text: String, speaker: String = "Speaker 1") {
+        let segment = TranscriptSegment(
+            index: index, 
+            text: text.trimmingCharacters(in: .whitespacesAndNewlines),
+            speaker: speaker,
+            timestamp: Date()
+        )
+        DispatchQueue.main.async {
+            self.transcriptSegments.append(segment)
+        }
+    }
+    
+    func updateTranscript(for index: Int, text: String, isFinal: Bool, audioBuffer: AVAudioPCMBuffer? = nil) {
+        let cleanText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Identify speaker if we have audio buffer
+        var speaker = "Speaker 1"
+        if let buffer = audioBuffer {
+            speaker = speakerIdentifier.identifySpeaker(audioBuffer: buffer, transcribedText: cleanText)
+        }
+        
+        DispatchQueue.main.async {
+            // Find existing segment for this index
+            if let existingIndex = self.transcriptSegments.firstIndex(where: { $0.index == index }) {
+                // Update existing segment, preserving speaker if it was already identified
+                let existingSpeaker = self.transcriptSegments[existingIndex].speaker
+                self.transcriptSegments[existingIndex] = TranscriptSegment(
+                    index: index, 
+                    text: cleanText,
+                    speaker: isFinal ? speaker : existingSpeaker, // Only update speaker on final result
+                    timestamp: Date()
+                )
+            } else {
+                // Create new segment
+                let segment = TranscriptSegment(
+                    index: index, 
+                    text: cleanText,
+                    speaker: speaker,
+                    timestamp: Date()
+                )
+                self.transcriptSegments.append(segment)
+            }
+        }
+    }
+
+    func clearTranscript() {
+        transcriptSegments.removeAll()
+        speakerIdentifier.reset()
+    }
+}
+
+// MARK: - Live Recorder
+class LiveRecorder: NSObject {
+    private let audioEngine = AVAudioEngine()
+    private var file: AVAudioFile?
+    private var segmentIndex = 0
+    private var timer: Timer?
+    private var speechRecognizer: SFSpeechRecognizer?
+    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+    private var recognitionTask: SFSpeechRecognitionTask?
+
+    private var transcriptManager: TranscriptManager
+    private let chunkDuration: TimeInterval = 30
+    private let directory: URL
+    private var currentAudioBuffer: AVAudioPCMBuffer?
+
+    init(transcriptManager: TranscriptManager) {
+        self.transcriptManager = transcriptManager
+        self.directory = FileManager.default.temporaryDirectory.appendingPathComponent("TherapyChunks", isDirectory: true)
+        super.init()
+        
+        // Create directory for audio chunks
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        print("DEBUG: Created audio chunks directory at: \(directory.path)")
+        
+        // Setup speech recognizer
+        speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+        print("DEBUG: Speech recognizer initialized - available: \(speechRecognizer?.isAvailable ?? false)")
+        
+        if let recognizer = speechRecognizer {
+            print("DEBUG: Speech recognizer locale: \(recognizer.locale.identifier)")
+            print("DEBUG: Speech recognizer supports on-device: \(recognizer.supportsOnDeviceRecognition)")
+        } else {
+            print("DEBUG: Failed to create speech recognizer")
+        }
+    }
+
+    func startRecording() throws {
+        // Request permissions first
+        guard speechRecognizer?.isAvailable == true else {
+            throw RecordingError.speechRecognitionUnavailable
+        }
+        
+        // Stop any existing recording
+        stopRecording()
+        
+        let inputNode = audioEngine.inputNode
+        // Use the input node's native format instead of forcing a specific sample rate
+        let inputFormat = inputNode.outputFormat(forBus: 0)
+        
+        print("DEBUG: Input format: \(inputFormat)")
+        
+        // Remove any existing tap
+        inputNode.removeTap(onBus: 0)
+        
+        // Install tap for audio processing using the native format
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputFormat) { [weak self] buffer, time in
+            // Write to current segment file
+            try? self?.file?.write(from: buffer)
+            
+            // Store current audio buffer for speaker identification
+            self?.currentAudioBuffer = buffer
+            
+            // Also send to speech recognition for real-time transcription
+            if let recognitionRequest = self?.recognitionRequest {
+                recognitionRequest.append(buffer)
+                // Debug: Log audio buffer info occasionally
+                if Int(time.sampleTime) % 48000 == 0 { // Log every second (assuming 48kHz)
+                    print("DEBUG: Audio buffer sent to speech recognition - samples: \(buffer.frameLength), time: \(time.sampleTime)")
+                }
+            } else {
+                print("DEBUG: No recognition request available for audio buffer")
+            }
+        }
+
+        audioEngine.prepare()
+        try audioEngine.start()
+        
+        // Start the first segment
+        startNewSegment()
+    }
+
+    func stopRecording() {
+        timer?.invalidate()
+        timer = nil
+        
+        // Stop speech recognition
+        recognitionTask?.cancel()
+        recognitionTask = nil
+        recognitionRequest?.endAudio()
+        recognitionRequest = nil
+        
+        // Stop audio engine
+        if audioEngine.isRunning {
+            audioEngine.stop()
+            audioEngine.inputNode.removeTap(onBus: 0)
+        }
+        
+        file = nil
+    }
+
+    private func startNewSegment() {
+        // Close previous file
+        file = nil
+        
+        // Create new segment file
+        let segmentURL = directory.appendingPathComponent("segment_\(segmentIndex).wav")
+        
+        // Use the input node's native format for file writing
+        let inputNode = audioEngine.inputNode
+        let inputFormat = inputNode.outputFormat(forBus: 0)
+
+        do {
+            file = try AVAudioFile(forWriting: segmentURL, settings: inputFormat.settings)
+        } catch {
+            print("Error creating audio file: \(error)")
+        }
+        
+        // Setup speech recognition for this segment
+        setupSpeechRecognitionForSegment()
+
+        // Schedule timer for next segment
+        timer = Timer.scheduledTimer(withTimeInterval: chunkDuration, repeats: false) { [weak self] _ in
+            self?.finishCurrentSegment()
+            self?.segmentIndex += 1
+            self?.startNewSegment()
+        }
+    }
+    
+    private func setupSpeechRecognitionForSegment() {
+        // Cancel previous recognition
+        recognitionTask?.cancel()
+        recognitionTask = nil
+        
+        // Create new recognition request
+        recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
+        guard let recognitionRequest = recognitionRequest else { 
+            print("DEBUG: Failed to create recognition request")
+            return 
+        }
+        
+        recognitionRequest.shouldReportPartialResults = true // Enable partial results for real-time feedback
+        recognitionRequest.requiresOnDeviceRecognition = false // Allow cloud recognition for better accuracy
+        
+        print("DEBUG: Starting speech recognition for segment \(segmentIndex)")
+        
+        // Start recognition task
+        recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { [weak self] result, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("DEBUG: Speech recognition error: \(error.localizedDescription)")
+                    // Don't return immediately on error - some errors are recoverable
+                }
+                
+                if let result = result {
+                    let transcribedText = result.bestTranscription.formattedString
+                    print("DEBUG: Transcribed text (isFinal: \(result.isFinal)): '\(transcribedText)'")
+                    
+                    if !transcribedText.isEmpty {
+                        // Always add the latest transcription (both partial and final)
+                        // This ensures the UI updates in real-time
+                        self?.transcriptManager.updateTranscript(
+                            for: self?.segmentIndex ?? 0, 
+                            text: transcribedText, 
+                            isFinal: result.isFinal,
+                            audioBuffer: self?.currentAudioBuffer
+                        )
+                        
+                        if result.isFinal {
+                            print("DEBUG: Added final transcript for segment \(self?.segmentIndex ?? 0)")
+                        } else {
+                            print("DEBUG: Updated partial result for segment \(self?.segmentIndex ?? 0)")
+                        }
+                    }
+                } else {
+                    print("DEBUG: No result from speech recognition")
+                }
+            }
+        }
+        
+        if recognitionTask == nil {
+            print("DEBUG: Failed to create recognition task")
+        }
+    }
+    
+    private func finishCurrentSegment() {
+        // End the current speech recognition request
+        recognitionRequest?.endAudio()
+    }
+}
+
+// MARK: - Recording Errors
+enum RecordingError: Error {
+    case speechRecognitionUnavailable
+    case audioEngineFailure
+    case permissionDenied
+    
+    var localizedDescription: String {
+        switch self {
+        case .speechRecognitionUnavailable:
+            return "Speech recognition is not available on this device"
+        case .audioEngineFailure:
+            return "Failed to start audio engine"
+        case .permissionDenied:
+            return "Microphone permission denied"
+        }
+    }
+}
+
+// MARK: - Transcript View
+struct TranscriptView: View {
+    @ObservedObject var manager: TranscriptManager
+    
+    private func speakerColor(for speaker: String) -> Color {
+        switch speaker {
+        case "Speaker 1":
+            return .blue
+        case "Speaker 2":
+            return .green
+        case "Speaker 3":
+            return .orange
+        case "Speaker 4":
+            return .purple
+        default:
+            return .gray
+        }
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 8) {
+                if manager.transcriptSegments.isEmpty {
+                    Text("Transcript will appear here as you speak...")
+                        .foregroundColor(.secondary)
+                        .italic()
+                        .padding()
+                } else {
+                    // Show individual segments with speaker identification
+                    ForEach(manager.transcriptSegments.sorted(by: { $0.index < $1.index })) { segment in
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text("Segment \(segment.index + 1)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                
+                                Spacer()
+                                
+                                Text(manager.speakerIdentifier.getSpeakerLabel(segment.speaker))
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 2)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .fill(speakerColor(for: segment.speaker))
+                                    )
+                                    .foregroundColor(.white)
+                            }
+                            
+                            Text(segment.text)
+                                .font(.body)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+            }
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
 
 @Observable
 class SpeechRecognitionViewModel {
@@ -141,6 +626,286 @@ class SpeechRecognitionViewModel {
     }
 }
 
+// MARK: - Recording View
+struct RecordingView: View {
+    @Environment(ChatViewModel.self) private var chatViewModel
+    @Environment(MessageViewModel.self) private var messageViewModel
+    @Environment(\.modelContext) private var modelContext
+    
+    @StateObject private var transcriptManager = TranscriptManager()
+    @State private var recorder: LiveRecorder?
+    @State private var isRecording = false
+    @State private var showingPermissionAlert = false
+    @State private var showingErrorAlert = false
+    @State private var errorMessage = ""
+    @State private var recordingDuration: TimeInterval = 0
+    @State private var recordingTimer: Timer?
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            // Header
+            VStack(spacing: 8) {
+                Text("Therapy Session Recording")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(Color.euniText)
+                
+                Text("Records in 30-second segments with real-time transcription")
+                    .font(.subheadline)
+                    .foregroundColor(Color.euniSecondary)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.top, 20)
+            
+            // Recording Controls
+            VStack(spacing: 16) {
+                // Record Button
+                Button(action: toggleRecording) {
+                    HStack(spacing: 12) {
+                        Image(systemName: isRecording ? "stop.circle.fill" : "record.circle")
+                            .font(.title)
+                            .foregroundColor(isRecording ? .red : Color.euniPrimary)
+                        
+                        Text(isRecording ? "Stop Recording" : "Start Recording")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.euniFieldBackground)
+                            .stroke(isRecording ? Color.red : Color.euniPrimary, lineWidth: 2)
+                    )
+                }
+                .buttonStyle(.plain)
+                
+                // Recording Status
+                if isRecording {
+                    VStack(spacing: 8) {
+                        HStack(spacing: 8) {
+                            Circle()
+                                .fill(Color.red)
+                                .frame(width: 8, height: 8)
+                                .scaleEffect(isRecording ? 1.0 : 0.5)
+                                .animation(.easeInOut(duration: 1.0).repeatForever(), value: isRecording)
+                            
+                            Text("Recording in progress...")
+                                .font(.subheadline)
+                                .foregroundColor(Color.euniSecondary)
+                        }
+                        
+                        Text(formatDuration(recordingDuration))
+                            .font(.caption)
+                            .foregroundColor(Color.euniSecondary)
+                            .monospacedDigit()
+                    }
+                }
+                
+                // Segment info
+                if !transcriptManager.transcriptSegments.isEmpty {
+                    Text("\(transcriptManager.transcriptSegments.count) segments recorded")
+                        .font(.caption)
+                        .foregroundColor(Color.euniSecondary)
+                }
+            }
+            .padding(.horizontal, 40)
+            
+            // Transcript Display
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Live Transcript")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(Color.euniText)
+                    
+                    Spacer()
+                    
+                    if !transcriptManager.fullTranscript.isEmpty {
+                        Button("Clear") {
+                            transcriptManager.clearTranscript()
+                        }
+                        .buttonStyle(.borderless)
+                        .foregroundColor(Color.euniSecondary)
+                    }
+                }
+                
+                TranscriptView(manager: transcriptManager)
+                    .frame(minHeight: 300)
+                    .background(Color.euniFieldBackground)
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.euniBorder, lineWidth: 1)
+                    )
+            }
+            .padding(.horizontal, 20)
+            
+            // Save Button
+            if !transcriptManager.fullTranscript.isEmpty {
+                Button("Save Transcript") {
+                    saveTranscript()
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .padding(.bottom, 20)
+            }
+            
+            Spacer()
+        }
+        .onAppear {
+            setupRecorder()
+            requestPermissions()
+        }
+        .onDisappear {
+            stopRecording()
+        }
+        .alert("Microphone Permission Required", isPresented: $showingPermissionAlert) {
+            Button("Open Settings") {
+                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Please grant microphone access in System Settings to record therapy sessions.")
+        }
+        .alert("Recording Error", isPresented: $showingErrorAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage)
+        }
+    }
+    
+    private func setupRecorder() {
+        recorder = LiveRecorder(transcriptManager: transcriptManager)
+    }
+    
+    private func requestPermissions() {
+        // Request speech recognition permission
+        SFSpeechRecognizer.requestAuthorization { status in
+            DispatchQueue.main.async {
+                print("DEBUG: Speech recognition authorization status: \(status.rawValue)")
+                switch status {
+                case .authorized:
+                    print("DEBUG: Speech recognition authorized")
+                case .denied:
+                    print("DEBUG: Speech recognition denied")
+                    self.showingPermissionAlert = true
+                case .restricted:
+                    print("DEBUG: Speech recognition restricted")
+                    self.showingPermissionAlert = true
+                case .notDetermined:
+                    print("DEBUG: Speech recognition not determined")
+                    self.showingPermissionAlert = true
+                @unknown default:
+                    print("DEBUG: Speech recognition unknown status")
+                    self.showingPermissionAlert = true
+                }
+            }
+        }
+        
+        // Also request microphone permission (macOS handles this automatically when audio recording starts)
+        print("DEBUG: Microphone permission will be requested automatically when recording starts on macOS")
+    }
+    
+    private func toggleRecording() {
+        if isRecording {
+            stopRecording()
+        } else {
+            startRecording()
+        }
+    }
+    
+    private func startRecording() {
+        guard let recorder = recorder else {
+            errorMessage = "Recorder not initialized"
+            showingErrorAlert = true
+            return
+        }
+        
+        do {
+            try recorder.startRecording()
+            isRecording = true
+            recordingDuration = 0
+            
+            // Start duration timer
+            recordingTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+                recordingDuration += 1
+            }
+        } catch {
+            errorMessage = "Failed to start recording: \(error.localizedDescription)"
+            showingErrorAlert = true
+        }
+    }
+    
+    private func stopRecording() {
+        recorder?.stopRecording()
+        isRecording = false
+        recordingTimer?.invalidate()
+        recordingTimer = nil
+    }
+    
+    private func formatDuration(_ duration: TimeInterval) -> String {
+        let minutes = Int(duration) / 60
+        let seconds = Int(duration) % 60
+        return String(format: "%02d:%02d", minutes, seconds)
+    }
+    
+    private func saveTranscript() {
+        // Save the transcript to the current activity
+        guard let selectedActivity = chatViewModel.selectedActivity else {
+            errorMessage = "No activity selected to save transcript"
+            showingErrorAlert = true
+            return
+        }
+        
+        // Create a clean, unified transcript format
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateStyle = .full
+        dateFormatter.timeStyle = .medium
+        
+        let formattedTranscript = """
+        Therapy Session Recording
+        Date: \(dateFormatter.string(from: Date()))
+        Client: \(chatViewModel.selectedClient?.identifier ?? "Unknown")
+        Duration: \(formatDuration(recordingDuration))
+        
+        Transcript:
+        \(transcriptManager.fullTranscript)
+        """
+        
+        // Save to the activity
+        if let clientIndex = chatViewModel.clients.firstIndex(where: { $0.id == chatViewModel.selectedClientID }),
+           let activityIndex = chatViewModel.clients[clientIndex].activities.firstIndex(where: { $0.id == selectedActivity.id }) {
+            
+            chatViewModel.clients[clientIndex].activities[activityIndex].content = formattedTranscript
+            chatViewModel.saveClient(chatViewModel.clients[clientIndex])
+            
+            // Also update the chat view with the transcript
+            if let activeChat = chatViewModel.activeChat {
+                // Clear existing messages
+                for message in activeChat.messages {
+                    modelContext.delete(message)
+                }
+                activeChat.messages.removeAll()
+                
+                // Add the transcript as a user message
+                let transcriptMessage = Message(prompt: formattedTranscript)
+                transcriptMessage.chat = activeChat
+                activeChat.messages.append(transcriptMessage)
+                
+                // Reload the message view
+                messageViewModel.load(of: activeChat)
+            }
+            
+            // Clear the transcript after saving
+            transcriptManager.clearTranscript()
+            recordingDuration = 0
+        }
+    }
+}
+
 struct ChatView: View {
     @Environment(ChatViewModel.self) private var chatViewModel
     @Environment(MessageViewModel.self) private var messageViewModel
@@ -160,7 +925,8 @@ struct ChatView: View {
     private let taskOptions = [
         "Create a Treatment Plan",
         "Create a Client Session Note",
-        "Brainstorm"
+        "Brainstorm",
+        "Record Therapy Session"
     ]
     
     init() {
@@ -169,12 +935,41 @@ struct ChatView: View {
     }
     
     private func updateSystemPrompt() {
+        print("DEBUG: updateSystemPrompt() called - selectedTask: '\(chatViewModel.selectedTask)'")
+        
         // Get the appropriate system prompt from ChatViewModel
-        let type = chatViewModel.getActivityTypeFromTask(chatViewModel.selectedTask)
-        let systemPrompt = chatViewModel.getSystemPromptForActivityType(type)
+        let newType = chatViewModel.getActivityTypeFromTask(chatViewModel.selectedTask)
+        let systemPrompt = chatViewModel.getSystemPromptForActivityType(newType)
+        
+        print("DEBUG: New activity type from task: \(newType.rawValue)")
+        print("DEBUG: Current activeChat: \(chatViewModel.activeChat?.id.uuidString ?? "nil")")
+        print("DEBUG: Current selectedActivity: \(chatViewModel.selectedActivity?.id.uuidString ?? "nil")")
+        
+        // Check if we're switching between different activity types via toolbar picker
+        let currentPrompt = chatViewModel.activeChat?.systemPrompt ?? ""
+        let previousType = currentPrompt.lowercased().contains("brainstorm") ? ActivityType.brainstorm :
+                          currentPrompt.lowercased().contains("treatment plan") ? ActivityType.treatmentPlan :
+                          ActivityType.sessionNote
+        
+        print("DEBUG: Previous type: \(previousType.rawValue), New type: \(newType.rawValue)")
+        
+        // Only clear chat if:
+        // 1. We're switching between different activity types AND
+        // 2. There's no currently selected activity (meaning this is a toolbar switch, not sidebar selection)
+        if previousType != newType && chatViewModel.activeChat != nil && chatViewModel.selectedActivity == nil {
+            print("DEBUG: Switching activity type via toolbar from \(previousType.rawValue) to \(newType.rawValue), clearing chat")
+            chatViewModel.clearChatForNewActivityType()
+        } else if previousType != newType && chatViewModel.selectedActivity != nil {
+            print("DEBUG: Activity type change detected but selectedActivity exists, updating system prompt only")
+        }
         
         // Update the active chat's system prompt
-        chatViewModel.activeChat?.systemPrompt = systemPrompt
+        if let activeChat = chatViewModel.activeChat {
+            activeChat.systemPrompt = systemPrompt
+            print("DEBUG: Updated system prompt for \(newType.rawValue)")
+        } else {
+            print("DEBUG: No active chat to update system prompt")
+        }
     }
     
     var body: some View {
@@ -239,6 +1034,29 @@ struct ChatView: View {
         
         var body: some View {
             ScrollViewReader { proxy in
+                mainContentView(proxy: proxy)
+            }
+            .navigationTitle("")
+            .toolbar {
+                toolbarContent
+            }
+            .sheet(isPresented: $showAddClientSheet, onDismiss: {
+                if let last = chatViewModel.clients.last {
+                    chatViewModel.selectedClientID = last.id
+                }
+            }) {
+                addClientSheet
+            }
+            .inspector(isPresented: $isPreferencesPresented) {
+                inspectorContent
+            }
+            .onChange(of: chatViewModel.activeChat?.id) { oldValue, newValue in
+                print("DEBUG: ChatView - Active chat changed: \(oldValue?.uuidString ?? "nil") -> \(newValue?.uuidString ?? "nil")")
+                onActiveChatChanged()
+            }
+        }
+        
+        private func mainContentView(proxy: ScrollViewProxy) -> some View {
                 VStack {
                     MessagesListView(
                         messages: messageViewModel.messages,
@@ -250,6 +1068,14 @@ struct ChatView: View {
                     .scrollContentBackground(.hidden)
                     .background(Color.euniFieldBackground.opacity(0.5))
                     
+                // Show RecordingView for Record Therapy Session activity, otherwise show ChatInputView
+                if chatViewModel.getActivityTypeFromTask(chatViewModel.selectedTask) == .recordSession {
+                    RecordingView()
+                        .padding(.top, 8)
+                        .padding(.bottom, 12)
+                        .padding(.horizontal)
+                        .visible(if: chatViewModel.activeChat.isNotNil, removeCompletely: true)
+                } else {
                     ChatInputView(
                         prompt: $prompt,
                         isEasyNotePresented: $isEasyNotePresented,
@@ -264,6 +1090,7 @@ struct ChatView: View {
                     .padding(.bottom, 12)
                     .padding(.horizontal)
                     .visible(if: chatViewModel.activeChat.isNotNil, removeCompletely: true)
+                }
                 }
                 .onAppear {
                     self.scrollProxy = proxy
@@ -283,13 +1110,32 @@ struct ChatView: View {
                     codeHighlighter.enabled = experimentalCodeHighlighting
                 }
             }
-            .navigationTitle("")
-            .toolbar {
-                Group {
-                    // Left: New Session Button and Activity Picker
+        
+        @ToolbarContentBuilder
+        private var toolbarContent: some ToolbarContent {
+            if chatViewModel.isDPKNYMode {
+                // DPKNY mode: only show the pencil/paper icon
+                ToolbarItem(placement: .navigation) {
+                    newSessionButton
+                }
+            } else {
+                // Normal mode: show all toolbar items
+                leftToolbarItems
+                centerToolbarItem
+                rightToolbarItems
+            }
+        }
+        
+        private var leftToolbarItems: some ToolbarContent {
                     ToolbarItem(placement: .navigation) {
                         HStack(spacing: 16) {
-                            // New Session Button
+                    newSessionButton
+                    activityPicker
+                }
+            }
+        }
+        
+        private var newSessionButton: some View {
                             Button(action: {
                                 chatViewModel.createNewActivity()
                                 
@@ -310,37 +1156,74 @@ struct ChatView: View {
                                     .foregroundColor(Color.euniPrimary)
                             }
                             .keyboardShortcut("n")
-                            .help("Create new activity")
+            .help(chatViewModel.isDPKNYMode ? "Start new brainstorm" : "Create new activity")
+        }
                             
-                            // Activity Picker
+        private var activityPicker: some View {
                             VStack(spacing: 4) {
                                 Text("Activity")
                                     .font(.system(size: 14, weight: .medium))
                                     .foregroundColor(Color.euniSecondary)
-                                Picker("Choose Activity", selection: Binding(
-                                    get: { chatViewModel.selectedTask },
-                                    set: { chatViewModel.selectedTask = $0 }
-                                )) {
+                
+                Picker("Choose Activity", selection: activityPickerBinding) {
                                     ForEach(taskOptions, id: \.self) { task in
                                         Text(task).tag(task)
                                     }
                                 }
                                 .frame(width: 200)
-                                .onChange(of: chatViewModel.selectedTask) { _, _ in
-                                    updateSystemPrompt()
+                .onChange(of: chatViewModel.selectedTask) { _, newValue in
+                    handleActivityChange(newValue)
                                 }
                             }
                             .padding(.vertical, 8)
                         }
-                    }
-
-                    // Center: Client Picker
+        
+        private var activityPickerBinding: Binding<String> {
+            Binding(
+                get: { chatViewModel.selectedTask },
+                set: { chatViewModel.selectedTask = $0 }
+            )
+        }
+        
+        private func handleActivityChange(_ newTask: String) {
+            print("DEBUG: Toolbar selectedTask changed to '\(newTask)'")
+            updateActiveEasySheet()
+        }
+        
+        private func updateActiveEasySheet() {
+            // This method updates the easy sheet type based on selected task
+            // Implementation will be in the ChatFieldView where the state exists
+        }
+        
+        private var centerToolbarItem: some ToolbarContent {
                     ToolbarItem(placement: .principal) {
+                clientPicker
+            }
+        }
+        
+        private var clientPicker: some View {
                         VStack(spacing: 4) {
                             Text("Client")
                                 .font(.system(size: 14, weight: .medium))
                                 .foregroundColor(Color.euniSecondary)
-                            Picker("Choose Client", selection: Binding(
+                
+                Picker("Choose Client", selection: clientPickerBinding) {
+                    Text("Choose Client").tag(UUID(uuidString: "00000000-0000-0000-0000-000000000001")!)
+                    ForEach(chatViewModel.clients) { client in
+                        Text(client.identifier).tag(client.id)
+                    }
+                    Text("Add New Client").tag(UUID(uuidString: "00000000-0000-0000-0000-000000000000")!)
+                }
+                .frame(width: 200)
+                .onChange(of: chatViewModel.selectedClientID) { _, newValue in
+                    handleClientChange(newValue)
+                }
+            }
+            .padding(.vertical, 8)
+        }
+        
+        private var clientPickerBinding: Binding<UUID> {
+            Binding(
                                 get: { chatViewModel.selectedClientID ?? UUID(uuidString: "00000000-0000-0000-0000-000000000001")! },
                                 set: { newValue in
                                     if newValue == UUID(uuidString: "00000000-0000-0000-0000-000000000000") {
@@ -349,66 +1232,70 @@ struct ChatView: View {
                                         chatViewModel.selectedClientID = newValue
                                     }
                                 }
-                            )) {
-                                Text("Choose Client").tag(UUID(uuidString: "00000000-0000-0000-0000-000000000001")!)
-                                ForEach(chatViewModel.clients) { client in
-                                    Text(client.identifier).tag(client.id)
-                                }
-                                Text("Add New Client").tag(UUID(uuidString: "00000000-0000-0000-0000-000000000000")!)
-                            }
-                            .frame(width: 200)
-                        }
-                        .padding(.vertical, 8)
+            )
+        }
+        
+        private func handleClientChange(_ newClientID: UUID?) {
+            print("DEBUG: Client selection changed to \(newClientID?.uuidString ?? "nil")")
+            
+            // Only call onClientSelected if we're actually switching to a valid client
+            if let newValue = newClientID, 
+               newValue != UUID(uuidString: "00000000-0000-0000-0000-000000000001") {
+                chatViewModel.onClientSelected()
                     }
-
-                    // Right side items
+        }
+        
+        private var rightToolbarItems: some ToolbarContent {
                     ToolbarItem(placement: .automatic) {
                         HStack(spacing: 16) {
+                    assistantPicker
+                    preferencesButton
+                }
+                .padding(.vertical, 8)
+            }
+        }
+        
+        private var assistantPicker: some View {
                             VStack(spacing: 4) {
                                 Text("Assistant")
                                     .font(.system(size: 14, weight: .medium))
                                     .foregroundColor(Color.euniSecondary)
-                                Picker("Choose an Assistant", selection: Binding(
-                                    get: { chatViewModel.activeChat?.model ?? "" },
-                                    set: { newModel in
-                                        chatViewModel.activeChat?.model = newModel
-                                    }
-                                )) {
+                
+                Picker("Choose an Assistant", selection: assistantPickerBinding) {
                                     ForEach(chatViewModel.models, id: \.self) { model in
                                         Text(AssistantModel.nameFor(modelId: model)).tag(model)
                                     }
                                 }
                                 .frame(width: 200)
                             }
-                            
-                            // Preferences button
+        }
+        
+        private var assistantPickerBinding: Binding<String> {
+            Binding(
+                get: { chatViewModel.activeChat?.model ?? "" },
+                set: { newModel in
+                    chatViewModel.activeChat?.model = newModel
+                }
+            )
+        }
+        
+        private var preferencesButton: some View {
                             Button(action: { isPreferencesPresented.toggle() }) {
                                 Image(systemName: "sidebar.trailing")
                             }
                             .foregroundColor(Color.euniSecondary)
                         }
-                        .padding(.vertical, 8)
-                    }
-                }
-            }
-            .sheet(isPresented: $showAddClientSheet, onDismiss: {
-                if let last = chatViewModel.clients.last {
-                    chatViewModel.selectedClientID = last.id
-                }
-            }) {
+        
+        private var addClientSheet: some View {
                 NavigationStack {
                     AddClientView()
                 }
                 .frame(minWidth: 600, minHeight: 900)
             }
-            .inspector(isPresented: $isPreferencesPresented) {
+        
+        private var inspectorContent: some View {
                 ChatPreferencesView(ollamaKit: $ollamaKit)
                     .inspectorColumnWidth(min: 320, ideal: 320)
-            }
-            .onChange(of: chatViewModel.activeChat?.id) { oldValue, newValue in
-                print("DEBUG: ChatView - Active chat changed: \(oldValue?.uuidString ?? "nil") -> \(newValue?.uuidString ?? "nil")")
-                onActiveChatChanged()
-            }
         }
         
         private func scrollToBottom(proxy: ScrollViewProxy, messages: [Message]) {
@@ -635,8 +1522,10 @@ struct ChatFieldView: View {
     }
     
     private var showEasyButton: Bool {
-        chatViewModel.selectedTask.contains("Session Note") ||
-        chatViewModel.selectedTask.contains("Treatment Plan")
+        // Hide Easy button in DPKNY mode to keep interface simple
+        !chatViewModel.isDPKNYMode &&
+        (chatViewModel.selectedTask.contains("Session Note") ||
+         chatViewModel.selectedTask.contains("Treatment Plan"))
     }
     
     private var easyButtonIcon: String {
@@ -684,114 +1573,8 @@ struct ChatFieldView: View {
     
     var body: some View {
         VStack {
-            HStack(alignment: .top, spacing: 8) {
-                // Left column with Easy Button and Microphone Button
-                VStack(spacing: 8) {
-                    // Easy Button - only shown for Session Note and Treatment Plan
-                    if showEasyButton {
-                        Button(action: handleEasyButtonTap) {
-                            Image(systemName: easyButtonIcon)
-                                .foregroundStyle(.white)
-                                .fontWeight(.bold)
-                                .padding(8)
-                        }
-                        .help(easyButtonLabel)
-                        .background(Color.euniPrimary)
-                        .buttonStyle(.borderless)
-                        .clipShape(.circle)
-                    }
-                    
-                    // Microphone Button - always visible for all activity types
-                    Button {
-                        if speechRecognitionVM.isRecording {
-                            speechRecognitionVM.stopRecording()
-                        } else {
-                            speechRecognitionVM.startRecording { transcribedText in
-                                prompt = transcribedText
-                            }
-                        }
-                    } label: {
-                        Image(systemName: speechRecognitionVM.isRecording ? "stop.circle.fill" : "mic.circle")
-                            .foregroundStyle(Color.euniText)
-                            .fontWeight(.bold)
-                            .padding(8)
-                    }
-                    .background(speechRecognitionVM.isRecording ? Color.euniError : Color.euniSecondary)
-                    .buttonStyle(.borderless)
-                    .clipShape(.circle)
-                }
-                
-                // Chat Field
-                TextEditor(text: $prompt)
-                    .font(.system(size: fontSize))
-                    .frame(height: max(40, textHeight))
-                    .scrollContentBackground(.hidden)
-                    .background(Color.euniFieldBackground)
-                    .cornerRadius(8)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.euniBorder, lineWidth: 1)
-                    )
-                    .focused($isFocused)
-                    .onChange(of: prompt) { _, newValue in
-                        let size = CGSize(width: NSScreen.main?.frame.width ?? 800 - 100, height: .infinity)
-                        let estimatedHeight = newValue.boundingRect(
-                            with: size,
-                            options: [.usesLineFragmentOrigin, .usesFontLeading],
-                            attributes: [.font: NSFont.systemFont(ofSize: fontSize)],
-                            context: nil
-                        ).height
-                        textHeight = min(max(40, estimatedHeight + 20), 200)
-                    }
-                    .onSubmit {
-                        if messageViewModel.loading != .generate {
-                            generateAction()
-                        }
-                    }
-                
-                // Send Button
-                Button(action: generateAction) {
-                    Image(systemName: messageViewModel.loading == .generate ? "stop.fill" : "arrow.up")
-                        .foregroundStyle(Color.euniText)
-                        .fontWeight(.bold)
-                        .padding(8)
-                }
-                .background(messageViewModel.loading == .generate ? Color.euniError : Color.euniPrimary)
-                .buttonStyle(.borderless)
-                .clipShape(.circle)
-                .disabled(prompt.isEmpty && messageViewModel.loading != .generate)
-            }
-            .padding(8)
-            .background(Color.euniFieldBackground)
-            .cornerRadius(20)
-            .overlay(
-                RoundedRectangle(cornerRadius: 20)
-                    .stroke(Color.euniBorder, lineWidth: 1)
-            )
-            
-            // Footer
-            if chatViewModel.loading != nil {
-                ProgressView()
-                    .controlSize(.small)
-            } else if case .fetchModels(let message) = chatViewModel.error {
-                HStack {
-                    Text(message)
-                        .foregroundStyle(.red)
-                    
-                    Button("Try Again", action: onActiveChatChanged)
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.blue)
-                }
-                .font(.callout)
-            } else if messageViewModel.messages.isEmpty == false {
-                Text("\u{2318}+R to regenerate the response")
-                    .font(.callout)
-                    .foregroundColor(.secondary)
-            } else {
-                Text("AI can make mistakes. Please double-check responses.")
-                    .font(.callout)
-                    .foregroundColor(.secondary)
-            }
+            mainChatFieldContent
+            footerContent
         }
         .alert("Microphone Access Required", isPresented: $speechRecognitionVM.showingPermissionAlert) {
             Button("Open Settings") {
@@ -809,18 +1592,166 @@ struct ChatFieldView: View {
             Text(speechRecognitionVM.errorMessage)
         }
         .onAppear {
-            // Initialize the activeEasySheet based on the default task
             updateActiveEasySheet()
         }
         .onChange(of: chatViewModel.selectedTask) { oldValue, newValue in
-            // Update activeEasySheet whenever the task changes
-            updateActiveEasySheet()
+            handleTaskChange(oldValue: oldValue, newValue: newValue)
         }
         .sheet(isPresented: $showEasySheet, onDismiss: {
             print("DEBUG: Sheet dismissed, activeEasySheet was: \(activeEasySheet)")
             activeEasySheet = .none
             print("DEBUG: Reset activeEasySheet to .none")
         }) {
+            easySheetContent
+        }
+    }
+    
+    private var mainChatFieldContent: some View {
+            HStack(alignment: .top, spacing: 8) {
+            leftColumnButtons
+            chatTextEditor
+            sendButton
+        }
+        .padding(8)
+        .background(Color.euniFieldBackground)
+        .cornerRadius(20)
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(Color.euniBorder, lineWidth: 1)
+        )
+    }
+    
+    private var leftColumnButtons: some View {
+                VStack(spacing: 8) {
+                if showEasyButton {
+                        Button(action: handleEasyButtonTap) {
+                            Image(systemName: easyButtonIcon)
+                                .foregroundStyle(.white)
+                                .fontWeight(.bold)
+                                .padding(8)
+                        }
+                        .help(easyButtonLabel)
+                        .background(Color.euniPrimary)
+                        .buttonStyle(.borderless)
+                        .clipShape(.circle)
+                    }
+                        
+                        Button {
+                            if speechRecognitionVM.isRecording {
+                                speechRecognitionVM.stopRecording()
+                            } else {
+                                speechRecognitionVM.startRecording { transcribedText in
+                                    prompt = transcribedText
+                                }
+                            }
+                        } label: {
+                            Image(systemName: speechRecognitionVM.isRecording ? "stop.circle.fill" : "mic.circle")
+                                .foregroundStyle(Color.euniText)
+                                .fontWeight(.bold)
+                                .padding(8)
+                        }
+                        .background(speechRecognitionVM.isRecording ? Color.euniError : Color.euniSecondary)
+                        .buttonStyle(.borderless)
+                        .clipShape(.circle)
+        }
+                }
+                
+    private var chatTextEditor: some View {
+                TextEditor(text: $prompt)
+                    .font(.system(size: fontSize))
+                    .frame(height: max(40, textHeight))
+                    .scrollContentBackground(.hidden)
+                    .background(Color.euniFieldBackground)
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.euniBorder, lineWidth: 1)
+                    )
+                    .focused($isFocused)
+                    .onChange(of: prompt) { _, newValue in
+                updateTextHeight(for: newValue)
+                    }
+                    .onSubmit {
+                handleSubmit()
+            }
+            .onKeyPress(.return) {
+                return handleReturnKey()
+                        }
+                    }
+                
+    private var sendButton: some View {
+                Button(action: generateAction) {
+                    Image(systemName: messageViewModel.loading == .generate ? "stop.fill" : "arrow.up")
+                        .foregroundStyle(Color.euniText)
+                        .fontWeight(.bold)
+                        .padding(8)
+                }
+                .background(messageViewModel.loading == .generate ? Color.euniError : Color.euniPrimary)
+                .buttonStyle(.borderless)
+                .clipShape(.circle)
+                .disabled(prompt.isEmpty && messageViewModel.loading != .generate)
+            }
+    
+    private var footerContent: some View {
+        Group {
+            if chatViewModel.loading != nil {
+                ProgressView()
+                    .controlSize(.small)
+            } else if case .fetchModels(let message) = chatViewModel.error {
+                HStack {
+                    Text(message)
+                        .foregroundStyle(.red)
+                    
+                    Button("Try Again", action: onActiveChatChanged)
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.blue)
+                }
+                .font(.callout)
+            } else if messageViewModel.messages.isEmpty == false {
+                HStack {
+                Text("\u{2318}+R to regenerate the response")
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    dpknyToggleButton
+                }
+            } else {
+                HStack {
+                Text("AI can make mistakes. Please double-check responses.")
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    dpknyToggleButton
+                }
+            }
+        }
+    }
+    
+    private var dpknyToggleButton: some View {
+        Toggle("DPKNY", isOn: Binding(
+            get: { chatViewModel.isDPKNYMode },
+            set: { _ in chatViewModel.toggleDPKNYMode() }
+        ))
+        .toggleStyle(.button)
+        .buttonStyle(.borderless)
+        .font(.caption)
+        .foregroundColor(chatViewModel.isDPKNYMode ? .white : .secondary)
+        .background(
+            RoundedRectangle(cornerRadius: 4)
+                .fill(chatViewModel.isDPKNYMode ? Color.euniPrimary : Color.clear)
+                .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+        )
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
+        .help("Toggle DPKNY simple mode - hides complexity and switches to pure brainstorm mode")
+    }
+    
+    @ViewBuilder
+    private var easySheetContent: some View {
             switch activeEasySheet {
             case .note:
                 NavigationView {
@@ -842,5 +1773,56 @@ struct ChatFieldView: View {
                 EmptyView()
             }
         }
+    
+    private func updateTextHeight(for text: String) {
+        let size = CGSize(width: NSScreen.main?.frame.width ?? 800 - 100, height: .infinity)
+        let estimatedHeight = text.boundingRect(
+            with: size,
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: NSFont.systemFont(ofSize: fontSize)],
+            context: nil
+        ).height
+        textHeight = min(max(40, estimatedHeight + 20), 200)
+    }
+    
+    private func handleTaskChange(oldValue: String, newValue: String) {
+        print("DEBUG: ChatFieldView - selectedTask changed from '\(oldValue)' to '\(newValue)'")
+        
+        // Update activeEasySheet whenever the task changes
+        updateActiveEasySheet()
+        
+        // Check if we're switching between different activity types
+        let oldActivityType = chatViewModel.getActivityTypeFromTask(oldValue)
+        let newActivityType = chatViewModel.getActivityTypeFromTask(newValue)
+        
+        print("DEBUG: ChatFieldView Activity type change: \(oldActivityType.rawValue) → \(newActivityType.rawValue)")
+        
+        // If we're switching to a different activity type, force a clean start
+        if oldActivityType != newActivityType {
+            print("DEBUG: ChatFieldView - Forcing clean activity type transition")
+            chatViewModel.clearChatForNewActivityType()
+        }
+    }
+    
+    private func handleSubmit() {
+        print("DEBUG: TextEditor onSubmit triggered")
+        if messageViewModel.loading != .generate && !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            print("DEBUG: Submitting via Enter key")
+            generateAction()
+        }
+    }
+    
+    private func handleReturnKey() -> KeyPress.Result {
+        print("DEBUG: Return key pressed")
+        
+        // Send the message when Enter is pressed (without modifiers)
+        let promptToSend = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !promptToSend.isEmpty && messageViewModel.loading != .generate {
+            print("DEBUG: Sending message via Enter key")
+            generateAction()
+            return .handled
+        }
+        
+        return .ignored
     }
 }

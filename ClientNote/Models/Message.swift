@@ -29,41 +29,26 @@ final class Message: Identifiable {
     }
 
     @Transient var displayPrompt: String {
-        // Filter out analysis prompts and duplicates
-        let analysisMarkers = [
-            "Consider these common patterns of client engagement",
-            "Please analyze the client's engagement and responsiveness",
-            "Analyze the following therapy session transcript"
+        // Only filter out internal analysis prompts that shouldn't be shown to users
+        // Since we now use a proper two-pass system, most prompts should be displayed
+        
+        let internalAnalysisMarkers = [
+            "You are a clinical documentation assistant generating a structured",
+            "FIRST PASS ANALYSIS RESULTS:",
+            "THERAPEUTIC MODALITIES AND INTERVENTIONS:",
+            "CLIENT ENGAGEMENT AND RESPONSIVENESS:",
+            "Consider these common psychotherapy modalities and their typical interventions:",
+            "Please analyze the session and:",
+            "Consider these common patterns of client engagement"
         ]
         
-        // If the prompt contains any of the analysis markers, find the actual content
-        if analysisMarkers.contains(where: { prompt.contains($0) }) {
-            if let sessionStart = prompt.range(of: "Session Transcript:") {
-                let content = String(prompt[sessionStart.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
-                // Only return content if it's not already shown in a previous message
-                if let chat = chat,
-                   let messageIndex = chat.messages.firstIndex(where: { $0.id == id }),
-                   messageIndex > 0 {
-                    let previousMessages = chat.messages[..<messageIndex]
-                    if previousMessages.contains(where: { $0.prompt.contains(content) }) {
-                        return ""  // Skip if content already shown
-                    }
-                }
-                return content
-            }
-            return ""  // If no transcript found, don't show the analysis prompt
+        // Hide only clearly internal analysis prompts
+        if internalAnalysisMarkers.contains(where: { prompt.contains($0) }) {
+            return ""
         }
         
-        // For non-analysis prompts, check for duplicates
-        if let chat = chat,
-           let messageIndex = chat.messages.firstIndex(where: { $0.id == id }),
-           messageIndex > 0 {
-            let previousMessages = chat.messages[..<messageIndex]
-            if previousMessages.contains(where: { $0.prompt == prompt }) {
-                return ""  // Skip if exact prompt already shown
-            }
-        }
-        
+        // For all other prompts, display them normally
+        // This includes user input from EasyNote forms and chat entries
         return prompt
     }
 

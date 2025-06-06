@@ -22,9 +22,9 @@ struct EasyNoteSheet: View {
     @State private var selectedDate = Date()
     @State private var selectedTime = Date()
     
-    // Note Format - REMOVED as it's managed in settings
-    // @State private var selectedNoteFormat = "BIRP"
-    // @State private var customNoteFormat = ""
+    // Note Format - Restored for EasyNote override
+    @State private var selectedNoteFormat = "PIRP"
+    @State private var customNoteFormat = ""
     
     // Therapeutic Approach
     @State private var selectedApproach = "CBT (Cognitive Behavioral Therapy)"
@@ -300,13 +300,39 @@ struct EasyNoteSheet: View {
                                         Text(location).tag(location)
                                     }
                                 }
+                                                    }
+                        .padding()
+                    }
+                    
+                    // Note Format Section - Restored for EasyNote override
+                    GroupBox {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Note Format")
+                                .font(.title3)
+                                .fontWeight(.bold)
+                                .foregroundColor(.primary)
+                            
+                            HStack {
+                                Text("Note Format")
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(Color.euniText)
+                                
+                                Picker("Format", selection: $selectedNoteFormat) {
+                                    ForEach(["SOAP", "DAP", "BIRP", "PIRP", "GIRP", "SBAR", "FOCUS"], id: \.self) { format in
+                                        Text(format).tag(format)
+                                    }
+                                }
                             }
-                            .padding()
+                            
+                            if selectedNoteFormat == "Other" {
+                                TextField("Custom Note Format", text: $customNoteFormat)
+                                    .textFieldStyle(.roundedBorder)
+                            }
                         }
-                        
-                        // Note Format Section - REMOVED as it's managed in settings
-                        
-                        // Therapeutic Approach Section
+                        .padding()
+                    }
+                    
+                    // Therapeutic Approach Section
                         GroupBox {
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("Therapeutic Approach")
@@ -634,25 +660,25 @@ struct EasyNoteSheet: View {
                         // Generate the prompt first
                         let notePrompt = generateNotePrompt()
                         
-                        // Set the prompt
-                        self.prompt = notePrompt
+                        // DON'T set self.prompt - this was causing duplication in text entry
+                        // The prompt will be displayed in chat view through handleGenerateAction
                         
-                        // First pass: Enhance the note with modalities analysis
-                        Task {
-                            await chatViewModel.enhanceSessionNoteGeneration(
-                                transcript: notePrompt,
-                                ollamaKit: ollamaKit,
-                                isEasyNote: true,
-                                providedModalities: [selectedApproach: Array(selectedInterventions)]
-                            )
-                            
-                            // Generate after enhancement (run on main thread)
-                            DispatchQueue.main.async {
-                                generateAction()
-                            }
-                        }
+                        // Use the new two-pass generation system with note format override
+                        let formatToUse = selectedNoteFormat == "Other" && !customNoteFormat.isEmpty ? 
+                            customNoteFormat : selectedNoteFormat
                         
-                        // Dismiss the sheet immediately (not in async context)
+                        // Prepare the modalities for the analysis
+                        let modalitiesForAnalysis = selectedInterventions.isEmpty ? 
+                            nil : [selectedApproach: Array(selectedInterventions)]
+                        
+                        // Call the updated handleGenerateAction with note format and modalities
+                        chatViewModel.handleGenerateAction(
+                            prompt: notePrompt, 
+                            noteFormat: formatToUse,
+                            providedModalities: modalitiesForAnalysis
+                        )
+                        
+                        // Dismiss the sheet
                         dismiss()
                     }
                     .buttonStyle(.borderedProminent)
@@ -689,8 +715,8 @@ struct EasyNoteSheet: View {
         // Reset all state variables to their initial values
         selectedDate = Date()
         selectedTime = Date()
-        // selectedNoteFormat = "BIRP" - REMOVED
-        // customNoteFormat = "" - REMOVED
+        selectedNoteFormat = "PIRP"
+        customNoteFormat = ""
         selectedApproach = "CBT (Cognitive Behavioral Therapy)"
         customApproach = ""
         selectedInterventions = []

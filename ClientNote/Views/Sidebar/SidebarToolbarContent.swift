@@ -11,6 +11,8 @@ struct SidebarToolbarContent: ToolbarContent {
             return .treatmentPlan
         case "Brainstorm":
             return .brainstorm
+        case "Record Therapy Session":
+            return .recordSession
         default:
             return .sessionNote
         }

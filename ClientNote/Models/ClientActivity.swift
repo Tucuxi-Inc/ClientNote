@@ -5,6 +5,7 @@ enum ActivityType: String, CaseIterable, Identifiable, Codable {
     case sessionNote = "Session Note"
     case treatmentPlan = "Treatment Plan"
     case brainstorm = "Brainstorm"
+    case recordSession = "Record Therapy Session"
 
     var id: String { self.rawValue }
 }
