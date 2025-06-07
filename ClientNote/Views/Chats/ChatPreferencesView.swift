@@ -845,26 +845,44 @@ private class ProgressDelegate: NSObject, URLSessionDownloadDelegate {
         print("DEBUG: ProgressDelegate - Download finished at: \(location.path)")
         print("DEBUG: ProgressDelegate - File exists at location: \(FileManager.default.fileExists(atPath: location.path))")
         
-        // Try to get file size immediately
         do {
+            // Verify file exists and get size immediately
             let attributes = try FileManager.default.attributesOfItem(atPath: location.path)
             let fileSize = attributes[.size] as? Int64 ?? 0
             print("DEBUG: ProgressDelegate - Downloaded file size: \(fileSize) bytes")
+            
+            guard fileSize > 0 else {
+                throw NSError(domain: "DownloadError", code: 2, userInfo: [
+                    NSLocalizedDescriptionKey: "Downloaded file is empty"
+                ])
+            }
+            
+            // Create our own temporary location in the app's container
+            let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("ClientNoteDownloads")
+            try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true, attributes: nil)
+            
+            let ourTempLocation = tempDir.appendingPathComponent(UUID().uuidString + ".tmp")
+            
+            // Move the file immediately to our controlled location before the system cleans it up
+            try FileManager.default.moveItem(at: location, to: ourTempLocation)
+            print("DEBUG: ProgressDelegate - Moved to controlled temp location: \(ourTempLocation.path)")
+            
+            // Store our controlled temporary location and response for completion
+            if let response = downloadTask.response {
+                completion?(.success((ourTempLocation, response)))
+            } else {
+                let error = NSError(domain: "DownloadError", code: 1, userInfo: [
+                    NSLocalizedDescriptionKey: "No response received"
+                ])
+                completion?(.failure(error))
+            }
+            
         } catch {
-            print("DEBUG: ProgressDelegate - Could not get file size: \(error)")
-        }
-        
-        // Store the temporary location and response for completion
-        if let response = downloadTask.response {
-            completion?(.success((location, response)))
-        } else {
-            let error = NSError(domain: "DownloadError", code: 1, userInfo: [
-                NSLocalizedDescriptionKey: "No response received"
-            ])
+            print("DEBUG: ProgressDelegate - Error handling downloaded file: \(error)")
             completion?(.failure(error))
         }
         
-        // Clean up session
+        // Clean up session after we've secured the file
         session.invalidateAndCancel()
     }
     
