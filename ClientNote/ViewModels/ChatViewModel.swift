@@ -714,7 +714,7 @@ final class ChatViewModel {
             print("DEBUG: Current activeChat systemPrompt: \(String(activeChat.systemPrompt?.prefix(100) ?? "nil")...)")
             
             // CRITICAL: Ensure we're using the clean brainstorm prompt
-            activeChat.systemPrompt = expectedPrompt
+                activeChat.systemPrompt = expectedPrompt
             print("DEBUG: Set activeChat systemPrompt to brainstorm prompt")
             
             // CRITICAL: Clear all previous messages to prevent contamination
@@ -823,7 +823,7 @@ final class ChatViewModel {
                         messageViewModel?.load(of: activeChat)
                         
                         // Save the activity content
-                        saveActivityContent()
+            saveActivityContent()
                         
                         print("DEBUG: Treatment plan generation completed successfully")
                     }
@@ -1352,6 +1352,8 @@ final class ChatViewModel {
             return """
             You are a helpful AI assistant engaging in a general brainstorming conversation. Your role is to:
 
+            IMPORTANT: Use <think>...</think> tags for your internal reasoning and analysis. Only the content outside think tags will be shown to the user.
+
             1. Help explore ideas and concepts openly
             2. Provide relevant information and insights
             3. Ask clarifying questions when needed
@@ -1372,6 +1374,12 @@ final class ChatViewModel {
         static let sessionNote = """
         You are a clinical documentation assistant helping a therapist generate an insurance-ready psychotherapy progress note. 
         Focus on creating a structured, objective note that meets clinical and insurance requirements.
+
+        IMPORTANT: Use <think>...</think> tags for your internal reasoning and analysis. Only the content outside think tags will be shown to the user.
+
+        <think>
+        I should analyze the provided information carefully and plan my approach before generating the clinical note.
+        </think>
 
         You will use:
         1. The session transcript provided
@@ -1425,7 +1433,11 @@ final class ChatViewModel {
         
         // Regular Treatment Plan prompt
         static let treatmentPlan = """
-        You are a licensed mental health professional and clinical supervisor. Your task is to produce (or update) a psychotherapy treatment plan for a client using whatever information is currently available in their record, plus the most recent prior treatment plan and session note if they exist. Follow these steps in order:
+        You are a licensed mental health professional and clinical supervisor. Your task is to produce (or update) a psychotherapy treatment plan for a client using whatever information is currently available in their record, plus the most recent prior treatment plan and session note if they exist.
+
+        IMPORTANT: Use <think>...</think> tags for your internal reasoning and analysis. Only the content outside think tags will be shown to the user.
+
+        Follow these steps in order:
 
         1. **Ingest All Available Data**  
            • Client Identifier: "[client_id]"  
@@ -1973,6 +1985,12 @@ final class ChatViewModel {
             modalitiesAnalysis = analysis
         } else {
             print("DEBUG: Generating modalities analysis with AI (non-streaming)")
+            
+            // Update progress message
+            await MainActor.run {
+                messageViewModel?.tempResponse = "Identifying therapeutic modalities..."
+            }
+            
             let analysisPrompt = getModalitiesAnalysisPrompt() + "\n\nSession Transcript:\n" + transcript
             // Use non-streaming generation for analysis to avoid UI confusion
             modalitiesAnalysis = try await generateAnalysisWithBackend(prompt: analysisPrompt)
@@ -1981,6 +1999,12 @@ final class ChatViewModel {
         
         // Get engagement patterns analysis with retry
         print("DEBUG: Starting engagement analysis (non-streaming)")
+        
+        // Update progress message
+        await MainActor.run {
+            messageViewModel?.tempResponse = "Analyzing client engagement patterns..."
+        }
+        
         let engagementPrompt = getEngagementPatternsPrompt() + "\n\nSession Transcript:\n" + transcript
         
         var engagementAnalysis: String = ""
@@ -2284,12 +2308,13 @@ final class ChatViewModel {
         
         print("DEBUG: Starting two-pass generation for activity type: \(activityType.rawValue)")
         
-        // FIRST PASS: Analyze the session content (non-streaming to avoid UI confusion)
+        // FIRST PASS: Analyze the session content (with progress indication)
         print("DEBUG: First Pass - Analyzing session content")
         
-        // Clear tempResponse before first pass
+        // Show descriptive status for first pass
         await MainActor.run {
-            messageViewModel?.tempResponse = ""
+            messageViewModel?.tempResponse = "Analyzing therapeutic modalities and interventions..."
+            messageViewModel?.loading = .generate
         }
         
         let analysis = try await performSessionAnalysis(
@@ -2297,6 +2322,11 @@ final class ChatViewModel {
             isEasyNote: isEasyNote,
             providedModalities: providedModalities
         )
+        
+        // Brief pause to show completion of first pass
+        await MainActor.run {
+            messageViewModel?.tempResponse = "Analysis complete. Generating structured note..."
+        }
         
         // Add a small delay between passes to ensure first pass completes
         print("DEBUG: Waiting briefly between first and second pass...")
@@ -2965,6 +2995,20 @@ final class ChatViewModel {
                 guard backend.isReady else {
                     // During first startup or when backend is initializing, don't show harsh errors
                     // The splash screen and settings will guide users through setup
+                    
+                    // However, for LlamaCpp backend, we can still try to scan for models
+                    // even if the server isn't running
+                    if Defaults[.selectedAIBackend] == .llamaCpp {
+                        print("DEBUG: Backend not ready, attempting direct model scan for LlamaCpp")
+                        let models = await scanLlamaCppModelsDirectly()
+                        if !models.isEmpty {
+                            self.models = models
+                            print("DEBUG: Found \(models.count) models via direct scan: \(models)")
+                            
+                            // Clean up any invalid model selections after updating the models list
+                            cleanupActiveChat()
+                        }
+                    }
                     return
                 }
                 
@@ -3079,6 +3123,112 @@ final class ChatViewModel {
             print("DEBUG: Migrating legacy model path from Q8_0 to Q4_0: \(newPath)")
             Defaults[.llamaKitModelPath] = newPath
         }
+    }
+    
+    /// Scans for LlamaCpp models directly without requiring backend initialization
+    /// This allows us to show available models even if the llama-server executable isn't found
+    private func scanLlamaCppModelsDirectly() async -> [String] {
+        print("DEBUG: Starting direct LlamaCpp model scan")
+        
+        var availableModels: [String] = []
+        
+        // Get model directories
+        let appSupportPaths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
+        guard let appSupportPath = appSupportPaths.first else {
+            print("DEBUG: Could not get Application Support path")
+            return []
+        }
+        
+        let appName = Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "ClientNote"
+        
+        let downloadPaths = [
+            appSupportPath.appendingPathComponent(appName).appendingPathComponent("LlamaKitModels"),
+            appSupportPath.appendingPathComponent(appName).appendingPathComponent("Models")
+        ]
+        
+        print("DEBUG: Direct scan checking \(downloadPaths.count) directories")
+        
+        for downloadPath in downloadPaths {
+            print("DEBUG: Direct scan - checking: \(downloadPath.path)")
+            print("DEBUG: Direct scan - directory exists: \(FileManager.default.fileExists(atPath: downloadPath.path))")
+            
+            do {
+                let contents = try FileManager.default.contentsOfDirectory(at: downloadPath, 
+                                                                         includingPropertiesForKeys: nil)
+                
+                print("DEBUG: Direct scan - found \(contents.count) items in \(downloadPath.path)")
+                
+                for fileURL in contents {
+                    let fileName = fileURL.lastPathComponent
+                    let fileExtension = fileURL.pathExtension
+                    print("DEBUG: Direct scan - found file: \(fileName) (extension: \(fileExtension))")
+                    
+                    if fileExtension == "gguf" {
+                        let friendlyName = friendlyModelNameDirect(for: fileURL.path)
+                        print("DEBUG: Direct scan - found GGUF model: \(fileName) -> \(friendlyName)")
+                        
+                        // Avoid duplicates
+                        if !availableModels.contains(friendlyName) {
+                            availableModels.append(friendlyName)
+                            print("DEBUG: Direct scan - added model to list: \(friendlyName)")
+                        } else {
+                            print("DEBUG: Direct scan - skipped duplicate model: \(friendlyName)")
+                        }
+                    }
+                }
+            } catch {
+                print("DEBUG: Direct scan - could not scan directory \(downloadPath.path): \(error)")
+            }
+        }
+        
+        print("DEBUG: Direct scan - total models found: \(availableModels.count)")
+        print("DEBUG: Direct scan - available models: \(availableModels)")
+        
+        return availableModels
+    }
+    
+    /// Direct model name mapping without requiring backend
+    private func friendlyModelNameDirect(for modelPath: String) -> String {
+        let fileName = URL(fileURLWithPath: modelPath).lastPathComponent
+        
+        // Handle direct filename mappings first
+        let modelMappings: [String: String] = [
+            "Qwen3-0.6B-Q4_0.gguf": "Flash",
+            "gemma-3-1b-it-Q4_0.gguf": "Scout", 
+            "Qwen3-1.7B-Q4_0.gguf": "Runner",
+            "granite-3.3-2b-instruct-Q4_0.gguf": "Focus",
+            "gemma-3-4b-it-Q4_0.gguf": "Sage",
+            "granite-3.3-8b-instruct-Q4_0.gguf": "Deep Thought"
+        ]
+        
+        // Check for exact match first
+        if let friendlyName = modelMappings[fileName] {
+            return friendlyName
+        }
+        
+        // Handle legacy Q8_0 models by mapping them to Q4_0 equivalents
+        let legacyMappings: [String: String] = [
+            "Qwen3-0.6B-Q8_0.gguf": "Flash",
+            "gemma-3-1b-it-Q8_0.gguf": "Scout",
+            "Qwen3-1.7B-Q8_0.gguf": "Runner", 
+            "granite-3.3-2b-instruct-Q8_0.gguf": "Focus",
+            "gemma-3-4b-it-Q8_0.gguf": "Sage",
+            "granite-3.3-8b-instruct-Q8_0.gguf": "Deep Thought"
+        ]
+        
+        if let friendlyName = legacyMappings[fileName] {
+            print("DEBUG: Direct scan - found legacy Q8_0 model \(fileName), mapping to \(friendlyName)")
+            return friendlyName
+        }
+        
+        // Use AssistantModel mapping as fallback
+        let assistantName = AssistantModel.nameFor(fileName: fileName)
+        if assistantName != fileName {
+            return assistantName
+        }
+        
+        // If no mapping found, return the original filename
+        return fileName.replacingOccurrences(of: ".gguf", with: "")
     }
 }
 

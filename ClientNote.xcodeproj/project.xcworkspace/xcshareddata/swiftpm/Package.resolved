@@ -1,5 +1,5 @@
 {
-  "originHash" : "8b7beddf909604d1b8651dead43ecbd36cc8b8a99454d2796afa6115c9ad63b8",
+  "originHash" : "92bf440c728523d89f3ca267d9b508774899f0b79e8734ee7ae636b3e8b44ec5",
   "pins" : [
     {
       "identity" : "appinfo",
@@ -29,30 +29,12 @@
       }
     },
     {
-      "identity" : "eventsource",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/Recouse/EventSource.git",
-      "state" : {
-        "revision" : "d783b1cf60599dbcec6396c55a6bab33a1c92dc3",
-        "version" : "0.1.4"
-      }
-    },
-    {
       "identity" : "highlightr",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/raspu/Highlightr.git",
       "state" : {
         "revision" : "bcf2d0590f32ac2528feb72d7e34f5b463801a47",
         "version" : "2.2.1"
-      }
-    },
-    {
-      "identity" : "llamakit",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/Kevin-Tucuxi/LlamaKit",
-      "state" : {
-        "branch" : "main",
-        "revision" : "bba3da068a7655e3730b604f5d03629547152e90"
       }
     },
     {

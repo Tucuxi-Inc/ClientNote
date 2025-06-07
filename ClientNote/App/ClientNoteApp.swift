@@ -70,10 +70,10 @@ struct ClientNoteApp: App {
                 print("DEBUG: LlamaKit selected but no model configured - showing splash for setup")
                 // Don't create initial chat, let splash screen handle setup
             } else {
-                chatViewModel.create(model: Defaults[.defaultModel])
-                if let activeChat = chatViewModel.selectedChats.first {
-                    chatViewModel.activeChat = activeChat
-                    messageViewModel.load(of: activeChat)
+            chatViewModel.create(model: Defaults[.defaultModel])
+            if let activeChat = chatViewModel.selectedChats.first {
+                chatViewModel.activeChat = activeChat
+                messageViewModel.load(of: activeChat)
                 }
             }
         }
@@ -216,8 +216,16 @@ struct SimpleSplashScreen: View {
     @State private var downloadStatus: String = ""
     @State private var ollamaKit: OllamaKit
     @State private var selectedBackend: AIBackend = Defaults[.selectedAIBackend]
+    @State private var currentImageIndex: Int = 0
+    @State private var isShowingImageCycle: Bool = false
     
-    private let logoImage = "1_Eunitm-Client-Notes-Effortless-AI-Powered-Therapy-Documentation"
+    private let splashImages = [
+        "1_Eunitm-Client-Notes-Effortless-AI-Powered-Therapy-Documentation",
+        "2_Rethink-Your-Clinical-Documentation",
+        "3_Key-Features", 
+        "4_Built-for-Clinicians-Who-Value-Control",
+        "5_How-It-Works"
+    ]
     
     init(isPresented: Binding<Bool>) {
         self._isPresented = isPresented
@@ -231,10 +239,13 @@ struct SimpleSplashScreen: View {
                 .ignoresSafeArea()
             
             VStack(spacing: 20) {
-                Image(logoImage)
+                // Display current image with transition
+                Image(splashImages[currentImageIndex])
                     .resizable()
                     .scaledToFit()
                     .frame(maxWidth: 800, maxHeight: 800)
+                    .transition(.opacity)
+                    .id(currentImageIndex) // Force view update on index change
                 
                 if isCheckingBackend {
                     ProgressView("Initializing AI backend...")
@@ -259,25 +270,35 @@ struct SimpleSplashScreen: View {
                             checkBackendInstallation()
                         }
                     }
-                } else if isDownloadingModel {
+                } else if isDownloadingModel || isShowingImageCycle {
                     VStack(spacing: 8) {
-                        ProgressView("Downloading Flash Assistant...", value: downloadProgress, total: 1.0)
-                        Text(downloadStatus)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                } else {
-                    Button("Get Started") {
-                        // Show download if first launch OR if LlamaKit selected but no model configured
-                        if !Defaults[.defaultHasLaunched] || (selectedBackend == .llamaCpp && Defaults[.llamaKitModelPath].isEmpty) {
-                            downloadFlashAssistant()
+                        if isDownloadingModel {
+                            ProgressView("Downloading Flash Assistant...", value: downloadProgress, total: 1.0)
+                            Text(downloadStatus)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                         } else {
-                            dismissSplashScreen()
+                            ProgressView("Starting up...")
+                                .progressViewStyle(.circular)
                         }
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Color.euniPrimary)
-                    .disabled(isDownloadingModel || (selectedBackend == .ollamaKit && !isOllamaInstalled))
+                } else {
+                    VStack(spacing: 16) {
+                        if !Defaults[.defaultHasLaunched] || (selectedBackend == .llamaCpp && Defaults[.llamaKitModelPath].isEmpty) {
+                            Text("Clicking 'Get Started' will download your first local large language model that you can use to generate notes, treatment plans and other content for your practice. You can try other models and find the one you like best by downloading additional models in the right-side menu in the application.")
+                                .font(.body)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
+                        }
+                        
+                        Button("Get Started") {
+                            handleGetStarted()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Color.euniPrimary)
+                        .disabled(isDownloadingModel || (selectedBackend == .ollamaKit && !isOllamaInstalled))
+                    }
                 }
             }
             .padding()
@@ -293,31 +314,94 @@ struct SimpleSplashScreen: View {
         selectedBackend = Defaults[.selectedAIBackend]
         
         Task {
-            if selectedBackend == .ollamaKit {
-                // Check Ollama installation
-                let isReachable = await ollamaKit.reachable()
+            // Always check for Ollama installation (for settings display purposes)
+            let isOllamaReachable = await ollamaKit.reachable()
+            
+            await MainActor.run {
+                isOllamaInstalled = isOllamaReachable
                 
-                await MainActor.run {
-                    isOllamaInstalled = isReachable
+                // Store Ollama installation status for settings
+                Defaults[.isOllamaInstalled] = isOllamaReachable
+                
+                if selectedBackend == .ollamaKit {
                     isCheckingBackend = false
                     
-                    // If Ollama is installed and this is not first launch, dismiss splash screen
-                    if isReachable && Defaults[.defaultHasLaunched] {
-                        dismissSplashScreen()
+                    // If Ollama is installed and this is not first launch, start image cycle
+                    if isOllamaReachable && Defaults[.defaultHasLaunched] {
+                        startImageCycleAndDismiss()
                     }
-                }
-            } else {
-                // Using LlamaKit - check if model is configured
-                await MainActor.run {
-                    isOllamaInstalled = true // Set to true to indicate backend is ready
+                } else {
+                    // Using LlamaKit - always available
                     isCheckingBackend = false
                     
-                    // If this is not first launch AND a model is configured, dismiss splash screen
+                    // If this is not first launch AND a model is configured, start image cycle
                     let hasModel = !Defaults[.llamaKitModelPath].isEmpty
                     if Defaults[.defaultHasLaunched] && hasModel {
-                        dismissSplashScreen()
+                        startImageCycleAndDismiss()
                     }
                     // Otherwise, splash screen will show "Get Started" button for model setup
+                }
+            }
+        }
+    }
+    
+    private func handleGetStarted() {
+        // Check if this is first launch or if model needs to be downloaded
+        if !Defaults[.defaultHasLaunched] || (selectedBackend == .llamaCpp && Defaults[.llamaKitModelPath].isEmpty) {
+            downloadFlashAssistant()
+        } else {
+            dismissSplashScreen()
+        }
+    }
+    
+    private func startImageCycleAndDismiss() {
+        isShowingImageCycle = true
+        currentImageIndex = 0
+        
+        // Cycle through all 5 images with reasonable timing
+        Task {
+            for index in 0..<splashImages.count {
+                await MainActor.run {
+                    withAnimation(.easeInOut(duration: 0.5)) {
+                        currentImageIndex = index
+                    }
+                }
+                
+                // Wait 1.5 seconds between images (quick but readable)
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+            }
+            
+            // Dismiss after cycling through all images
+            await MainActor.run {
+                dismissSplashScreen()
+            }
+        }
+    }
+    
+    private func startDownloadImageCycle() {
+        // For downloads, cycle through images 2-5 (excluding the first one)
+        currentImageIndex = 1 // Start at image 2
+        
+        Task {
+            while isDownloadingModel {
+                for index in 1..<splashImages.count {
+                    guard isDownloadingModel else { break }
+                    
+                    await MainActor.run {
+                        withAnimation(.easeInOut(duration: 0.5)) {
+                            currentImageIndex = index
+                        }
+                    }
+                    
+                    // Wait 2 seconds between images during download
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                }
+                
+                // Loop back to start if still downloading
+                if isDownloadingModel {
+                    await MainActor.run {
+                        currentImageIndex = 1
+                    }
                 }
             }
         }
@@ -327,6 +411,9 @@ struct SimpleSplashScreen: View {
         isDownloadingModel = true
         downloadProgress = 0.0
         downloadStatus = "Starting download..."
+        
+        // Start image cycling during download
+        startDownloadImageCycle()
         
         Task {
             if selectedBackend == .ollamaKit {
@@ -341,7 +428,7 @@ struct SimpleSplashScreen: View {
                     Task {
                         // Set appropriate default model based on backend
                         if selectedBackend == .ollamaKit {
-                            Defaults[.defaultModel] = "qwen3:0.6b"
+                    Defaults[.defaultModel] = "qwen3:0.6b"
                             // Create initial chat with Flash for Ollama
                             chatViewModel.create(model: "qwen3:0.6b")
                         } else {
@@ -373,10 +460,10 @@ struct SimpleSplashScreen: View {
                             }
                         }
                         
-                        // Mark as launched
-                        Defaults[.defaultHasLaunched] = true
-                        // Dismiss splash screen
-                        dismissSplashScreen()
+                    // Mark as launched
+                    Defaults[.defaultHasLaunched] = true
+                    // Dismiss splash screen
+                    dismissSplashScreen()
                     }
                 }
             }

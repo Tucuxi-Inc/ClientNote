@@ -110,7 +110,7 @@ struct ChatPreferencesView: View {
                     } else {
                         HStack {
                             Image(systemName: selectedAIBackend == .ollamaKit ? "arrow.down.circle" : "arrow.down.doc")
-                            Text("Download Assistant")
+                        Text("Download Assistant")
                         }
                     }
                 }
@@ -256,8 +256,8 @@ struct ChatPreferencesView: View {
             
             // Only update host for OllamaKit
             if selectedAIBackend == .ollamaKit {
-                if let host = newValue?.host {
-                    self.host = host
+            if let host = newValue?.host {
+                self.host = host
                 }
             }
             
@@ -297,7 +297,7 @@ struct ChatPreferencesView: View {
         }
         .onAppear {
             if selectedAIBackend == .ollamaKit {
-                chatViewModel.fetchModels(ollamaKit)
+            chatViewModel.fetchModels(ollamaKit)
             } else {
                 chatViewModel.fetchModelsFromBackend()
             }
@@ -403,9 +403,12 @@ struct ChatPreferencesView: View {
         pullProgress = 0.0
         pullStatus = "Starting download..."
         
+        // Capture values from assistant to avoid Sendable issues
+        let assistantModelId = assistant.modelId
+        
         Task {
             if selectedAIBackend == .ollamaKit {
-                await pullOllamaModel(assistant.modelId) // Use modelId for Ollama
+                await pullOllamaModel(assistantModelId) // Use modelId for Ollama
             } else {
                 await pullLlamaKitModel(assistantName) // Use name for LlamaKit
             }
@@ -415,7 +418,7 @@ struct ChatPreferencesView: View {
                 
                 // Refresh models list to show the newly pulled model
                 if selectedAIBackend == .ollamaKit {
-                    chatViewModel.fetchModels(ollamaKit)
+                chatViewModel.fetchModels(ollamaKit)
                 } else {
                     chatViewModel.fetchModelsFromBackend()
                 }
@@ -428,10 +431,10 @@ struct ChatPreferencesView: View {
                         
                         if selectedAIBackend == .ollamaKit {
                             // For Ollama, check if the model ID is available
-                            if chatViewModel.models.contains(assistant.modelId) {
+                            if chatViewModel.models.contains(assistantModelId) {
                                 selectedDownloadModel = assistantName
-                                // Also update the active chat's model
-                                chatViewModel.activeChat?.model = assistant.modelId
+                            // Also update the active chat's model
+                                chatViewModel.activeChat?.model = assistantModelId
                             }
                         } else {
                             // For LlamaKit, check if the friendly name is available
@@ -609,76 +612,106 @@ struct ChatPreferencesView: View {
             return
         }
         
+        // Capture assistant properties before async closures to avoid Sendable issues
+        let assistantDisplayName = assistant.name
+        
         do {
             await MainActor.run {
-                pullStatus = "Downloading \(assistant.name) from HuggingFace..."
-                pullProgress = 0.0
+                pullStatus = "Downloading \(assistantDisplayName) from HuggingFace..."
+                pullProgress = 0.1
             }
             
-            // Create progress delegate
-            let progressDelegate = ProgressDelegate { progress in
-                Task { @MainActor in
-                    self.pullProgress = progress
-                    self.pullStatus = "Downloading \(assistant.name)... \(Int(progress * 100))%"
-                }
-            }
-            
-            // Use URLSessionDownloadTask with progress tracking
+            // Use data task with manual file writing for better sandbox control
             let config = URLSessionConfiguration.default
             config.timeoutIntervalForRequest = 300 // 5 minute timeout
             config.timeoutIntervalForResource = 1800 // 30 minute timeout
-            let session = URLSession(configuration: config, delegate: progressDelegate, delegateQueue: nil)
             
-            // Start download with proper error handling
-            let downloadTask = session.downloadTask(with: url)
+            let session = URLSession(configuration: config)
             
-            let (tempURL, response) = try await withCheckedThrowingContinuation { continuation in
-                progressDelegate.completion = { result in
-                    continuation.resume(with: result)
-                }
-                downloadTask.resume()
-            }
+            // Create a temporary file in our own directory for better sandbox control
+            let tempDirectory = downloadPath.appendingPathComponent("temp", isDirectory: true)
+            try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true, attributes: nil)
+            let tempURL = tempDirectory.appendingPathComponent("\(fileName).download")
             
-            // Validate response
-            if let httpResponse = response as? HTTPURLResponse {
-                guard httpResponse.statusCode == 200 else {
-                    throw URLError(.badServerResponse)
-                }
-            }
+            print("DEBUG: Using controlled temporary location: \(tempURL.path)")
             
+            // Use download task with delegate for proper progress reporting
             await MainActor.run {
-                pullStatus = "Download complete, installing \(assistant.name)..."
+                pullStatus = "Starting download of \(assistantDisplayName)..."
+                pullProgress = 0.1
             }
             
-            // Ensure the temporary file exists before moving
-            guard FileManager.default.fileExists(atPath: tempURL.path) else {
-                throw NSError(domain: "ModelDownload", code: 1, userInfo: [
-                    NSLocalizedDescriptionKey: "Downloaded file not found at temporary location"
-                ])
-            }
-            
-            // Remove existing file if it exists (race condition protection)
-            if FileManager.default.fileExists(atPath: destinationURL.path) {
-                try FileManager.default.removeItem(at: destinationURL)
-            }
-            
-            // Move the file to final destination with error handling
-            do {
-                try FileManager.default.moveItem(at: tempURL, to: destinationURL)
-                print("DEBUG: Successfully moved model file to: \(destinationURL.path)")
-            } catch let moveError as NSError {
-                print("DEBUG: Move error: \(moveError)")
-                
-                // If move fails, try copy and delete instead
-                do {
-                    try FileManager.default.copyItem(at: tempURL, to: destinationURL)
-                    try FileManager.default.removeItem(at: tempURL)
-                    print("DEBUG: Successfully copied model file to: \(destinationURL.path)")
-                } catch {
-                    throw NSError(domain: "ModelDownload", code: 2, userInfo: [
-                        NSLocalizedDescriptionKey: "Failed to install model file: \(error.localizedDescription)"
-                    ])
+            // Create download task with progress reporting using delegate
+            let progressDelegate = ProgressDelegate { progress in
+                Task { @MainActor in
+                    // Map progress to 0.1 to 0.9 range (leaving room for verification steps)
+                    let mappedProgress = 0.1 + (progress * 0.8)
+                    pullProgress = min(mappedProgress, 0.9)
+                    
+                    if progress > 0 {
+                        let percentComplete = Int(progress * 100)
+                        pullStatus = "Downloading \(assistantDisplayName)... \(percentComplete)%"
+                    }
                 }
+            }
+            
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                progressDelegate.completion = { result in
+                    Task {
+                        do {
+                            let (tempLocation, response) = try result.get()
+                            
+                            // Validate response
+                            if let httpResponse = response as? HTTPURLResponse {
+                                guard httpResponse.statusCode == 200 else {
+                                    throw URLError(.badServerResponse)
+                                }
+                            }
+                            
+                            await MainActor.run {
+                                pullStatus = "Download complete, verifying \(assistantDisplayName)..."
+                                pullProgress = 0.95
+                            }
+                            
+                            // Verify file size
+                            let attributes = try FileManager.default.attributesOfItem(atPath: tempLocation.path)
+                            let fileSize = attributes[.size] as? Int64 ?? 0
+                            print("DEBUG: Downloaded file size: \(fileSize) bytes")
+                            
+                            guard fileSize > 0 else {
+                                throw URLError(.zeroByteResource)
+                            }
+                            
+                            await MainActor.run {
+                                pullStatus = "Installing \(assistantDisplayName)..."
+                                pullProgress = 0.98
+                            }
+                            
+                            // Remove existing file if it exists (race condition protection)
+                            if FileManager.default.fileExists(atPath: destinationURL.path) {
+                                try FileManager.default.removeItem(at: destinationURL)
+                            }
+                            
+                            // Move the file to final destination
+                            try FileManager.default.moveItem(at: tempLocation, to: destinationURL)
+                            print("DEBUG: Successfully moved model file to: \(destinationURL.path)")
+                            
+                            continuation.resume()
+                            
+                        } catch {
+                            print("DEBUG: Download failed with error: \(error)")
+                            await MainActor.run {
+                                pullStatus = "Download failed: \(error.localizedDescription)"
+                                isPullingModel = false
+                            }
+                            continuation.resume(throwing: error)
+                        }
+                    }
+                }
+                
+                let delegateSession = URLSession(configuration: config, delegate: progressDelegate, delegateQueue: nil)
+                let downloadTask = delegateSession.downloadTask(with: url)
+                downloadTask.resume()
             }
             
             // Verify the file exists at destination
@@ -689,17 +722,21 @@ struct ChatPreferencesView: View {
             }
             
             await MainActor.run {
-                pullStatus = "\(assistant.name) downloaded successfully!"
+                pullStatus = "\(assistantDisplayName) downloaded successfully!"
                 pullProgress = 1.0
                 isPullingModel = false
             }
+            
+            // Clean up temporary directory
+            try? FileManager.default.removeItem(at: tempDirectory)
+            print("DEBUG: Cleaned up temporary directory")
             
             // Clean up session
             session.invalidateAndCancel()
             
         } catch {
             await MainActor.run {
-                pullStatus = "Error downloading \(assistant.name): \(error.localizedDescription)"
+                pullStatus = "Error downloading \(assistantDisplayName): \(error.localizedDescription)"
                 isPullingModel = false
                 pullProgress = 0.0
                 print("DEBUG: Download error for \(assistantName): \(error)")
@@ -725,9 +762,9 @@ struct ChatPreferencesView: View {
             print("DEBUG: Created/verified models directory at: \(modelsDirectory.path)")
         } catch {
             print("DEBUG: Failed to create models directory: \(error)")
-            // Fallback to Downloads if Application Support fails
-            let downloadsPath = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first!
-            let fallbackPath = downloadsPath.appendingPathComponent("ClientNote-LlamaKitModels", isDirectory: true)
+            // Fallback to Documents if Application Support fails
+            let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+            let fallbackPath = documentsPath.appendingPathComponent("ClientNote-Models", isDirectory: true)
             
             do {
                 try FileManager.default.createDirectory(at: fallbackPath,
@@ -777,6 +814,7 @@ struct ChatPreferencesView: View {
         // Reset our local state
         clientToDelete = nil
     }
+
 }
 
 // MARK: - Download Progress Delegate
@@ -791,14 +829,31 @@ private class ProgressDelegate: NSObject, URLSessionDownloadDelegate {
     }
     
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
-        guard totalBytesExpectedToWrite > 0 else { return }
-        let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
-        DispatchQueue.main.async {
-            self.progressHandler(progress)
+        guard totalBytesExpectedToWrite > 0 else { 
+            print("DEBUG: ProgressDelegate - totalBytesExpectedToWrite is 0 or negative: \(totalBytesExpectedToWrite)")
+            return 
         }
+        
+        let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
+        print("DEBUG: ProgressDelegate - Progress: \(progress * 100)% (\(totalBytesWritten)/\(totalBytesExpectedToWrite) bytes)")
+        
+        // Call progress handler directly on main queue
+        progressHandler(progress)
     }
     
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+        print("DEBUG: ProgressDelegate - Download finished at: \(location.path)")
+        print("DEBUG: ProgressDelegate - File exists at location: \(FileManager.default.fileExists(atPath: location.path))")
+        
+        // Try to get file size immediately
+        do {
+            let attributes = try FileManager.default.attributesOfItem(atPath: location.path)
+            let fileSize = attributes[.size] as? Int64 ?? 0
+            print("DEBUG: ProgressDelegate - Downloaded file size: \(fileSize) bytes")
+        } catch {
+            print("DEBUG: ProgressDelegate - Could not get file size: \(error)")
+        }
+        
         // Store the temporary location and response for completion
         if let response = downloadTask.response {
             completion?(.success((location, response)))
@@ -808,11 +863,16 @@ private class ProgressDelegate: NSObject, URLSessionDownloadDelegate {
             ])
             completion?(.failure(error))
         }
+        
+        // Clean up session
+        session.invalidateAndCancel()
     }
     
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         if let error = error {
+            print("DEBUG: ProgressDelegate - Download completed with error: \(error)")
             completion?(.failure(error))
+            session.invalidateAndCancel()
         }
         // Success case is handled in didFinishDownloadingTo
     }

@@ -27,7 +27,11 @@ enum AIBackend: String, CaseIterable, Defaults.Serializable {
         case .llamaCpp:
             return "Direct integration with your compiled llama.cpp binaries"
         case .ollamaKit:
-            return "Third-party local inference via Ollama application"
+            if Defaults[.isOllamaInstalled] {
+                return "Third-party local inference via Ollama application"
+            } else {
+                return "If you'd like, you may download the Ollama app from https://ollama.com/download and download and run local models using it to power Euni™ - Client Notes"
+            }
         }
     }
 }
@@ -62,6 +66,7 @@ extension Defaults.Keys {
     // AI Backend Settings
     static let selectedAIBackend = Key<AIBackend>("selectedAIBackend", default: .llamaCpp)
     static let llamaKitModelPath = Key<String>("llamaKitModelPath", default: "")
+    static let isOllamaInstalled = Key<Bool>("isOllamaInstalled", default: false)
     
     static let experimentalCodeHighlighting = Key<Bool>("experimentalCodeHighlighting", default: false)
 }

@@ -40,8 +40,8 @@ struct AssistantMessageView: View {
             if isGenerating && content.isEmpty {
                 // Enhanced thinking indicator with animation and descriptive text
                 HStack(spacing: 12) {
-                    ProgressView()
-                        .controlSize(.small)
+                ProgressView()
+                    .controlSize(.small)
                         .scaleEffect(1.2)
                     
                     Text("Thinking...")
@@ -52,7 +52,7 @@ struct AssistantMessageView: View {
                 .padding(.vertical, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                Markdown(convertThinkTagsToMarkdownQuote(in: content))
+				Markdown(convertThinkTagsToMarkdownQuote(in: content))
                     .textSelection(.enabled)
                     .markdownTextStyle(\.text) {
                         FontSize(CGFloat(fontSize))

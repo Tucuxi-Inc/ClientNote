@@ -124,7 +124,7 @@ final class MessageViewModel {
             } catch {
                 await MainActor.run {
                     print("DEBUG: MessageViewModel generation failed: \(error)")
-                    self.error = .generate(error.localizedDescription)
+                self.error = .generate(error.localizedDescription)
                     self.tempResponse = "" // Clear temp response on error
                 }
             }
@@ -152,12 +152,12 @@ final class MessageViewModel {
                 guard let chatViewModel = self.chatViewModel else {
                     throw MessageViewModelError.generate("ChatViewModel not available")
                 }
-                
+
                 // Clear tempResponse again just before starting to ensure clean state
                 await MainActor.run {
                     self.tempResponse = ""
-                }
-                
+                    }
+
                 let response = try await chatViewModel.generateAIResponse(
                     prompt: lastMessage.prompt,
                     systemPrompt: activeChat.systemPrompt
@@ -182,7 +182,7 @@ final class MessageViewModel {
             } catch {
                 await MainActor.run {
                     print("DEBUG: MessageViewModel regenerate failed: \(error)")
-                    self.error = .generate(error.localizedDescription)
+                self.error = .generate(error.localizedDescription)
                     self.tempResponse = "" // Clear temp response on error
                 }
             }
@@ -212,7 +212,7 @@ final class MessageViewModel {
         
         do {
             try modelContext.save()
-        } catch {
+            } catch {
             print("DEBUG: Failed to save title: \(error)")
         }
     }

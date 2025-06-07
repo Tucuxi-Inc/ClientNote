@@ -109,6 +109,8 @@ class LlamaKitBackend: AIBackendProtocol {
     }
     
     func listModels() async throws -> [String] {
+        print("DEBUG: FreeChatBackend - listModels() called")
+        
         // Return all available models, not just the currently loaded one
         var availableModels: [String] = []
         
@@ -116,37 +118,55 @@ class LlamaKitBackend: AIBackendProtocol {
         if let modelPath = currentModelPath {
             let friendlyName = friendlyModelName(for: modelPath)
             availableModels.append(friendlyName)
+            print("DEBUG: Added currently loaded model: \(friendlyName)")
         }
         
-        // Then scan for other available models in the download directory
+        // Then scan for other available models in the app's sandboxed directories
         let downloadPaths = [
-            // Standard Application Support path
+            // Standard Application Support path (primary location)
             getModelDownloadPath(),
-            // Alternative paths where models might be stored
-            FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first?.appendingPathComponent("LlamaKitModels"),
-            // Desktop path for development
-            URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Desktop/LlamaKitModels")
+            // Alternative app-specific Application Support path
+            getAlternativeModelPath()
         ].compactMap { $0 }
         
+        print("DEBUG: Scanning \(downloadPaths.count) directories for models")
+        
         for downloadPath in downloadPaths {
+            print("DEBUG: Scanning directory: \(downloadPath.path)")
+            print("DEBUG: Directory exists: \(FileManager.default.fileExists(atPath: downloadPath.path))")
+            
             do {
                 let contents = try FileManager.default.contentsOfDirectory(at: downloadPath, 
                                                                          includingPropertiesForKeys: nil)
                 
+                print("DEBUG: Found \(contents.count) items in \(downloadPath.path)")
+                
                 for fileURL in contents {
-                    if fileURL.pathExtension == "gguf" {
+                    let fileName = fileURL.lastPathComponent
+                    let fileExtension = fileURL.pathExtension
+                    print("DEBUG: Found file: \(fileName) (extension: \(fileExtension))")
+                    
+                    if fileExtension == "gguf" {
                         let friendlyName = friendlyModelName(for: fileURL.path)
+                        print("DEBUG: Found GGUF model: \(fileName) -> \(friendlyName)")
+                        
                         // Avoid duplicates
                         if !availableModels.contains(friendlyName) {
                             availableModels.append(friendlyName)
+                            print("DEBUG: Added model to list: \(friendlyName)")
+                        } else {
+                            print("DEBUG: Skipped duplicate model: \(friendlyName)")
                         }
                     }
                 }
             } catch {
                 // Directory doesn't exist or can't be read - that's okay
-                print("DEBUG: Could not scan directory \(downloadPath): \(error)")
+                print("DEBUG: Could not scan directory \(downloadPath.path): \(error)")
             }
         }
+        
+        print("DEBUG: Total models found: \(availableModels.count)")
+        print("DEBUG: Available models: \(availableModels)")
         
         // If no models found anywhere, return empty array
         return availableModels
@@ -306,70 +326,74 @@ class LlamaKitBackend: AIBackendProtocol {
     }
     
     private func findLlamaServerExecutable() -> URL? {
-        // Try bundled executable first (sandbox-safe)
+        // Priority 1: Try bundled llama-bin directory (our preferred location)
+        if let resourcePath = Bundle.main.resourcePath {
+            let llamaBinPath = URL(fileURLWithPath: resourcePath).appendingPathComponent("llama-bin/llama-server")
+            if FileManager.default.fileExists(atPath: llamaBinPath.path) {
+                print("DEBUG: FreeChatBackend - Found bundled llama-server at: \(llamaBinPath.path)")
+                return llamaBinPath
+            }
+        }
+        
+        // Priority 2: Try main bundle Contents/Resources directly (where it actually is)
+        let bundleResourcesPath = Bundle.main.bundleURL
+            .appendingPathComponent("Contents/Resources/llama-server")
+        if FileManager.default.fileExists(atPath: bundleResourcesPath.path) {
+            print("DEBUG: FreeChatBackend - Found llama-server directly in Resources at: \(bundleResourcesPath.path)")
+            return bundleResourcesPath
+        }
+        
+        // Priority 3: Try main bundle Contents/Resources/llama-bin (fallback)
+        let bundleLlamaBinPath = Bundle.main.bundleURL
+            .appendingPathComponent("Contents/Resources/llama-bin/llama-server")
+        if FileManager.default.fileExists(atPath: bundleLlamaBinPath.path) {
+            print("DEBUG: FreeChatBackend - Found llama-server in bundle llama-bin at: \(bundleLlamaBinPath.path)")
+            return bundleLlamaBinPath
+        }
+        
+        // Priority 4: Try auxiliary executable
         if let bundledPath = Bundle.main.url(forAuxiliaryExecutable: "llama-server") {
             if FileManager.default.fileExists(atPath: bundledPath.path) {
-                print("DEBUG: FreeChatBackend - Found bundled llama-server at: \(bundledPath.path)")
+                print("DEBUG: FreeChatBackend - Found auxiliary llama-server at: \(bundledPath.path)")
                 return bundledPath
             }
         }
         
-        // Try alternative bundled locations
+        // Priority 5: Try as resource
         if let bundledPath = Bundle.main.url(forResource: "llama-server", withExtension: nil) {
             if FileManager.default.fileExists(atPath: bundledPath.path) {
-                print("DEBUG: FreeChatBackend - Found bundled llama-server (resource) at: \(bundledPath.path)")
+                print("DEBUG: FreeChatBackend - Found resource llama-server at: \(bundledPath.path)")
                 return bundledPath
             }
         }
         
-        // Check if llama-server is in the main bundle directory
+        // Priority 6: Try bundle root
         let bundleURL = Bundle.main.bundleURL.appendingPathComponent("llama-server")
         if FileManager.default.fileExists(atPath: bundleURL.path) {
             print("DEBUG: FreeChatBackend - Found llama-server in bundle root at: \(bundleURL.path)")
             return bundleURL
         }
         
-        // Fallback to system paths (may not work in sandbox)
-        let possiblePaths: [URL?] = [
-            URL(fileURLWithPath: "/usr/local/bin/llama-server"),
-            URL(fileURLWithPath: "/opt/homebrew/bin/llama-server"),
-            Bundle.main.url(forAuxiliaryExecutable: "FreeChat-server")
+        // Priority 7: Try system paths (may not work in sandbox)
+        let systemPaths = [
+            "/usr/local/bin/llama-server",
+            "/opt/homebrew/bin/llama-server"
         ]
         
-        for path in possiblePaths {
-            if let url = path {
-                if FileManager.default.fileExists(atPath: url.path) {
-                    print("DEBUG: FreeChatBackend - Found system llama-server at: \(url.path)")
-                    return url
-                }
+        for path in systemPaths {
+            let url = URL(fileURLWithPath: path)
+            if FileManager.default.fileExists(atPath: url.path) {
+                print("DEBUG: FreeChatBackend - Found system llama-server at: \(url.path)")
+                return url
             }
-        }
-        
-        // Try to find via PATH (may not work in sandbox)
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/which")
-        task.arguments = ["llama-server"]
-        
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        
-        do {
-            try task.run()
-            task.waitUntilExit()
-            
-            if task.terminationStatus == 0 {
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                if let path = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
-                   !path.isEmpty {
-                    print("DEBUG: FreeChatBackend - Found llama-server via PATH: \(path)")
-                    return URL(fileURLWithPath: path)
-                }
-            }
-        } catch {
-            print("DEBUG: FreeChatBackend - Error searching PATH: \(error)")
         }
         
         print("DEBUG: FreeChatBackend - llama-server executable not found anywhere")
+        print("DEBUG: FreeChatBackend - Checked locations:")
+        print("DEBUG:   - Bundle Resources: \(Bundle.main.resourcePath ?? "nil")/llama-bin/llama-server")
+        print("DEBUG:   - Bundle Contents: \(Bundle.main.bundleURL.path)/Contents/Resources/llama-bin/llama-server")
+        print("DEBUG:   - System paths: \(systemPaths)")
+        
         return nil
     }
     
@@ -495,6 +519,8 @@ class LlamaKitBackend: AIBackendProtocol {
     
     private func parseStreamingResponse(_ responseString: String, progressHandler: @escaping (String) -> Void) throws -> String {
         var fullResponse = ""
+        var isInThinkBlock = false
+        var thinkBuffer = ""
         let lines = responseString.components(separatedBy: .newlines)
         
         for line in lines {
@@ -512,8 +538,50 @@ class LlamaKitBackend: AIBackendProtocol {
                    let delta = firstChoice["delta"] as? [String: Any],
                    let content = delta["content"] as? String {
                     
-                    fullResponse += content
-                    progressHandler(content)
+                    // Process content character by character to handle think tags that span chunks
+                    var processedContent = ""
+                    
+                    for char in content {
+                        if !isInThinkBlock {
+                            // Check if we're starting a think block
+                            thinkBuffer += String(char)
+                            
+                            if thinkBuffer.hasSuffix("<think>") {
+                                // Start of think block found - remove <think> from processed content
+                                processedContent = String(processedContent.dropLast(6)) // Remove "<think" part
+                                isInThinkBlock = true
+                                thinkBuffer = ""
+                            } else if thinkBuffer.count > 6 {
+                                // No think tag starting, add the oldest char to processed content
+                                let oldestChar = thinkBuffer.removeFirst()
+                                processedContent += String(oldestChar)
+                            }
+                        } else {
+                            // We're inside a think block, check for end
+                            thinkBuffer += String(char)
+                            
+                            if thinkBuffer.hasSuffix("</think>") {
+                                // End of think block found
+                                isInThinkBlock = false
+                                thinkBuffer = ""
+                            } else if thinkBuffer.count > 8 {
+                                // Keep only the last 8 characters to detect </think>
+                                thinkBuffer = String(thinkBuffer.suffix(8))
+                            }
+                        }
+                    }
+                    
+                    // Add any remaining buffer content that's not part of a think tag
+                    if !isInThinkBlock && !thinkBuffer.isEmpty && !thinkBuffer.contains("<") {
+                        processedContent += thinkBuffer
+                        thinkBuffer = ""
+                    }
+                    
+                    // Only add and stream non-think content
+                    if !processedContent.isEmpty {
+                        fullResponse += processedContent
+                        progressHandler(processedContent)
+                    }
                 }
             }
         }
@@ -528,11 +596,25 @@ class LlamaKitBackend: AIBackendProtocol {
            let message = firstChoice["message"] as? [String: Any],
            let content = message["content"] as? String {
             
-            progressHandler(content)
-            return content
+            // Filter out think tags from single response
+            let filteredContent = filterThinkTags(from: content)
+            progressHandler(filteredContent)
+            return filteredContent
         } else {
             throw AIBackendError.chatFailed("Failed to parse response JSON")
         }
+    }
+    
+    /// Filters out <think>...</think> blocks from content
+    private func filterThinkTags(from content: String) -> String {
+        // Use regex to remove think blocks
+        let pattern = "<think>.*?</think>"
+        let regex = try! NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators])
+        let range = NSRange(location: 0, length: content.utf16.count)
+        let filteredContent = regex.stringByReplacingMatches(in: content, options: [], range: range, withTemplate: "")
+        
+        // Clean up any extra whitespace that might be left
+        return filteredContent.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
     // MARK: - Helper Methods
@@ -561,6 +643,21 @@ class LlamaKitBackend: AIBackendProtocol {
         }
         
         return fileName.replacingOccurrences(of: ".gguf", with: "")
+    }
+    
+    /// Get alternative model path within app's sandbox
+    private func getAlternativeModelPath() -> URL {
+        let appSupportPaths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
+        let appSupportPath = appSupportPaths.first!
+        let appName = Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "ClientNote"
+        let modelsPath = appSupportPath
+            .appendingPathComponent(appName, isDirectory: true)
+            .appendingPathComponent("Models", isDirectory: true)
+        
+        // Create the directory if it doesn't exist to prevent scan errors
+        try? FileManager.default.createDirectory(at: modelsPath, withIntermediateDirectories: true, attributes: nil)
+        
+        return modelsPath
     }
     
     deinit {
@@ -1201,61 +1298,79 @@ class LlamaCppBackend: AIBackendProtocol {
     }
     
     func listModels() async throws -> [String] {
-        // For LlamaCpp, we need to return models that are actually available
+        print("DEBUG: LlamaCpp - listModels() called")
+        
+        // Return all available models, not just the currently loaded one
         var availableModels: [String] = []
         
-        // First, if we have a currently loaded model, add it with friendly name
-        if let modelPath = currentModelPath,
-           let fileName = URL(fileURLWithPath: modelPath).lastPathComponent.removingPercentEncoding {
-            let friendlyName = friendlyModelName(for: fileName)
+        // First, add the currently loaded model if any
+        if let modelPath = currentModelPath {
+            let friendlyName = friendlyModelName(for: modelPath)
             availableModels.append(friendlyName)
-            print("DEBUG: LlamaCpp listModels - Added current model: \(friendlyName) (from \(fileName))")
+            print("DEBUG: LlamaCpp - Added currently loaded model: \(friendlyName)")
         }
         
-        // Then scan for other available models in the primary download directory only
-        let downloadPath = getModelDownloadPath()
+        // Scan both primary and alternative directories
+        let downloadPaths = [
+            getModelDownloadPath(),
+            getAlternativeModelPath()
+        ]
         
-        do {
-            let files = try FileManager.default.contentsOfDirectory(at: downloadPath, includingPropertiesForKeys: [.isRegularFileKey])
+        print("DEBUG: LlamaCpp - Scanning \(downloadPaths.count) directories for models")
+        
+        for downloadPath in downloadPaths {
+            print("DEBUG: LlamaCpp - Scanning directory: \(downloadPath.path)")
+            print("DEBUG: LlamaCpp - Directory exists: \(FileManager.default.fileExists(atPath: downloadPath.path))")
             
-            for file in files {
-                let fileName = file.lastPathComponent
+            do {
+                let contents = try FileManager.default.contentsOfDirectory(at: downloadPath, 
+                                                                         includingPropertiesForKeys: nil)
                 
-                // Only include .gguf files
-                guard fileName.hasSuffix(".gguf") else { continue }
+                print("DEBUG: LlamaCpp - Found \(contents.count) items in \(downloadPath.path)")
                 
-                // Skip if this is already the current model
-                if let currentPath = currentModelPath,
-                   file.path == currentPath {
-                    continue
+                for fileURL in contents {
+                    let fileName = fileURL.lastPathComponent
+                    let fileExtension = fileURL.pathExtension
+                    print("DEBUG: LlamaCpp - Found file: \(fileName) (extension: \(fileExtension))")
+                    
+                    if fileExtension == "gguf" {
+                        let friendlyName = friendlyModelName(for: fileURL.path)
+                        print("DEBUG: LlamaCpp - Found GGUF model: \(fileName) -> \(friendlyName)")
+                        
+                        // Avoid duplicates
+                        if !availableModels.contains(friendlyName) {
+                            availableModels.append(friendlyName)
+                            print("DEBUG: LlamaCpp - Added model to list: \(friendlyName)")
+                        } else {
+                            print("DEBUG: LlamaCpp - Skipped duplicate model: \(friendlyName)")
+                        }
+                    }
                 }
-                
-                // Convert to friendly name and add if it's a known model
-                let friendlyName = friendlyModelName(for: fileName)
-                
-                // Only add models that have friendly name mappings (are in our supported list)
-                if friendlyName != fileName {
-                    availableModels.append(friendlyName)
-                    print("DEBUG: LlamaCpp listModels - Added available model: \(friendlyName) (from \(fileName))")
-                }
+            } catch {
+                print("DEBUG: LlamaCpp - Could not scan directory \(downloadPath.path): \(error)")
             }
-        } catch {
-            print("DEBUG: LlamaCpp listModels - Could not scan primary directory \(downloadPath.path): \(error)")
-            // Don't throw error, just continue with current model if available
         }
         
-        // Remove duplicates and sort
-        availableModels = Array(Set(availableModels)).sorted()
+        print("DEBUG: LlamaCpp - Total models found: \(availableModels.count)")
+        print("DEBUG: LlamaCpp - Available models: \(availableModels)")
         
-        print("DEBUG: LlamaCpp listModels - Final list: \(availableModels)")
-        
-        // If no models found, return a default to prevent empty picker
-        if availableModels.isEmpty {
-            print("DEBUG: LlamaCpp listModels - No models found, returning 'Flash' as fallback")
-            return ["Flash"]
-        }
-        
+        // If no models found anywhere, return empty array
         return availableModels
+    }
+    
+    /// Get alternative model path within app's sandbox
+    private func getAlternativeModelPath() -> URL {
+        let appSupportPaths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
+        let appSupportPath = appSupportPaths.first!
+        let appName = Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "ClientNote"
+        let modelsPath = appSupportPath
+            .appendingPathComponent(appName, isDirectory: true)
+            .appendingPathComponent("Models", isDirectory: true)
+        
+        // Create the directory if it doesn't exist to prevent scan errors
+        try? FileManager.default.createDirectory(at: modelsPath, withIntermediateDirectories: true, attributes: nil)
+        
+        return modelsPath
     }
     
     /// Get the standard model download path
@@ -1435,29 +1550,25 @@ class LlamaCppBackend: AIBackendProtocol {
     private func findLlamaServerExecutable() -> (String, String)? {
         // List of possible locations to check
         let possiblePaths: [(String, String)] = [
-            // Development paths (when running from Xcode) - try to find the project source
-            (Bundle.main.bundlePath + "/../../../../../../../../Desktop/Euni Client Notes/ClientNote/Resources/llama-bin/llama-server",
-             Bundle.main.bundlePath + "/../../../../../../../../Desktop/Euni Client Notes/ClientNote/Resources/llama-bin"),
-            
-            // Alternative development paths
-            (NSHomeDirectory() + "/Desktop/Euni Client Notes/ClientNote/Resources/llama-bin/llama-server",
-             NSHomeDirectory() + "/Desktop/Euni Client Notes/ClientNote/Resources/llama-bin"),
-            
             // Try current working directory relative paths
             (FileManager.default.currentDirectoryPath + "/ClientNote/Resources/llama-bin/llama-server",
              FileManager.default.currentDirectoryPath + "/ClientNote/Resources/llama-bin"),
             
-            // Bundled paths (production)
+            // Bundled paths - try direct Resources first (where it actually is)
+            (Bundle.main.resourcePath! + "/llama-server",
+             Bundle.main.resourcePath!),
+            
+            // Bundled paths - llama-bin subdirectory (fallback)
             (Bundle.main.resourcePath! + "/llama-bin/llama-server",
              Bundle.main.resourcePath! + "/llama-bin"),
             
-            // Alternative bundled location
-            (Bundle.main.bundlePath + "/Contents/Resources/llama-bin/llama-server",
-             Bundle.main.bundlePath + "/Contents/Resources/llama-bin"),
+            // Alternative bundled location - direct Resources
+            (Bundle.main.bundlePath + "/Contents/Resources/llama-server",
+             Bundle.main.bundlePath + "/Contents/Resources"),
             
-            // User's compiled version (non-sandboxed path)
-            ("/Users/kevinkeller/downloads/build3/bin/llama-server",
-             "/Users/kevinkeller/downloads/build3/bin")
+            // Alternative bundled location - llama-bin subdirectory
+            (Bundle.main.bundlePath + "/Contents/Resources/llama-bin/llama-server",
+             Bundle.main.bundlePath + "/Contents/Resources/llama-bin")
         ]
         
         for (execPath, libPath) in possiblePaths {
@@ -1821,6 +1932,8 @@ class LlamaCppBackend: AIBackendProtocol {
     
     private func parseStreamingResponse(_ responseString: String, progressHandler: @escaping (String) -> Void) throws -> String {
         var fullResponse = ""
+        var isInThinkBlock = false
+        var thinkBuffer = ""
         let lines = responseString.components(separatedBy: .newlines)
         
         for line in lines {
@@ -1838,8 +1951,50 @@ class LlamaCppBackend: AIBackendProtocol {
                    let delta = firstChoice["delta"] as? [String: Any],
                    let content = delta["content"] as? String {
                     
-                    fullResponse += content
-                    progressHandler(content)
+                    // Process content character by character to handle think tags that span chunks
+                    var processedContent = ""
+                    
+                    for char in content {
+                        if !isInThinkBlock {
+                            // Check if we're starting a think block
+                            thinkBuffer += String(char)
+                            
+                            if thinkBuffer.hasSuffix("<think>") {
+                                // Start of think block found - remove <think> from processed content
+                                processedContent = String(processedContent.dropLast(6)) // Remove "<think" part
+                                isInThinkBlock = true
+                                thinkBuffer = ""
+                            } else if thinkBuffer.count > 6 {
+                                // No think tag starting, add the oldest char to processed content
+                                let oldestChar = thinkBuffer.removeFirst()
+                                processedContent += String(oldestChar)
+                            }
+                        } else {
+                            // We're inside a think block, check for end
+                            thinkBuffer += String(char)
+                            
+                            if thinkBuffer.hasSuffix("</think>") {
+                                // End of think block found
+                                isInThinkBlock = false
+                                thinkBuffer = ""
+                            } else if thinkBuffer.count > 8 {
+                                // Keep only the last 8 characters to detect </think>
+                                thinkBuffer = String(thinkBuffer.suffix(8))
+                            }
+                        }
+                    }
+                    
+                    // Add any remaining buffer content that's not part of a think tag
+                    if !isInThinkBlock && !thinkBuffer.isEmpty && !thinkBuffer.contains("<") {
+                        processedContent += thinkBuffer
+                        thinkBuffer = ""
+                    }
+                    
+                    // Only add and stream non-think content
+                    if !processedContent.isEmpty {
+                        fullResponse += processedContent
+                        progressHandler(processedContent)
+                    }
                 }
             }
         }
