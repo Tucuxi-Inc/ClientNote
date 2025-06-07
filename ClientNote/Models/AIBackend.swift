@@ -1382,7 +1382,6 @@ class LlamaCppBackend: AIBackendProtocol {
         }
         
         let bundledModelsPath = URL(fileURLWithPath: resourcePath)
-            .appendingPathComponent("Models", isDirectory: true)
         
         print("DEBUG: LlamaCpp - Bundled models path: \(bundledModelsPath.path)")
         return bundledModelsPath

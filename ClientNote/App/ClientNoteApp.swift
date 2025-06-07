@@ -374,7 +374,7 @@ struct SimpleSplashScreen: View {
                 return
             }
             
-            let bundledModelsPath = URL(fileURLWithPath: resourcePath).appendingPathComponent("Models")
+            let bundledModelsPath = URL(fileURLWithPath: resourcePath)
             let flashModelPath = bundledModelsPath.appendingPathComponent("Qwen3-0.6B-Q4_0.gguf")
             
             if FileManager.default.fileExists(atPath: flashModelPath.path) {

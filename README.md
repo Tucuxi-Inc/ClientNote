@@ -192,16 +192,13 @@ Euni™ includes a bundled Flash model (Qwen3-0.6B-Q4_0.gguf) for immediate func
 
 1. **Download the Flash model**:
    ```bash
-   # Create the Models directory if it doesn't exist
-   mkdir -p "ClientNote/Resources/Models"
-   
-   # Download Qwen3-0.6B-Q4_0.gguf to this directory
-   cd "ClientNote/Resources/Models"
+   # Download Qwen3-0.6B-Q4_0.gguf to the Resources directory
+   cd "ClientNote/Resources"
    curl -L -o "Qwen3-0.6B-Q4_0.gguf" "https://huggingface.co/unsloth/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q4_0.gguf?download=true"
    ```
 
 2. **Add to Xcode project**:
-   - Right-click `ClientNote/Resources/Models` in Xcode Navigator
+   - Right-click `ClientNote/Resources` in Xcode Navigator
    - Select "Add Files to 'ClientNote'"
    - Choose the `Qwen3-0.6B-Q4_0.gguf` file
    - Ensure "Add to target: ClientNote" is checked

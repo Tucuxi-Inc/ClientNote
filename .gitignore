@@ -106,10 +106,16 @@ Temporary Items
 *.bin
 *.safetensors
 
-# Bundled model files
+# Bundled model files - Resources directory
+ClientNote/Resources/*.gguf
+ClientNote/Resources/*.ggml
+ClientNote/Resources/*.bin
+
+# Bundled model files - Models subdirectory
 ClientNote/Resources/Models/*.gguf
 ClientNote/Resources/Models/*.ggml
 ClientNote/Resources/Models/*.bin
 
 # Specific bundled models
+ClientNote/Resources/Qwen3-0.6B-Q4_0.gguf
 ClientNote/Resources/Models/Qwen3-0.6B-Q4_0.gguf

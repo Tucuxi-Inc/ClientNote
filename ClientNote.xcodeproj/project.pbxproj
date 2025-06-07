@@ -73,7 +73,7 @@
 		887011AB2DF36FC300EFCD2A /* libggml-rpc.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = 887011A32DF36FC300EFCD2A /* libggml-rpc.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		887011AC2DF36FC300EFCD2A /* libggml-base.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = 887011A42DF36FC300EFCD2A /* libggml-base.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		887011AD2DF36FC300EFCD2A /* libggml-blas.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = 887011A52DF36FC300EFCD2A /* libggml-blas.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		887011C42DF3C66000EFCD2A /* Qwen3-0.6B-Q4_0.gguf in Resources */ = {isa = PBXBuildFile; fileRef = 887011C32DF3C66000EFCD2A /* Qwen3-0.6B-Q4_0.gguf */; };
+		887011C62DF3CCCC00EFCD2A /* Qwen3-0.6B-Q4_0.gguf in Resources */ = {isa = PBXBuildFile; fileRef = 887011C52DF3CCCC00EFCD2A /* Qwen3-0.6B-Q4_0.gguf */; };
 		88C4AF122DD93613002DF4DC /* AssistantModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C4AF112DD93612002DF4DC /* AssistantModel.swift */; };
 		88C4AF152DD984BF002DF4DC /* AddClientView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C4AF132DD984BF002DF4DC /* AddClientView.swift */; };
 		88C4B07F2DDA8123002DF4DC /* ICDResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C4B07E2DDA8123002DF4DC /* ICDResult.swift */; };
@@ -162,7 +162,7 @@
 		887011A32DF36FC300EFCD2A /* libggml-rpc.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libggml-rpc.dylib"; path = "ClientNote/Frameworks/libggml-rpc.dylib"; sourceTree = "<group>"; };
 		887011A42DF36FC300EFCD2A /* libggml-base.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libggml-base.dylib"; path = "ClientNote/Frameworks/libggml-base.dylib"; sourceTree = "<group>"; };
 		887011A52DF36FC300EFCD2A /* libggml-blas.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libggml-blas.dylib"; path = "ClientNote/Frameworks/libggml-blas.dylib"; sourceTree = "<group>"; };
-		887011C32DF3C66000EFCD2A /* Qwen3-0.6B-Q4_0.gguf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Qwen3-0.6B-Q4_0.gguf"; sourceTree = "<group>"; };
+		887011C52DF3CCCC00EFCD2A /* Qwen3-0.6B-Q4_0.gguf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Qwen3-0.6B-Q4_0.gguf"; sourceTree = "<group>"; };
 		88C4AF112DD93612002DF4DC /* AssistantModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantModel.swift; sourceTree = "<group>"; };
 		88C4AF132DD984BF002DF4DC /* AddClientView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddClientView.swift; sourceTree = "<group>"; };
 		88C4B07E2DDA8123002DF4DC /* ICDResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICDResult.swift; sourceTree = "<group>"; };
@@ -271,7 +271,7 @@
 		0A4D35972AF5423900846890 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				887011C32DF3C66000EFCD2A /* Qwen3-0.6B-Q4_0.gguf */,
+				887011C52DF3CCCC00EFCD2A /* Qwen3-0.6B-Q4_0.gguf */,
 				0AE024842AFB8D0E00347C18 /* Info.plist */,
 				0A4D358A2AF541DA00846890 /* Assets.xcassets */,
 				0A4D358F2AF541DA00846890 /* ClientNote.entitlements */,
@@ -501,7 +501,7 @@
 			files = (
 				8807B1142DB6F8E500C3D195 /* ClientNoteConfiguration.storekit in Resources */,
 				0A4D358E2AF541DA00846890 /* Preview Assets.xcassets in Resources */,
-				887011C42DF3C66000EFCD2A /* Qwen3-0.6B-Q4_0.gguf in Resources */,
+				887011C62DF3CCCC00EFCD2A /* Qwen3-0.6B-Q4_0.gguf in Resources */,
 				0A4D358B2AF541DA00846890 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
