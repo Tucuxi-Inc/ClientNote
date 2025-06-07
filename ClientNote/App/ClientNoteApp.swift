@@ -277,6 +277,28 @@ struct SimpleSplashScreen: View {
                     }
                 } else {
                     VStack(spacing: 16) {
+                        // Legal text with clickable links
+                        HStack(spacing: 0) {
+                            Text("By clicking 'Get Started' you agree to the ")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            Link("Tucuxi Terms of Use", destination: URL(string: "https://bit.ly/TucuxiTermsoUse")!)
+                                .font(.caption)
+                                .foregroundColor(.blue)
+                            
+                            Text(" and ")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            Link("Tucuxi Privacy Policy", destination: URL(string: "https://bit.ly/TucuxiPrivacyPolicy")!)
+                                .font(.caption)
+                                .foregroundColor(.blue)
+                        }
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal)
+                        
                         Button("Get Started") {
                             handleGetStarted()
                         }
