@@ -645,20 +645,6 @@ class LlamaKitBackend: AIBackendProtocol {
         return fileName.replacingOccurrences(of: ".gguf", with: "")
     }
     
-    /// Get alternative model path within app's sandbox
-    private func getAlternativeModelPath() -> URL {
-        let appSupportPaths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
-        let appSupportPath = appSupportPaths.first!
-        let appName = Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "ClientNote"
-        let modelsPath = appSupportPath
-            .appendingPathComponent(appName, isDirectory: true)
-            .appendingPathComponent("Models", isDirectory: true)
-        
-        // Create the directory if it doesn't exist to prevent scan errors
-        try? FileManager.default.createDirectory(at: modelsPath, withIntermediateDirectories: true, attributes: nil)
-        
-        return modelsPath
-    }
     
     deinit {
         stopServer()
@@ -1310,11 +1296,10 @@ class LlamaCppBackend: AIBackendProtocol {
             print("DEBUG: LlamaCpp - Added currently loaded model: \(friendlyName)")
         }
         
-        // Scan bundled models first, then user directories
+        // Scan bundled models first, then user downloads directory
         let downloadPaths = [
-            getBundledModelsPath(),      // Check bundled models first
-            getModelDownloadPath(),      // User's downloaded models
-            getAlternativeModelPath()    // Alternative user models location
+            getBundledModelsPath(),      // Check bundled models first (Resources/)
+            getModelDownloadPath()       // User's downloaded models (LlamaKitModels/)
         ]
         
         print("DEBUG: LlamaCpp - Scanning \(downloadPaths.count) directories for models")
@@ -1357,21 +1342,6 @@ class LlamaCppBackend: AIBackendProtocol {
         
         // If no models found anywhere, return empty array
         return availableModels
-    }
-    
-    /// Get alternative model path within app's sandbox
-    private func getAlternativeModelPath() -> URL {
-        let appSupportPaths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
-        let appSupportPath = appSupportPaths.first!
-        let appName = Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "ClientNote"
-        let modelsPath = appSupportPath
-            .appendingPathComponent(appName, isDirectory: true)
-            .appendingPathComponent("Models", isDirectory: true)
-        
-        // Create the directory if it doesn't exist to prevent scan errors
-        try? FileManager.default.createDirectory(at: modelsPath, withIntermediateDirectories: true, attributes: nil)
-        
-        return modelsPath
     }
     
     /// Get bundled models path within app bundle
