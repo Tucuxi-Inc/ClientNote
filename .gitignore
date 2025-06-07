@@ -123,7 +123,3 @@ ClientNote/Resources/Models/*.bin
 # Specific bundled models
 ClientNote/Resources/Qwen3-0.6B-Q4_0.gguf
 ClientNote/Resources/Models/Qwen3-0.6B-Q4_0.gguf
-
-# Static llama-server binary (build using build-static-arm64.sh)
-ClientNote/Resources/llama-bin/llama-server
-llama-server
