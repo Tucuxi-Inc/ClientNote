@@ -107,16 +107,13 @@ Temporary Items
 *.safetensors
 
 # Dynamic Libraries (bundled with llama-server)
-# Located in ClientNote/Resources/llama-bin/
-ClientNote/Resources/llama-bin/*.dylib
+# Located in ClientNote/Resources/ (copied to app bundle Resources)
+ClientNote/Resources/*.dylib
 
 # Bundled model files - Resources directory
 ClientNote/Resources/*.gguf
 ClientNote/Resources/*.ggml
 ClientNote/Resources/*.bin
-
-# Bundled dynamic libraries - llama-bin directory
-ClientNote/Resources/llama-bin/*.dylib
 
 # Bundled model files - Models subdirectory
 ClientNote/Resources/Models/*.gguf

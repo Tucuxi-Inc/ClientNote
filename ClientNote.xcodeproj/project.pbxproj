@@ -66,14 +66,30 @@
 		8807B1202DB6FA7200C3D195 /* PurchaseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8807B11F2DB6FA7200C3D195 /* PurchaseView.swift */; };
 		887011662DEFCACF00EFCD2A /* AIBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 887011652DEFCACF00EFCD2A /* AIBackend.swift */; };
 		887011C62DF3CCCC00EFCD2A /* Qwen3-0.6B-Q4_0.gguf in Resources */ = {isa = PBXBuildFile; fileRef = 887011C52DF3CCCC00EFCD2A /* Qwen3-0.6B-Q4_0.gguf */; };
-		887011E32DF3D50D00EFCD2A /* libggml.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = 887011DB2DF3D50D00EFCD2A /* libggml.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		887011E42DF3D50D00EFCD2A /* libggml-base.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = 887011DC2DF3D50D00EFCD2A /* libggml-base.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		887011E52DF3D50D00EFCD2A /* libggml-metal.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = 887011DD2DF3D50D00EFCD2A /* libggml-metal.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		887011E62DF3D50D00EFCD2A /* libggml-rpc.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = 887011DE2DF3D50D00EFCD2A /* libggml-rpc.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		887011E72DF3D50D00EFCD2A /* libmtmd.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = 887011DF2DF3D50D00EFCD2A /* libmtmd.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		887011E82DF3D50D00EFCD2A /* libggml-cpu.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = 887011E02DF3D50D00EFCD2A /* libggml-cpu.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		887011E92DF3D50D00EFCD2A /* libggml-blas.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = 887011E12DF3D50D00EFCD2A /* libggml-blas.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		887011EA2DF3D50D00EFCD2A /* libllama.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = 887011E22DF3D50D00EFCD2A /* libllama.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		887011F32DF3D85800EFCD2A /* libggml-cpu.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 887011EE2DF3D85800EFCD2A /* libggml-cpu.dylib */; };
+		887011F42DF3D85800EFCD2A /* libggml.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 887011EB2DF3D85800EFCD2A /* libggml.dylib */; };
+		887011F52DF3D85800EFCD2A /* libggml-metal.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 887011EF2DF3D85800EFCD2A /* libggml-metal.dylib */; };
+		887011F62DF3D85800EFCD2A /* libllama.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 887011F12DF3D85800EFCD2A /* libllama.dylib */; };
+		887011F72DF3D85800EFCD2A /* libggml-blas.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 887011ED2DF3D85800EFCD2A /* libggml-blas.dylib */; };
+		887011F82DF3D85800EFCD2A /* libmtmd.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 887011F22DF3D85800EFCD2A /* libmtmd.dylib */; };
+		887011F92DF3D85800EFCD2A /* libggml-base.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 887011EC2DF3D85800EFCD2A /* libggml-base.dylib */; };
+		887011FA2DF3D85800EFCD2A /* libggml-rpc.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 887011F02DF3D85800EFCD2A /* libggml-rpc.dylib */; };
+		887012242DF3DD7900EFCD2A /* libggml-cpu.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8870121C2DF3DD7800EFCD2A /* libggml-cpu.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		887012252DF3DD7900EFCD2A /* libllama.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8870121D2DF3DD7800EFCD2A /* libllama.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		887012262DF3DD7900EFCD2A /* libggml-metal.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8870121E2DF3DD7800EFCD2A /* libggml-metal.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		887012272DF3DD7900EFCD2A /* libggml-blas.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8870121F2DF3DD7800EFCD2A /* libggml-blas.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		887012282DF3DD7900EFCD2A /* libggml.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = 887012202DF3DD7800EFCD2A /* libggml.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		887012292DF3DD7900EFCD2A /* libggml-rpc.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = 887012212DF3DD7800EFCD2A /* libggml-rpc.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		8870122A2DF3DD7900EFCD2A /* libmtmd.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = 887012222DF3DD7800EFCD2A /* libmtmd.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		8870122B2DF3DD7900EFCD2A /* libggml-base.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = 887012232DF3DD7900EFCD2A /* libggml-base.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		887012342DF3EB9400EFCD2A /* libggml-rpc.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 887012312DF3EB9400EFCD2A /* libggml-rpc.dylib */; };
+		887012352DF3EB9400EFCD2A /* libggml-base.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 8870122D2DF3EB9400EFCD2A /* libggml-base.dylib */; };
+		887012362DF3EB9400EFCD2A /* libggml.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 8870122C2DF3EB9400EFCD2A /* libggml.dylib */; };
+		887012372DF3EB9400EFCD2A /* libllama.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 887012322DF3EB9400EFCD2A /* libllama.dylib */; };
+		887012382DF3EB9400EFCD2A /* libggml-blas.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 8870122E2DF3EB9400EFCD2A /* libggml-blas.dylib */; };
+		887012392DF3EB9400EFCD2A /* libggml-metal.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 887012302DF3EB9400EFCD2A /* libggml-metal.dylib */; };
+		8870123A2DF3EB9400EFCD2A /* libmtmd.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 887012332DF3EB9400EFCD2A /* libmtmd.dylib */; };
+		8870123B2DF3EB9400EFCD2A /* libggml-cpu.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 8870122F2DF3EB9400EFCD2A /* libggml-cpu.dylib */; };
 		88C4AF122DD93613002DF4DC /* AssistantModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C4AF112DD93612002DF4DC /* AssistantModel.swift */; };
 		88C4AF152DD984BF002DF4DC /* AddClientView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C4AF132DD984BF002DF4DC /* AddClientView.swift */; };
 		88C4B07F2DDA8123002DF4DC /* ICDResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C4B07E2DDA8123002DF4DC /* ICDResult.swift */; };
@@ -82,20 +98,20 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		8870119D2DF36F3500EFCD2A /* CopyFiles */ = {
+		8870120B2DF3DD3500EFCD2A /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
-			dstSubfolderSpec = 6;
+			dstSubfolderSpec = 10;
 			files = (
-				887011E32DF3D50D00EFCD2A /* libggml.dylib in CopyFiles */,
-				887011E42DF3D50D00EFCD2A /* libggml-base.dylib in CopyFiles */,
-				887011E52DF3D50D00EFCD2A /* libggml-metal.dylib in CopyFiles */,
-				887011E62DF3D50D00EFCD2A /* libggml-rpc.dylib in CopyFiles */,
-				887011E72DF3D50D00EFCD2A /* libmtmd.dylib in CopyFiles */,
-				887011E82DF3D50D00EFCD2A /* libggml-cpu.dylib in CopyFiles */,
-				887011E92DF3D50D00EFCD2A /* libggml-blas.dylib in CopyFiles */,
-				887011EA2DF3D50D00EFCD2A /* libllama.dylib in CopyFiles */,
+				887012242DF3DD7900EFCD2A /* libggml-cpu.dylib in CopyFiles */,
+				887012252DF3DD7900EFCD2A /* libllama.dylib in CopyFiles */,
+				887012262DF3DD7900EFCD2A /* libggml-metal.dylib in CopyFiles */,
+				887012272DF3DD7900EFCD2A /* libggml-blas.dylib in CopyFiles */,
+				887012282DF3DD7900EFCD2A /* libggml.dylib in CopyFiles */,
+				887012292DF3DD7900EFCD2A /* libggml-rpc.dylib in CopyFiles */,
+				8870122A2DF3DD7900EFCD2A /* libmtmd.dylib in CopyFiles */,
+				8870122B2DF3DD7900EFCD2A /* libggml-base.dylib in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -155,14 +171,30 @@
 		8807B11F2DB6FA7200C3D195 /* PurchaseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PurchaseView.swift; sourceTree = "<group>"; };
 		887011652DEFCACF00EFCD2A /* AIBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIBackend.swift; sourceTree = "<group>"; };
 		887011C52DF3CCCC00EFCD2A /* Qwen3-0.6B-Q4_0.gguf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Qwen3-0.6B-Q4_0.gguf"; sourceTree = "<group>"; };
-		887011DB2DF3D50D00EFCD2A /* libggml.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libggml.dylib; path = "ClientNote/Resources/llama-bin/libggml.dylib"; sourceTree = "<group>"; };
-		887011DC2DF3D50D00EFCD2A /* libggml-base.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libggml-base.dylib"; path = "ClientNote/Resources/llama-bin/libggml-base.dylib"; sourceTree = "<group>"; };
-		887011DD2DF3D50D00EFCD2A /* libggml-metal.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libggml-metal.dylib"; path = "ClientNote/Resources/llama-bin/libggml-metal.dylib"; sourceTree = "<group>"; };
-		887011DE2DF3D50D00EFCD2A /* libggml-rpc.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libggml-rpc.dylib"; path = "ClientNote/Resources/llama-bin/libggml-rpc.dylib"; sourceTree = "<group>"; };
-		887011DF2DF3D50D00EFCD2A /* libmtmd.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libmtmd.dylib; path = "ClientNote/Resources/llama-bin/libmtmd.dylib"; sourceTree = "<group>"; };
-		887011E02DF3D50D00EFCD2A /* libggml-cpu.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libggml-cpu.dylib"; path = "ClientNote/Resources/llama-bin/libggml-cpu.dylib"; sourceTree = "<group>"; };
-		887011E12DF3D50D00EFCD2A /* libggml-blas.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libggml-blas.dylib"; path = "ClientNote/Resources/llama-bin/libggml-blas.dylib"; sourceTree = "<group>"; };
-		887011E22DF3D50D00EFCD2A /* libllama.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libllama.dylib; path = "ClientNote/Resources/llama-bin/libllama.dylib"; sourceTree = "<group>"; };
+		887011EB2DF3D85800EFCD2A /* libggml.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = libggml.dylib; sourceTree = "<group>"; };
+		887011EC2DF3D85800EFCD2A /* libggml-base.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = "libggml-base.dylib"; sourceTree = "<group>"; };
+		887011ED2DF3D85800EFCD2A /* libggml-blas.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = "libggml-blas.dylib"; sourceTree = "<group>"; };
+		887011EE2DF3D85800EFCD2A /* libggml-cpu.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = "libggml-cpu.dylib"; sourceTree = "<group>"; };
+		887011EF2DF3D85800EFCD2A /* libggml-metal.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = "libggml-metal.dylib"; sourceTree = "<group>"; };
+		887011F02DF3D85800EFCD2A /* libggml-rpc.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = "libggml-rpc.dylib"; sourceTree = "<group>"; };
+		887011F12DF3D85800EFCD2A /* libllama.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = libllama.dylib; sourceTree = "<group>"; };
+		887011F22DF3D85800EFCD2A /* libmtmd.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = libmtmd.dylib; sourceTree = "<group>"; };
+		8870121C2DF3DD7800EFCD2A /* libggml-cpu.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libggml-cpu.dylib"; path = "ClientNote/Resources/libggml-cpu.dylib"; sourceTree = "<group>"; };
+		8870121D2DF3DD7800EFCD2A /* libllama.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libllama.dylib; path = ClientNote/Resources/libllama.dylib; sourceTree = "<group>"; };
+		8870121E2DF3DD7800EFCD2A /* libggml-metal.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libggml-metal.dylib"; path = "ClientNote/Resources/libggml-metal.dylib"; sourceTree = "<group>"; };
+		8870121F2DF3DD7800EFCD2A /* libggml-blas.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libggml-blas.dylib"; path = "ClientNote/Resources/libggml-blas.dylib"; sourceTree = "<group>"; };
+		887012202DF3DD7800EFCD2A /* libggml.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libggml.dylib; path = ClientNote/Resources/libggml.dylib; sourceTree = "<group>"; };
+		887012212DF3DD7800EFCD2A /* libggml-rpc.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libggml-rpc.dylib"; path = "ClientNote/Resources/libggml-rpc.dylib"; sourceTree = "<group>"; };
+		887012222DF3DD7800EFCD2A /* libmtmd.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libmtmd.dylib; path = ClientNote/Resources/libmtmd.dylib; sourceTree = "<group>"; };
+		887012232DF3DD7900EFCD2A /* libggml-base.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libggml-base.dylib"; path = "ClientNote/Resources/libggml-base.dylib"; sourceTree = "<group>"; };
+		8870122C2DF3EB9400EFCD2A /* libggml.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = libggml.dylib; sourceTree = "<group>"; };
+		8870122D2DF3EB9400EFCD2A /* libggml-base.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = "libggml-base.dylib"; sourceTree = "<group>"; };
+		8870122E2DF3EB9400EFCD2A /* libggml-blas.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = "libggml-blas.dylib"; sourceTree = "<group>"; };
+		8870122F2DF3EB9400EFCD2A /* libggml-cpu.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = "libggml-cpu.dylib"; sourceTree = "<group>"; };
+		887012302DF3EB9400EFCD2A /* libggml-metal.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = "libggml-metal.dylib"; sourceTree = "<group>"; };
+		887012312DF3EB9400EFCD2A /* libggml-rpc.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = "libggml-rpc.dylib"; sourceTree = "<group>"; };
+		887012322DF3EB9400EFCD2A /* libllama.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = libllama.dylib; sourceTree = "<group>"; };
+		887012332DF3EB9400EFCD2A /* libmtmd.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = libmtmd.dylib; sourceTree = "<group>"; };
 		88C4AF112DD93612002DF4DC /* AssistantModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantModel.swift; sourceTree = "<group>"; };
 		88C4AF132DD984BF002DF4DC /* AddClientView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddClientView.swift; sourceTree = "<group>"; };
 		88C4B07E2DDA8123002DF4DC /* ICDResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICDResult.swift; sourceTree = "<group>"; };
@@ -181,6 +213,22 @@
 			files = (
 				0AF5CB682C62BCA100DF8DA8 /* AppInfo in Frameworks */,
 				0AA41A172AF635AD0053B8DB /* ViewState in Frameworks */,
+				887012342DF3EB9400EFCD2A /* libggml-rpc.dylib in Frameworks */,
+				887012352DF3EB9400EFCD2A /* libggml-base.dylib in Frameworks */,
+				887012362DF3EB9400EFCD2A /* libggml.dylib in Frameworks */,
+				887012372DF3EB9400EFCD2A /* libllama.dylib in Frameworks */,
+				887012382DF3EB9400EFCD2A /* libggml-blas.dylib in Frameworks */,
+				887012392DF3EB9400EFCD2A /* libggml-metal.dylib in Frameworks */,
+				8870123A2DF3EB9400EFCD2A /* libmtmd.dylib in Frameworks */,
+				8870123B2DF3EB9400EFCD2A /* libggml-cpu.dylib in Frameworks */,
+				887011F32DF3D85800EFCD2A /* libggml-cpu.dylib in Frameworks */,
+				887011F42DF3D85800EFCD2A /* libggml.dylib in Frameworks */,
+				887011F52DF3D85800EFCD2A /* libggml-metal.dylib in Frameworks */,
+				887011F62DF3D85800EFCD2A /* libllama.dylib in Frameworks */,
+				887011F72DF3D85800EFCD2A /* libggml-blas.dylib in Frameworks */,
+				887011F82DF3D85800EFCD2A /* libmtmd.dylib in Frameworks */,
+				887011F92DF3D85800EFCD2A /* libggml-base.dylib in Frameworks */,
+				887011FA2DF3D85800EFCD2A /* libggml-rpc.dylib in Frameworks */,
 				0ADB960E2C5D57D500EB0C60 /* MarkdownUI in Frameworks */,
 				0ACA4D732AF88DB6000DA76F /* ViewCondition in Frameworks */,
 				0AB362A22C398ED700DE3F31 /* Highlightr in Frameworks */,
@@ -198,14 +246,14 @@
 		0A4D35782AF541D900846890 = {
 			isa = PBXGroup;
 			children = (
-				887011DB2DF3D50D00EFCD2A /* libggml.dylib */,
-				887011DC2DF3D50D00EFCD2A /* libggml-base.dylib */,
-				887011E12DF3D50D00EFCD2A /* libggml-blas.dylib */,
-				887011E02DF3D50D00EFCD2A /* libggml-cpu.dylib */,
-				887011DD2DF3D50D00EFCD2A /* libggml-metal.dylib */,
-				887011DE2DF3D50D00EFCD2A /* libggml-rpc.dylib */,
-				887011E22DF3D50D00EFCD2A /* libllama.dylib */,
-				887011DF2DF3D50D00EFCD2A /* libmtmd.dylib */,
+				887012202DF3DD7800EFCD2A /* libggml.dylib */,
+				887012232DF3DD7900EFCD2A /* libggml-base.dylib */,
+				8870121F2DF3DD7800EFCD2A /* libggml-blas.dylib */,
+				8870121C2DF3DD7800EFCD2A /* libggml-cpu.dylib */,
+				8870121E2DF3DD7800EFCD2A /* libggml-metal.dylib */,
+				887012212DF3DD7800EFCD2A /* libggml-rpc.dylib */,
+				8870121D2DF3DD7800EFCD2A /* libllama.dylib */,
+				887012222DF3DD7800EFCD2A /* libmtmd.dylib */,
 				8807B1132DB6F8E500C3D195 /* ClientNoteConfiguration.storekit */,
 				0A7F58FA2C42657E00091E44 /* Frameworks */,
 				0A4D35832AF541D900846890 /* ClientNote */,
@@ -269,6 +317,14 @@
 		0A4D35972AF5423900846890 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				887011EB2DF3D85800EFCD2A /* libggml.dylib */,
+				887011EC2DF3D85800EFCD2A /* libggml-base.dylib */,
+				887011ED2DF3D85800EFCD2A /* libggml-blas.dylib */,
+				887011EE2DF3D85800EFCD2A /* libggml-cpu.dylib */,
+				887011EF2DF3D85800EFCD2A /* libggml-metal.dylib */,
+				887011F02DF3D85800EFCD2A /* libggml-rpc.dylib */,
+				887011F12DF3D85800EFCD2A /* libllama.dylib */,
+				887011F22DF3D85800EFCD2A /* libmtmd.dylib */,
 				887011C52DF3CCCC00EFCD2A /* Qwen3-0.6B-Q4_0.gguf */,
 				0AE024842AFB8D0E00347C18 /* Info.plist */,
 				0A4D358A2AF541DA00846890 /* Assets.xcassets */,
@@ -341,6 +397,14 @@
 			isa = PBXGroup;
 			children = (
 				8807B1112DB6F6C300C3D195 /* StoreKit.framework */,
+				8870122C2DF3EB9400EFCD2A /* libggml.dylib */,
+				8870122D2DF3EB9400EFCD2A /* libggml-base.dylib */,
+				8870122E2DF3EB9400EFCD2A /* libggml-blas.dylib */,
+				8870122F2DF3EB9400EFCD2A /* libggml-cpu.dylib */,
+				887012302DF3EB9400EFCD2A /* libggml-metal.dylib */,
+				887012312DF3EB9400EFCD2A /* libggml-rpc.dylib */,
+				887012322DF3EB9400EFCD2A /* libllama.dylib */,
+				887012332DF3EB9400EFCD2A /* libmtmd.dylib */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -421,8 +485,9 @@
 			buildPhases = (
 				0A4D357D2AF541D900846890 /* Sources */,
 				0A4D357E2AF541D900846890 /* Frameworks */,
+				8870120B2DF3DD3500EFCD2A /* CopyFiles */,
 				0A4D357F2AF541D900846890 /* Resources */,
-				8870119D2DF36F3500EFCD2A /* CopyFiles */,
+				8870123F2DF3ECD800EFCD2A /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -504,6 +569,27 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		8870123F2DF3ECD800EFCD2A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "#!/bin/bash\n\necho \"🔧 Copy and fix llama-server approach...\"\n\n# Define paths\nORIGINAL_LLAMA_SERVER=\"${TARGET_BUILD_DIR}/${CONTENTS_FOLDER_PATH}/Resources/llama-server\"\nFIXED_LLAMA_SERVER=\"${TARGET_BUILD_DIR}/${CONTENTS_FOLDER_PATH}/Resources/llama-server-fixed\"\nFRAMEWORKS_DIR=\"${TARGET_BUILD_DIR}/${CONTENTS_FOLDER_PATH}/Frameworks\"\n\n# Check if original exists\nif [ ! -f \"$ORIGINAL_LLAMA_SERVER\" ]; then\n    echo \"❌ Error: llama-server not found at $ORIGINAL_LLAMA_SERVER\"\n    exit 0\nfi\n\necho \"✅ Found original llama-server\"\n\n# Copy to new name\necho \"📋 Creating fixed copy...\"\ncp \"$ORIGINAL_LLAMA_SERVER\" \"$FIXED_LLAMA_SERVER\"\nchmod u+w \"$FIXED_LLAMA_SERVER\"\nchmod +x \"$FIXED_LLAMA_SERVER\"\n\n# Fix the COPY (not the original)\necho \"🔧 Fixing library paths in copy...\"\ninstall_name_tool -add_rpath \"@executable_path/../Frameworks\" \"$FIXED_LLAMA_SERVER\" 2>/dev/null || true\n\nLIBRARIES=(\"libmtmd.dylib\" \"libllama.dylib\" \"libggml.dylib\" \"libggml-base.dylib\" \"libggml-blas.dylib\" \"libggml-cpu.dylib\" \"libggml-metal.dylib\" \"libggml-rpc.dylib\")\n\nfor lib in \"${LIBRARIES[@]}\"; do\n    install_name_tool -change \"@rpath/${lib}\" \"@executable_path/../Frameworks/${lib}\" \"$FIXED_LLAMA_SERVER\" 2>/dev/null || true\ndone\n\n# Replace original with fixed version\necho \"🔄 Replacing original with fixed version...\"\nmv \"$FIXED_LLAMA_SERVER\" \"$ORIGINAL_LLAMA_SERVER\"\nchmod 755 \"$ORIGINAL_LLAMA_SERVER\"\n\necho \"✅ llama-server successfully fixed!\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		0A4D357D2AF541D900846890 /* Sources */ = {
@@ -605,7 +691,7 @@
 				DEVELOPMENT_TEAM = MC8BT9Z8GD;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -670,7 +756,7 @@
 				DEVELOPMENT_TEAM = MC8BT9Z8GD;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -718,6 +804,8 @@
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/ClientNote/Resources/llama-bin",
+					"$(PROJECT_DIR)/ClientNote/Resources",
+					"$(PROJECT_DIR)",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 1.0.5;
@@ -759,6 +847,8 @@
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/ClientNote/Resources/llama-bin",
+					"$(PROJECT_DIR)/ClientNote/Resources",
+					"$(PROJECT_DIR)",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 1.0.5;
