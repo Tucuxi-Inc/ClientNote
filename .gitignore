@@ -98,3 +98,18 @@ Icon
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# AI Models
+# Large language model files should not be committed to git
+*.gguf
+*.ggml
+*.bin
+*.safetensors
+
+# Bundled model files
+ClientNote/Resources/Models/*.gguf
+ClientNote/Resources/Models/*.ggml
+ClientNote/Resources/Models/*.bin
+
+# Specific bundled models
+ClientNote/Resources/Models/Qwen3-0.6B-Q4_0.gguf

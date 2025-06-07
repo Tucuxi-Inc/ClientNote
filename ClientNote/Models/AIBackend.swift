@@ -1310,10 +1310,11 @@ class LlamaCppBackend: AIBackendProtocol {
             print("DEBUG: LlamaCpp - Added currently loaded model: \(friendlyName)")
         }
         
-        // Scan both primary and alternative directories
+        // Scan bundled models first, then user directories
         let downloadPaths = [
-            getModelDownloadPath(),
-            getAlternativeModelPath()
+            getBundledModelsPath(),      // Check bundled models first
+            getModelDownloadPath(),      // User's downloaded models
+            getAlternativeModelPath()    // Alternative user models location
         ]
         
         print("DEBUG: LlamaCpp - Scanning \(downloadPaths.count) directories for models")
@@ -1371,6 +1372,20 @@ class LlamaCppBackend: AIBackendProtocol {
         try? FileManager.default.createDirectory(at: modelsPath, withIntermediateDirectories: true, attributes: nil)
         
         return modelsPath
+    }
+    
+    /// Get bundled models path within app bundle
+    private func getBundledModelsPath() -> URL {
+        guard let resourcePath = Bundle.main.resourcePath else {
+            print("DEBUG: LlamaCpp - Warning: Could not get bundle resource path")
+            return URL(fileURLWithPath: "/tmp") // Fallback that won't have models
+        }
+        
+        let bundledModelsPath = URL(fileURLWithPath: resourcePath)
+            .appendingPathComponent("Models", isDirectory: true)
+        
+        print("DEBUG: LlamaCpp - Bundled models path: \(bundledModelsPath.path)")
+        return bundledModelsPath
     }
     
     /// Get the standard model download path

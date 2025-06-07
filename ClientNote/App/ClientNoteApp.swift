@@ -203,6 +203,8 @@ struct ClientNoteApp: App {
     }
 }
 
+
+
 // Simple splash screen view
 struct SimpleSplashScreen: View {
     @Binding var isPresented: Bool
@@ -211,9 +213,7 @@ struct SimpleSplashScreen: View {
     @Environment(AIBackendManager.self) private var aiBackendManager
     @State private var isOllamaInstalled: Bool = false
     @State private var isCheckingBackend: Bool = true
-    @State private var isDownloadingModel: Bool = false
-    @State private var downloadProgress: Double = 0.0
-    @State private var downloadStatus: String = ""
+
     @State private var ollamaKit: OllamaKit
     @State private var selectedBackend: AIBackend = Defaults[.selectedAIBackend]
     @State private var currentImageIndex: Int = 0
@@ -270,34 +270,19 @@ struct SimpleSplashScreen: View {
                             checkBackendInstallation()
                         }
                     }
-                } else if isDownloadingModel || isShowingImageCycle {
+                } else if isShowingImageCycle {
                     VStack(spacing: 8) {
-                        if isDownloadingModel {
-                            ProgressView("Downloading Flash Assistant...", value: downloadProgress, total: 1.0)
-                            Text(downloadStatus)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        } else {
-                            ProgressView("Starting up...")
-                                .progressViewStyle(.circular)
-                        }
+                        ProgressView("Starting up...")
+                            .progressViewStyle(.circular)
                     }
                 } else {
                     VStack(spacing: 16) {
-                        if !Defaults[.defaultHasLaunched] || (selectedBackend == .llamaCpp && Defaults[.llamaKitModelPath].isEmpty) {
-                            Text("Clicking 'Get Started' will download your first local large language model that you can use to generate notes, treatment plans and other content for your practice. You can try other models and find the one you like best by downloading additional models in the right-side menu in the application.")
-                                .font(.body)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal)
-                        }
-                        
                         Button("Get Started") {
                             handleGetStarted()
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(Color.euniPrimary)
-                        .disabled(isDownloadingModel || (selectedBackend == .ollamaKit && !isOllamaInstalled))
+                        .disabled(selectedBackend == .ollamaKit && !isOllamaInstalled)
                     }
                 }
             }
@@ -334,24 +319,27 @@ struct SimpleSplashScreen: View {
                     // Using LlamaKit - always available
                     isCheckingBackend = false
                     
-                    // If this is not first launch AND a model is configured, start image cycle
-                    let hasModel = !Defaults[.llamaKitModelPath].isEmpty
-                    if Defaults[.defaultHasLaunched] && hasModel {
+                    // If this is not first launch, start image cycle
+                    if Defaults[.defaultHasLaunched] {
                         startImageCycleAndDismiss()
                     }
-                    // Otherwise, splash screen will show "Get Started" button for model setup
+                    // Otherwise, splash screen will show "Get Started" button
                 }
             }
         }
     }
     
     private func handleGetStarted() {
-        // Check if this is first launch or if model needs to be downloaded
-        if !Defaults[.defaultHasLaunched] || (selectedBackend == .llamaCpp && Defaults[.llamaKitModelPath].isEmpty) {
-            downloadFlashAssistant()
-        } else {
-            dismissSplashScreen()
+        // Start image cycling while initializing the app
+        startImageCycleAndDismiss()
+        
+        // Set up bundled model for first-time users
+        if !Defaults[.defaultHasLaunched] && selectedBackend == .llamaCpp {
+            setupBundledFlashModel()
         }
+        
+        // Mark as launched
+        Defaults[.defaultHasLaunched] = true
     }
     
     private func startImageCycleAndDismiss() {
@@ -378,291 +366,51 @@ struct SimpleSplashScreen: View {
         }
     }
     
-    private func startDownloadImageCycle() {
-        // For downloads, cycle through images 2-5 (excluding the first one)
-        currentImageIndex = 1 // Start at image 2
-        
+    private func setupBundledFlashModel() {
         Task {
-            while isDownloadingModel {
-                for index in 1..<splashImages.count {
-                    guard isDownloadingModel else { break }
+            // Look for bundled Flash model
+            guard let resourcePath = Bundle.main.resourcePath else {
+                print("DEBUG: Could not get bundle resource path")
+                return
+            }
+            
+            let bundledModelsPath = URL(fileURLWithPath: resourcePath).appendingPathComponent("Models")
+            let flashModelPath = bundledModelsPath.appendingPathComponent("Qwen3-0.6B-Q4_0.gguf")
+            
+            if FileManager.default.fileExists(atPath: flashModelPath.path) {
+                print("DEBUG: Found bundled Flash model at: \(flashModelPath.path)")
+                
+                // Set the bundled model as the default
+                Defaults[.llamaKitModelPath] = flashModelPath.path
+                Defaults[.defaultModel] = "Qwen3-0.6B-Q4_0.gguf"
+                
+                // Load the model into the backend
+                do {
+                    print("DEBUG: Loading bundled Flash model into LlamaKit backend")
+                    try await aiBackendManager.loadModelForLlamaCpp(flashModelPath.path)
                     
+                    // Create initial chat with Flash model
                     await MainActor.run {
-                        withAnimation(.easeInOut(duration: 0.5)) {
-                            currentImageIndex = index
+                        chatViewModel.create(model: "Qwen3-0.6B-Q4_0.gguf")
+                        if let activeChat = chatViewModel.selectedChats.first {
+                            chatViewModel.activeChat = activeChat
+                            messageViewModel.load(of: activeChat)
                         }
                     }
                     
-                    // Wait 2 seconds between images during download
-                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                    print("DEBUG: Successfully set up bundled Flash model for first-time user")
+                } catch {
+                    print("DEBUG: Failed to load bundled Flash model: \(error)")
                 }
-                
-                // Loop back to start if still downloading
-                if isDownloadingModel {
-                    await MainActor.run {
-                        currentImageIndex = 1
-                    }
-                }
-            }
-        }
-    }
-    
-    private func downloadFlashAssistant() {
-        isDownloadingModel = true
-        downloadProgress = 0.0
-        downloadStatus = "Starting download..."
-        
-        // Start image cycling during download
-        startDownloadImageCycle()
-        
-        Task {
-            if selectedBackend == .ollamaKit {
-                await pullFlashModelFromOllama()
             } else {
-                await downloadFlashModelForLlamaKit()
-            }
-            
-            await MainActor.run {
-                isDownloadingModel = false
-                if downloadStatus == "success" {
-                    Task {
-                        // Set appropriate default model based on backend
-                        if selectedBackend == .ollamaKit {
-                    Defaults[.defaultModel] = "qwen3:0.6b"
-                            // Create initial chat with Flash for Ollama
-                            chatViewModel.create(model: "qwen3:0.6b")
-                        } else {
-                            // For LlamaKit, set the model path and load it into the backend
-                            if let flashModel = AssistantModel.all.first(where: { $0.name == "Flash" }),
-                               let fileName = flashModel.llamaKitFileName {
-                                let modelPath = getModelDownloadPath().appendingPathComponent(fileName).path
-                                Defaults[.llamaKitModelPath] = modelPath
-                                Defaults[.defaultModel] = fileName
-                                
-                                // Load the model into LlamaKit backend
-                                do {
-                                    print("DEBUG: Loading Flash model into LlamaKit backend: \(modelPath)")
-                                    try await aiBackendManager.loadModelForLlamaCpp(modelPath)
-                                    
-                                    // Create initial chat with Flash for LlamaKit
-                                    chatViewModel.create(model: fileName)
-                                    if let activeChat = chatViewModel.selectedChats.first {
-                                        chatViewModel.activeChat = activeChat
-                                        messageViewModel.load(of: activeChat)
-                                    }
-                                    
-                                    print("DEBUG: Successfully set up Flash model for first-time user")
-                                } catch {
-                                    print("DEBUG: Failed to load Flash model into backend: \(error)")
-                                    downloadStatus = "Error: Failed to load model"
-                                    return
-                                }
-                            }
-                        }
-                        
-                    // Mark as launched
-                    Defaults[.defaultHasLaunched] = true
-                    // Dismiss splash screen
-                    dismissSplashScreen()
-                    }
-                }
+                print("DEBUG: Bundled Flash model not found at: \(flashModelPath.path)")
             }
         }
     }
     
-    private func pullFlashModelFromOllama() async {
-        guard let url = URL(string: "\(Defaults[.defaultHost])/api/pull") else {
-            await MainActor.run {
-                downloadStatus = "Error: Invalid Ollama host URL"
-                isDownloadingModel = false
-            }
-            return
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        let pullRequest: [String: Any] = ["model": "qwen3:0.6b", "stream": true]
-        
-        do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: pullRequest)
-            
-            let (data, response) = try await URLSession.shared.bytes(for: request)
-            
-            if let httpResponse = response as? HTTPURLResponse {
-                if httpResponse.statusCode >= 400 {
-                    let errorMessage: String
-                    switch httpResponse.statusCode {
-                    case 404:
-                        errorMessage = "Ollama service not found. Is Ollama running?"
-                    case 500...599:
-                        errorMessage = "Ollama server error (HTTP \(httpResponse.statusCode))"
-                    default:
-                        errorMessage = "HTTP error \(httpResponse.statusCode)"
-                    }
-                    
-                    await MainActor.run {
-                        downloadStatus = "Error: \(errorMessage)"
-                        isDownloadingModel = false
-                    }
-                    return
-                }
-            }
-            
-            var buffer = Data()
-            var completedSize: Int64 = 0
-            var totalSize: Int64 = 1
-            
-            for try await byte in data {
-                buffer.append(contentsOf: [byte])
-                
-                if byte == 10 {
-                    if let responseString = String(data: buffer, encoding: .utf8),
-                       let responseData = responseString.data(using: .utf8),
-                       let json = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any] {
-                        
-                        if let status = json["status"] as? String {
-                            await MainActor.run {
-                                downloadStatus = status
-                                
-                                if status == "success" {
-                                    downloadProgress = 1.0
-                                }
-                            }
-                            
-                            if let completed = json["completed"] as? Int64 {
-                                completedSize = completed
-                            }
-                            
-                            if let total = json["total"] as? Int64, total > 0 {
-                                totalSize = total
-                            }
-                            
-                            if completedSize > 0 && totalSize > 0 {
-                                let progress = Double(completedSize) / Double(totalSize)
-                                await MainActor.run {
-                                    downloadProgress = min(progress, 0.99)
-                                }
-                            }
-                        }
-                        
-                        if let errorMessage = json["error"] as? String {
-                            await MainActor.run {
-                                downloadStatus = "Error: \(errorMessage)"
-                                isDownloadingModel = false
-                            }
-                            return
-                        }
-                    }
-                    
-                    buffer.removeAll()
-                }
-            }
-        } catch let urlError as URLError {
-            await MainActor.run {
-                let errorMessage: String
-                switch urlError.code {
-                case .notConnectedToInternet:
-                    errorMessage = "No internet connection"
-                case .timedOut:
-                    errorMessage = "Connection timed out"
-                case .cannotConnectToHost:
-                    errorMessage = "Cannot connect to Ollama. Is Ollama running?"
-                default:
-                    errorMessage = urlError.localizedDescription
-                }
-                
-                downloadStatus = "Error: \(errorMessage)"
-                isDownloadingModel = false
-            }
-        } catch {
-            await MainActor.run {
-                downloadStatus = "Error: \(error.localizedDescription)"
-                isDownloadingModel = false
-            }
-        }
-    }
+
     
-    private func downloadFlashModelForLlamaKit() async {
-        guard let flashModel = AssistantModel.all.first(where: { $0.name == "Flash" }),
-              let downloadURL = flashModel.downloadURL,
-              let fileName = flashModel.llamaKitFileName,
-              let url = URL(string: downloadURL) else {
-            await MainActor.run {
-                downloadStatus = "Error: Invalid Flash model configuration"
-                isDownloadingModel = false
-            }
-            return
-        }
-        
-        let downloadPath = getModelDownloadPath()
-        let destinationURL = downloadPath.appendingPathComponent(fileName)
-        
-        // Create models directory if it doesn't exist
-        do {
-            try FileManager.default.createDirectory(at: downloadPath, withIntermediateDirectories: true)
-        } catch {
-            await MainActor.run {
-                downloadStatus = "Error: Could not create models directory"
-                isDownloadingModel = false
-            }
-            return
-        }
-        
-        // Check if model already exists
-        if FileManager.default.fileExists(atPath: destinationURL.path) {
-            await MainActor.run {
-                downloadProgress = 1.0
-                downloadStatus = "success"
-            }
-            return
-        }
-        
-        do {
-            await MainActor.run {
-                downloadStatus = "Downloading Flash model..."
-            }
-            
-            let (tempURL, response) = try await URLSession.shared.download(from: url)
-            
-            if let httpResponse = response as? HTTPURLResponse {
-                if httpResponse.statusCode >= 400 {
-                    await MainActor.run {
-                        downloadStatus = "Error: HTTP \(httpResponse.statusCode)"
-                        isDownloadingModel = false
-                    }
-                    return
-                }
-            }
-            
-            // Move downloaded file to final location
-            try FileManager.default.moveItem(at: tempURL, to: destinationURL)
-            
-            await MainActor.run {
-                downloadProgress = 1.0
-                downloadStatus = "success"
-            }
-            
-        } catch {
-            await MainActor.run {
-                downloadStatus = "Error: \(error.localizedDescription)"
-                isDownloadingModel = false
-            }
-        }
-    }
-    
-    private func getModelDownloadPath() -> URL {
-        // Use the app's Application Support directory (proper location for app-specific data)
-        let appSupportPaths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
-        let appSupportPath = appSupportPaths.first!
-        
-        // Create app-specific subdirectory
-        let appName = Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "ClientNote"
-        return appSupportPath
-            .appendingPathComponent(appName, isDirectory: true)
-            .appendingPathComponent("LlamaKitModels", isDirectory: true)
-    }
+
     
     private func dismissSplashScreen() {
         withAnimation(.easeOut(duration: 0.3)) {
