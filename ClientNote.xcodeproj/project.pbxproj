@@ -70,12 +70,26 @@
 		8870127F2DF4B0F800EFCD2A /* EnhancedLlamaCppBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8870127C2DF4B0F800EFCD2A /* EnhancedLlamaCppBackend.swift */; };
 		887012822DF4B11D00EFCD2A /* LlamaServerPreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 887012812DF4B11D00EFCD2A /* LlamaServerPreferencesView.swift */; };
 		887012832DF4B11D00EFCD2A /* LlamaServerControlView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 887012802DF4B11D00EFCD2A /* LlamaServerControlView.swift */; };
+		887012B82DF52ED400EFCD2A /* llama-server.dSYM in CopyFiles */ = {isa = PBXBuildFile; fileRef = 887012B52DF52EA300EFCD2A /* llama-server.dSYM */; };
 		88C4AF122DD93613002DF4DC /* AssistantModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C4AF112DD93612002DF4DC /* AssistantModel.swift */; };
 		88C4AF152DD984BF002DF4DC /* AddClientView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C4AF132DD984BF002DF4DC /* AddClientView.swift */; };
 		88C4B07F2DDA8123002DF4DC /* ICDResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C4B07E2DDA8123002DF4DC /* ICDResult.swift */; };
 		88C4B0882DDA8A4B002DF4DC /* ClientActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C4B0872DDA8A4B002DF4DC /* ClientActivity.swift */; };
 		88C4B0892DDA8A4B002DF4DC /* Client.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C4B0862DDA8A4B002DF4DC /* Client.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		887012B72DF52EBC00EFCD2A /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 16;
+			files = (
+				887012B82DF52ED400EFCD2A /* llama-server.dSYM in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		0A4D35812AF541D900846890 /* ClientNote.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClientNote.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -143,6 +157,7 @@
 		8870127D2DF4B0F800EFCD2A /* LlamaServerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LlamaServerManager.swift; sourceTree = "<group>"; };
 		887012802DF4B11D00EFCD2A /* LlamaServerControlView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LlamaServerControlView.swift; sourceTree = "<group>"; };
 		887012812DF4B11D00EFCD2A /* LlamaServerPreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LlamaServerPreferencesView.swift; sourceTree = "<group>"; };
+		887012B52DF52EA300EFCD2A /* llama-server.dSYM */ = {isa = PBXFileReference; lastKnownFileType = wrapper.dsym; path = "llama-server.dSYM"; sourceTree = "<group>"; };
 		88C4AF112DD93612002DF4DC /* AssistantModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantModel.swift; sourceTree = "<group>"; };
 		88C4AF132DD984BF002DF4DC /* AddClientView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddClientView.swift; sourceTree = "<group>"; };
 		88C4B07E2DDA8123002DF4DC /* ICDResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICDResult.swift; sourceTree = "<group>"; };
@@ -178,6 +193,7 @@
 		0A4D35782AF541D900846890 = {
 			isa = PBXGroup;
 			children = (
+				887012B52DF52EA300EFCD2A /* llama-server.dSYM */,
 				8807B1132DB6F8E500C3D195 /* ClientNoteConfiguration.storekit */,
 				0A7F58FA2C42657E00091E44 /* Frameworks */,
 				0A4D35832AF541D900846890 /* ClientNote */,
@@ -406,6 +422,8 @@
 				0A4D357D2AF541D900846890 /* Sources */,
 				0A4D357E2AF541D900846890 /* Frameworks */,
 				0A4D357F2AF541D900846890 /* Resources */,
+				887012B42DF51FCE00EFCD2A /* Code Sign llama-server */,
+				887012B72DF52EBC00EFCD2A /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -487,6 +505,30 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		887012B42DF51FCE00EFCD2A /* Code Sign llama-server */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/ClientNote/Resources/llama-server.entitlements",
+			);
+			name = "Code Sign llama-server";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"   $(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/Contents/Resources/llama-server",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Code sign llama-server with sandbox entitlements\nset -e\n\necho \"🔏 Code signing llama-server with sandbox entitlements...\"\n\n# Paths\nLLAMA_SERVER_PATH=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/llama-server\"\nENTITLEMENTS_PATH=\"${SRCROOT}/ClientNote/Resources/llama-server.entitlements\"\n\n# Check if llama-server exists\nif [ ! -f \"$LLAMA_SERVER_PATH\" ]; then\n    echo \"❌ llama-server not found at: $LLAMA_SERVER_PATH\"\n    exit 1\nfi\n\n# Check if entitlements file exists\nif [ ! -f \"$ENTITLEMENTS_PATH\" ]; then\n    echo \"❌ Entitlements file not found at: $ENTITLEMENTS_PATH\"\n    exit 1\nfi\n\necho \"📝 Signing llama-server with identity: $EXPANDED_CODE_SIGN_IDENTITY\"\n\n# Code sign the binary with sandbox entitlements\ncodesign \\\n    --force \\\n    --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" \\\n    --entitlements \"$ENTITLEMENTS_PATH\" \\\n    --options runtime \\\n    --timestamp \\\n    \"$LLAMA_SERVER_PATH\"\n\n# Verify the signature\necho \"✅ Verifying signature...\"\ncodesign --verify --deep --strict \"$LLAMA_SERVER_PATH\"\n\necho \"✅ llama-server successfully code signed with sandbox entitlements!\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		0A4D357D2AF541D900846890 /* Sources */ = {
@@ -658,15 +700,16 @@
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GCC_OPTIMIZATION_LEVEL = 3;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 3;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				LLVM_LTO = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -674,7 +717,6 @@
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
-				LLVM_LTO = YES;
 			};
 			name = Release;
 		};
@@ -694,6 +736,7 @@
 				DEVELOPMENT_TEAM = MC8BT9Z8GD;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ClientNote/Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Euni™ - Client Notes";
@@ -737,6 +780,7 @@
 				DEVELOPMENT_TEAM = MC8BT9Z8GD;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ClientNote/Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Euni™ - Client Notes";

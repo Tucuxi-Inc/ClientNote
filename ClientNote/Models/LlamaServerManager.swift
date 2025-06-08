@@ -406,7 +406,7 @@ class LlamaServerManager: ObservableObject {
         crashCount += 1
         
         // Auto-restart if within retry limit
-        if crashCount <= maxCrashRetries, let lastModelPath = config.lastModelPath {
+        if self.crashCount <= self.maxCrashRetries, let lastModelPath = config.lastModelPath {
             logger.info("Attempting auto-restart (\(self.crashCount)/\(self.maxCrashRetries))")
             
             try? await Task.sleep(nanoseconds: 2_000_000_000) // 2s delay
@@ -511,9 +511,14 @@ class LlamaServerManager: ObservableObject {
             queue: OperationQueue.main
         ) { [weak self] (notification: Notification) in
             Task {
-                guard let self = self,
-                      let modelPath = self.config.lastModelPath else { return }
-                try? await self.startServer(modelPath: modelPath)
+                guard let strongSelf = self else { return }
+                let config = strongSelf.config
+                guard let modelPath = config.lastModelPath else { return }
+                do {
+                    try await strongSelf.startServer(modelPath: modelPath)
+                } catch {
+                    // Ignore wake-up restart errors
+                }
             }
         }
     }
