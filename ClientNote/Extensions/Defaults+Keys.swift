@@ -9,32 +9,8 @@ import Defaults
 import Foundation
 import AppKit.NSFont
 
-enum AIBackend: String, CaseIterable, Defaults.Serializable {
-    case llamaCpp = "llamaCpp"
-    case ollamaKit = "ollamaKit"
-    
-    var displayName: String {
-        switch self {
-        case .llamaCpp:
-            return "Integrated Model Server"
-        case .ollamaKit:
-            return "Third Party (Ollama)"
-        }
-    }
-    
-    var description: String {
-        switch self {
-        case .llamaCpp:
-            return "Direct integration with your compiled llama.cpp binaries"
-        case .ollamaKit:
-            if Defaults[.isOllamaInstalled] {
-                return "Third-party local inference via Ollama application"
-            } else {
-                return "If you'd like, you may download the Ollama app from https://ollama.com/download and download and run local models using it to power Euni™ - Client Notes"
-            }
-        }
-    }
-}
+// Make AIServiceType conform to Defaults.Serializable
+extension AIServiceType: Defaults.Serializable {}
 
 extension Defaults.Keys {
     static let defaultChatName = Key<String>("defaultChatName", default: "New Chat")
@@ -64,7 +40,10 @@ extension Defaults.Keys {
     static let defaultTopK = Key<Int>("defaultTopK", default: 40)
     
     // AI Backend Settings
-    static let selectedAIBackend = Key<AIBackend>("selectedAIBackend", default: .llamaCpp)
+    static let selectedAIServiceType = Key<AIServiceType?>("selectedAIServiceType", default: nil)
+    static let hasActiveSubscription = Key<Bool>("hasActiveSubscription", default: false)
+    static let hasFullUnlock = Key<Bool>("hasFullUnlock", default: false)
+    static let selectedAIBackend = Key<AIBackend>("selectedAIBackend", default: .ollamaKit)  // For backward compatibility
     static let llamaKitModelPath = Key<String>("llamaKitModelPath", default: "")
     static let isOllamaInstalled = Key<Bool>("isOllamaInstalled", default: false)
     

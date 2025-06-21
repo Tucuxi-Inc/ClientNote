@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 70;
+	objectVersion = 56;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -64,32 +64,20 @@
 		8807B11D2DB6FA4000C3D195 /* SplashScreenManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8807B11B2DB6FA4000C3D195 /* SplashScreenManager.swift */; };
 		8807B11E2DB6FA4000C3D195 /* IAPManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8807B1192DB6FA4000C3D195 /* IAPManager.swift */; };
 		8807B1202DB6FA7200C3D195 /* PurchaseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8807B11F2DB6FA7200C3D195 /* PurchaseView.swift */; };
-		887011662DEFCACF00EFCD2A /* AIBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 887011652DEFCACF00EFCD2A /* AIBackend.swift */; };
-		887011C62DF3CCCC00EFCD2A /* Qwen3-0.6B-Q4_0.gguf in Resources */ = {isa = PBXBuildFile; fileRef = 887011C52DF3CCCC00EFCD2A /* Qwen3-0.6B-Q4_0.gguf */; };
-		8870127E2DF4B0F800EFCD2A /* LlamaServerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8870127D2DF4B0F800EFCD2A /* LlamaServerManager.swift */; };
-		8870127F2DF4B0F800EFCD2A /* EnhancedLlamaCppBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8870127C2DF4B0F800EFCD2A /* EnhancedLlamaCppBackend.swift */; };
-		887012822DF4B11D00EFCD2A /* LlamaServerPreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 887012812DF4B11D00EFCD2A /* LlamaServerPreferencesView.swift */; };
-		887012832DF4B11D00EFCD2A /* LlamaServerControlView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 887012802DF4B11D00EFCD2A /* LlamaServerControlView.swift */; };
-		887012B82DF52ED400EFCD2A /* llama-server.dSYM in CopyFiles */ = {isa = PBXBuildFile; fileRef = 887012B52DF52EA300EFCD2A /* llama-server.dSYM */; };
+		88100C972E02B09200C429A2 /* AIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88100C962E02B09200C429A2 /* AIService.swift */; };
+		88100C9A2E02B0B300C429A2 /* PlaceholderImageGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88100C992E02B0B300C429A2 /* PlaceholderImageGenerator.swift */; };
+		88100C9B2E02B0B300C429A2 /* KeychainManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88100C982E02B0B300C429A2 /* KeychainManager.swift */; };
+		88100C9D2E02B12A00C429A2 /* AIBackendAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88100C9C2E02B12A00C429A2 /* AIBackendAdapter.swift */; };
+		88100C9F2E02B17200C429A2 /* AIServiceSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88100C9E2E02B17200C429A2 /* AIServiceSettingsView.swift */; };
+		88100CA12E02BA5000C429A2 /* SplashScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88100CA02E02BA5000C429A2 /* SplashScreen.swift */; };
+		88100CA32E04E00300C429A2 /* FirstTimeSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88100CA22E04E00300C429A2 /* FirstTimeSetupView.swift */; };
+		88100CA52E06326900C429A2 /* CompanyAPIKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88100CA42E06326900C429A2 /* CompanyAPIKeys.swift */; };
 		88C4AF122DD93613002DF4DC /* AssistantModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C4AF112DD93612002DF4DC /* AssistantModel.swift */; };
 		88C4AF152DD984BF002DF4DC /* AddClientView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C4AF132DD984BF002DF4DC /* AddClientView.swift */; };
 		88C4B07F2DDA8123002DF4DC /* ICDResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C4B07E2DDA8123002DF4DC /* ICDResult.swift */; };
 		88C4B0882DDA8A4B002DF4DC /* ClientActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C4B0872DDA8A4B002DF4DC /* ClientActivity.swift */; };
 		88C4B0892DDA8A4B002DF4DC /* Client.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C4B0862DDA8A4B002DF4DC /* Client.swift */; };
 /* End PBXBuildFile section */
-
-/* Begin PBXCopyFilesBuildPhase section */
-		887012B72DF52EBC00EFCD2A /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 16;
-			files = (
-				887012B82DF52ED400EFCD2A /* llama-server.dSYM in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		0A4D35812AF541D900846890 /* ClientNote.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClientNote.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -143,31 +131,20 @@
 		8807B1192DB6FA4000C3D195 /* IAPManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IAPManager.swift; sourceTree = "<group>"; };
 		8807B11B2DB6FA4000C3D195 /* SplashScreenManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashScreenManager.swift; sourceTree = "<group>"; };
 		8807B11F2DB6FA7200C3D195 /* PurchaseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PurchaseView.swift; sourceTree = "<group>"; };
-		887011652DEFCACF00EFCD2A /* AIBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIBackend.swift; sourceTree = "<group>"; };
-		887011C52DF3CCCC00EFCD2A /* Qwen3-0.6B-Q4_0.gguf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Qwen3-0.6B-Q4_0.gguf"; sourceTree = "<group>"; };
-		8870122C2DF3EB9400EFCD2A /* libggml.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = libggml.dylib; sourceTree = "<group>"; };
-		8870122D2DF3EB9400EFCD2A /* libggml-base.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = "libggml-base.dylib"; sourceTree = "<group>"; };
-		8870122E2DF3EB9400EFCD2A /* libggml-blas.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = "libggml-blas.dylib"; sourceTree = "<group>"; };
-		8870122F2DF3EB9400EFCD2A /* libggml-cpu.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = "libggml-cpu.dylib"; sourceTree = "<group>"; };
-		887012302DF3EB9400EFCD2A /* libggml-metal.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = "libggml-metal.dylib"; sourceTree = "<group>"; };
-		887012312DF3EB9400EFCD2A /* libggml-rpc.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = "libggml-rpc.dylib"; sourceTree = "<group>"; };
-		887012322DF3EB9400EFCD2A /* libllama.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = libllama.dylib; sourceTree = "<group>"; };
-		887012332DF3EB9400EFCD2A /* libmtmd.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = libmtmd.dylib; sourceTree = "<group>"; };
-		8870127C2DF4B0F800EFCD2A /* EnhancedLlamaCppBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnhancedLlamaCppBackend.swift; sourceTree = "<group>"; };
-		8870127D2DF4B0F800EFCD2A /* LlamaServerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LlamaServerManager.swift; sourceTree = "<group>"; };
-		887012802DF4B11D00EFCD2A /* LlamaServerControlView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LlamaServerControlView.swift; sourceTree = "<group>"; };
-		887012812DF4B11D00EFCD2A /* LlamaServerPreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LlamaServerPreferencesView.swift; sourceTree = "<group>"; };
-		887012B52DF52EA300EFCD2A /* llama-server.dSYM */ = {isa = PBXFileReference; lastKnownFileType = wrapper.dsym; path = "llama-server.dSYM"; sourceTree = "<group>"; };
+		88100C962E02B09200C429A2 /* AIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIService.swift; sourceTree = "<group>"; };
+		88100C982E02B0B300C429A2 /* KeychainManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainManager.swift; sourceTree = "<group>"; };
+		88100C992E02B0B300C429A2 /* PlaceholderImageGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderImageGenerator.swift; sourceTree = "<group>"; };
+		88100C9C2E02B12A00C429A2 /* AIBackendAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIBackendAdapter.swift; sourceTree = "<group>"; };
+		88100C9E2E02B17200C429A2 /* AIServiceSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIServiceSettingsView.swift; sourceTree = "<group>"; };
+		88100CA02E02BA5000C429A2 /* SplashScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashScreen.swift; sourceTree = "<group>"; };
+		88100CA22E04E00300C429A2 /* FirstTimeSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstTimeSetupView.swift; sourceTree = "<group>"; };
+		88100CA42E06326900C429A2 /* CompanyAPIKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanyAPIKeys.swift; sourceTree = "<group>"; };
 		88C4AF112DD93612002DF4DC /* AssistantModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantModel.swift; sourceTree = "<group>"; };
 		88C4AF132DD984BF002DF4DC /* AddClientView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddClientView.swift; sourceTree = "<group>"; };
 		88C4B07E2DDA8123002DF4DC /* ICDResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICDResult.swift; sourceTree = "<group>"; };
 		88C4B0862DDA8A4B002DF4DC /* Client.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Client.swift; sourceTree = "<group>"; };
 		88C4B0872DDA8A4B002DF4DC /* ClientActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClientActivity.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
-
-/* Begin PBXFileSystemSynchronizedRootGroup section */
-		887011C02DF3717500EFCD2A /* llama-bin */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = "llama-bin"; sourceTree = "<group>"; };
-/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		0A4D357E2AF541D900846890 /* Frameworks */ = {
@@ -193,7 +170,6 @@
 		0A4D35782AF541D900846890 = {
 			isa = PBXGroup;
 			children = (
-				887012B52DF52EA300EFCD2A /* llama-server.dSYM */,
 				8807B1132DB6F8E500C3D195 /* ClientNoteConfiguration.storekit */,
 				0A7F58FA2C42657E00091E44 /* Frameworks */,
 				0A4D35832AF541D900846890 /* ClientNote */,
@@ -245,6 +221,8 @@
 		0A4D35962AF5422A00846890 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				88100CA22E04E00300C429A2 /* FirstTimeSetupView.swift */,
+				88100CA02E02BA5000C429A2 /* SplashScreen.swift */,
 				88C4AF142DD984BF002DF4DC /* Clients */,
 				0A4D35982AF5425900846890 /* AppView.swift */,
 				0ADB95E92C5D41B600EB0C60 /* Chats */,
@@ -257,11 +235,9 @@
 		0A4D35972AF5423900846890 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				887011C52DF3CCCC00EFCD2A /* Qwen3-0.6B-Q4_0.gguf */,
 				0AE024842AFB8D0E00347C18 /* Info.plist */,
 				0A4D358A2AF541DA00846890 /* Assets.xcassets */,
 				0A4D358F2AF541DA00846890 /* ClientNote.entitlements */,
-				887011C02DF3717500EFCD2A /* llama-bin */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -278,9 +254,8 @@
 		0A6E85122C5E98580030A4AA /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				8870127C2DF4B0F800EFCD2A /* EnhancedLlamaCppBackend.swift */,
-				8870127D2DF4B0F800EFCD2A /* LlamaServerManager.swift */,
-				887011652DEFCACF00EFCD2A /* AIBackend.swift */,
+				88100C9C2E02B12A00C429A2 /* AIBackendAdapter.swift */,
+				88100C962E02B09200C429A2 /* AIService.swift */,
 				88C4B0862DDA8A4B002DF4DC /* Client.swift */,
 				88C4B0872DDA8A4B002DF4DC /* ClientActivity.swift */,
 				88C4B07E2DDA8123002DF4DC /* ICDResult.swift */,
@@ -294,6 +269,7 @@
 		0A6E85212C5E98A40030A4AA /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				88100C9E2E02B17200C429A2 /* AIServiceSettingsView.swift */,
 				8807B11F2DB6FA7200C3D195 /* PurchaseView.swift */,
 				0A6E85232C5E98B20030A4AA /* Subviews */,
 				0A6E85242C5E98B20030A4AA /* GeneralView.swift */,
@@ -306,8 +282,6 @@
 		0A6E85232C5E98B20030A4AA /* Subviews */ = {
 			isa = PBXGroup;
 			children = (
-				887012802DF4B11D00EFCD2A /* LlamaServerControlView.swift */,
-				887012812DF4B11D00EFCD2A /* LlamaServerPreferencesView.swift */,
 				0AFC5AA62C6695CF00A148A2 /* Box.swift */,
 				175D318B2C64ADF9009B58E0 /* DefaultFontSizeField.swift */,
 			);
@@ -333,14 +307,6 @@
 			isa = PBXGroup;
 			children = (
 				8807B1112DB6F6C300C3D195 /* StoreKit.framework */,
-				8870122C2DF3EB9400EFCD2A /* libggml.dylib */,
-				8870122D2DF3EB9400EFCD2A /* libggml-base.dylib */,
-				8870122E2DF3EB9400EFCD2A /* libggml-blas.dylib */,
-				8870122F2DF3EB9400EFCD2A /* libggml-cpu.dylib */,
-				887012302DF3EB9400EFCD2A /* libggml-metal.dylib */,
-				887012312DF3EB9400EFCD2A /* libggml-rpc.dylib */,
-				887012322DF3EB9400EFCD2A /* libllama.dylib */,
-				887012332DF3EB9400EFCD2A /* libmtmd.dylib */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -348,6 +314,9 @@
 		0AA41A1D2AF666670053B8DB /* Utils */ = {
 			isa = PBXGroup;
 			children = (
+				88100CA42E06326900C429A2 /* CompanyAPIKeys.swift */,
+				88100C982E02B0B300C429A2 /* KeychainManager.swift */,
+				88100C992E02B0B300C429A2 /* PlaceholderImageGenerator.swift */,
 				8807B1192DB6FA4000C3D195 /* IAPManager.swift */,
 				8807B11B2DB6FA4000C3D195 /* SplashScreenManager.swift */,
 				0AF5664B2C65A2B400D6E01A /* SectionFooter.swift */,
@@ -422,15 +391,10 @@
 				0A4D357D2AF541D900846890 /* Sources */,
 				0A4D357E2AF541D900846890 /* Frameworks */,
 				0A4D357F2AF541D900846890 /* Resources */,
-				887012B42DF51FCE00EFCD2A /* Code Sign llama-server */,
-				887012B72DF52EBC00EFCD2A /* CopyFiles */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				887011C02DF3717500EFCD2A /* llama-bin */,
 			);
 			name = ClientNote;
 			packageProductDependencies = (
@@ -499,56 +463,34 @@
 			files = (
 				8807B1142DB6F8E500C3D195 /* ClientNoteConfiguration.storekit in Resources */,
 				0A4D358E2AF541DA00846890 /* Preview Assets.xcassets in Resources */,
-				887011C62DF3CCCC00EFCD2A /* Qwen3-0.6B-Q4_0.gguf in Resources */,
 				0A4D358B2AF541DA00846890 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
-/* Begin PBXShellScriptBuildPhase section */
-		887012B42DF51FCE00EFCD2A /* Code Sign llama-server */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"$(SRCROOT)/ClientNote/Resources/llama-server.entitlements",
-			);
-			name = "Code Sign llama-server";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"   $(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/Contents/Resources/llama-server",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# Code sign llama-server with sandbox entitlements\nset -e\n\necho \"🔏 Code signing llama-server with sandbox entitlements...\"\n\n# Paths\nLLAMA_SERVER_PATH=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/llama-server\"\nENTITLEMENTS_PATH=\"${SRCROOT}/ClientNote/Resources/llama-server.entitlements\"\n\n# Check if llama-server exists\nif [ ! -f \"$LLAMA_SERVER_PATH\" ]; then\n    echo \"❌ llama-server not found at: $LLAMA_SERVER_PATH\"\n    exit 1\nfi\n\n# Check if entitlements file exists\nif [ ! -f \"$ENTITLEMENTS_PATH\" ]; then\n    echo \"❌ Entitlements file not found at: $ENTITLEMENTS_PATH\"\n    exit 1\nfi\n\necho \"📝 Signing llama-server with identity: $EXPANDED_CODE_SIGN_IDENTITY\"\n\n# Code sign the binary with sandbox entitlements\ncodesign \\\n    --force \\\n    --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" \\\n    --entitlements \"$ENTITLEMENTS_PATH\" \\\n    --options runtime \\\n    --timestamp \\\n    \"$LLAMA_SERVER_PATH\"\n\n# Verify the signature\necho \"✅ Verifying signature...\"\ncodesign --verify --deep --strict \"$LLAMA_SERVER_PATH\"\n\necho \"✅ llama-server successfully code signed with sandbox entitlements!\"\n";
-		};
-/* End PBXShellScriptBuildPhase section */
-
 /* Begin PBXSourcesBuildPhase section */
 		0A4D357D2AF541D900846890 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				887011662DEFCACF00EFCD2A /* AIBackend.swift in Sources */,
 				8807B11D2DB6FA4000C3D195 /* SplashScreenManager.swift in Sources */,
 				88C4AF152DD984BF002DF4DC /* AddClientView.swift in Sources */,
 				8807B11E2DB6FA4000C3D195 /* IAPManager.swift in Sources */,
 				0ADB95E62C5D3BAD00EB0C60 /* SidebarToolbarContent.swift in Sources */,
 				0ADB95E22C5D345100EB0C60 /* SidebarView.swift in Sources */,
+				88100CA52E06326900C429A2 /* CompanyAPIKeys.swift in Sources */,
 				0ADB95ED2C5D42E200EB0C60 /* UserMessageView.swift in Sources */,
+				88100CA32E04E00300C429A2 /* FirstTimeSetupView.swift in Sources */,
 				8807B1202DB6FA7200C3D195 /* PurchaseView.swift in Sources */,
 				88C4B0882DDA8A4B002DF4DC /* ClientActivity.swift in Sources */,
 				88C4B0892DDA8A4B002DF4DC /* Client.swift in Sources */,
 				0ADB95EF2C5D42FF00EB0C60 /* AssistantMessageView.swift in Sources */,
 				0A6E85302C5EB5F90030A4AA /* UpdateSystemPromptSheet.swift in Sources */,
+				88100C9F2E02B17200C429A2 /* AIServiceSettingsView.swift in Sources */,
 				8807ADD12DB30C5400C3D195 /* Color+ClientNoteCustom.swift in Sources */,
 				0A6E85152C5E98620030A4AA /* Message.swift in Sources */,
+				88100C9D2E02B12A00C429A2 /* AIBackendAdapter.swift in Sources */,
 				0A6E85162C5E98620030A4AA /* Chat.swift in Sources */,
 				0A6E85262C5E98B20030A4AA /* SettingsView.swift in Sources */,
 				88C4B07F2DDA8123002DF4DC /* ICDResult.swift in Sources */,
@@ -559,8 +501,6 @@
 				0A6E851E2C5E98770030A4AA /* String+IsValidURL.swift in Sources */,
 				0A6E851F2C5E98770030A4AA /* Defaults+Keys.swift in Sources */,
 				0AFC5AA72C6695CF00A148A2 /* Box.swift in Sources */,
-				8870127E2DF4B0F800EFCD2A /* LlamaServerManager.swift in Sources */,
-				8870127F2DF4B0F800EFCD2A /* EnhancedLlamaCppBackend.swift in Sources */,
 				88C4AF122DD93613002DF4DC /* AssistantModel.swift in Sources */,
 				8804D8BA2DE51B8000616BC3 /* RecordingView.swift in Sources */,
 				0A6E85202C5E98770030A4AA /* Optional+Utils.swift in Sources */,
@@ -571,11 +511,12 @@
 				0ADB96112C5D585500EB0C60 /* Theme+ClientNote.swift in Sources */,
 				0AFC5AA92C66A20C00A148A2 /* CodeBlockView.swift in Sources */,
 				0ADB95EB2C5D41DF00EB0C60 /* ChatView.swift in Sources */,
+				88100C9A2E02B0B300C429A2 /* PlaceholderImageGenerator.swift in Sources */,
+				88100C9B2E02B0B300C429A2 /* KeychainManager.swift in Sources */,
+				88100C972E02B09200C429A2 /* AIService.swift in Sources */,
 				0ADB95E42C5D34B200EB0C60 /* SidebarListItemView.swift in Sources */,
 				8804D7B42DDD6C2B00616BC3 /* EasyTreatmentPlanSheet.swift in Sources */,
 				0A4D35992AF5425900846890 /* AppView.swift in Sources */,
-				887012822DF4B11D00EFCD2A /* LlamaServerPreferencesView.swift in Sources */,
-				887012832DF4B11D00EFCD2A /* LlamaServerControlView.swift in Sources */,
 				0A6E852E2C5EAA750030A4AA /* ChatPreferencesFooterView.swift in Sources */,
 				8807AC192DACBBC600C3D195 /* EasyNoteSheet.swift in Sources */,
 				0ADB95E82C5D3BE900EB0C60 /* SidebarContextMenu.swift in Sources */,
@@ -585,6 +526,7 @@
 				0AF5CB622C62B0B600DF8DA8 /* UpdateOllamaHostSheet.swift in Sources */,
 				4A4A8EBE2D5047590065A5EC /* String+ReplaceAndTrim.swift in Sources */,
 				0A6E85102C5E6C670030A4AA /* MessageViewModel.swift in Sources */,
+				88100CA12E02BA5000C429A2 /* SplashScreen.swift in Sources */,
 				0A6E85112C5E6C670030A4AA /* ChatViewModel.swift in Sources */,
 				175D318C2C64ADF9009B58E0 /* DefaultFontSizeField.swift in Sources */,
 				0A6E85342C5F9DA00030A4AA /* ChatFieldFooterView.swift in Sources */,
