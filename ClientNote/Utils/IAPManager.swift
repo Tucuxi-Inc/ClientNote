@@ -100,13 +100,11 @@ class IAPManager: ObservableObject {
             await loadProducts()
             updateListenerTask = listenForTransactions()
             
-            /* 
             #if DEBUG
             if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] != "1" {
                 await setupTestTransactions()
             }
             #endif
-            */
         }
     }
     
@@ -165,7 +163,7 @@ class IAPManager: ObservableObject {
                 print("WARNING: No products were loaded from StoreKit")
                 #endif
                 */
-                errorMessage = "No products available"
+                errorMessage = "Unable to load subscription options. Please check your internet connection and try again."
             } else {
                 errorMessage = nil
             }
@@ -175,7 +173,16 @@ class IAPManager: ObservableObject {
             print("Failed to load products: \(error)")
             #endif
             */
-            errorMessage = "Failed to load products: \(error.localizedDescription)"
+            
+            // Provide more user-friendly error messages
+            if error.localizedDescription.contains("network") || error.localizedDescription.contains("internet") {
+                errorMessage = "Network error: Please check your internet connection and try again."
+            } else if error.localizedDescription.contains("store") || error.localizedDescription.contains("StoreKit") {
+                errorMessage = "App Store connection error. Please try again in a moment."
+            } else {
+                errorMessage = "Unable to load subscription options. Please try again."
+            }
+            
             products = []
             subscriptions = []
         }
@@ -429,7 +436,6 @@ class IAPManager: ObservableObject {
         }
     }
     
-    /* 
     #if DEBUG
     @MainActor
     private func setupTestTransactions() async {
@@ -544,7 +550,6 @@ class IAPManager: ObservableObject {
         isLoading = false
     }
     #endif
-    */
     
     // MARK: - Trial Usage Tracking
     

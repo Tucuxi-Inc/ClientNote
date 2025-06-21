@@ -4,6 +4,8 @@ import SwiftData
 import SwiftUI
 import Foundation
 
+// Note: AIServiceManager will be available since it's in the same module
+
 /// ChatViewModel is the central coordinator for the Euni™ Client Notes application.
 /// It manages client data, activities, chat interactions, and integration with the AI service.
 ///
@@ -422,7 +424,7 @@ final class ChatViewModel {
         }
     }
     
-    // MARK: - Ollama Integration
+    // MARK: - Model Management
     
     /// Fetches available AI models from the Ollama server
     /// - Parameter ollamaKit: The OllamaKit instance configured with the appropriate base URL
@@ -1094,8 +1096,15 @@ final class ChatViewModel {
             fetchModelsFromBackend()
         }
         
-        // Use the first available model or fallback to default
-        let modelToUse = models.first ?? Defaults[.defaultModel]
+        // Determine the model based on the selected backend
+        let modelToUse: String
+        if Defaults[.selectedAIBackend] == .openAI {
+            // Always use gpt-4.1-nano for OpenAI
+            modelToUse = "gpt-4.1-nano"
+        } else {
+            // Use the first available model or fallback to default for other backends
+            modelToUse = models.first ?? Defaults[.defaultModel]
+        }
         
         let chat = Chat(model: modelToUse)
         chat.systemPrompt = getSystemPromptForActivityType(activity.type, isEasyNote: isEasyNote)
@@ -1993,7 +2002,14 @@ final class ChatViewModel {
             
             let analysisPrompt = getModalitiesAnalysisPrompt() + "\n\nSession Transcript:\n" + transcript
             // Use non-streaming generation for analysis to avoid UI confusion
-            modalitiesAnalysis = try await generateAnalysisWithBackend(prompt: analysisPrompt)
+            // Choose method based on backend
+            if isUsingOllamaKit {
+                let baseURL = URL(string: Defaults[.defaultHost])!
+                let ollamaKit = OllamaKit(baseURL: baseURL)
+                modalitiesAnalysis = try await generateAnalysis(prompt: analysisPrompt, ollamaKit: ollamaKit)
+            } else {
+                modalitiesAnalysis = try await generateAnalysisWithBackend(prompt: analysisPrompt)
+            }
             print("DEBUG: Modalities analysis completed, length: \(modalitiesAnalysis.count)")
         }
         
@@ -2015,7 +2031,14 @@ final class ChatViewModel {
             do {
                 print("DEBUG: Engagement analysis attempt \(retryCount + 1) of \(maxRetries + 1)")
                 // Use non-streaming generation for analysis to avoid UI confusion
-                engagementAnalysis = try await generateAnalysisWithBackend(prompt: engagementPrompt)
+                // Choose method based on backend
+                if isUsingOllamaKit {
+                    let baseURL = URL(string: Defaults[.defaultHost])!
+                    let ollamaKit = OllamaKit(baseURL: baseURL)
+                    engagementAnalysis = try await generateAnalysis(prompt: engagementPrompt, ollamaKit: ollamaKit)
+                } else {
+                    engagementAnalysis = try await generateAnalysisWithBackend(prompt: engagementPrompt)
+                }
                 print("DEBUG: Engagement analysis completed, length: \(engagementAnalysis.count)")
                 break
             } catch {
@@ -2042,72 +2065,7 @@ final class ChatViewModel {
     ///   - prompt: The analysis prompt to send to the AI
     ///   - ollamaKit: The OllamaKit instance for AI interaction
     /// - Returns: The generated analysis
-    /// - Throws: ChatViewModelError if generation fails
-    private func generateAnalysis(prompt: String, ollamaKit: OllamaKit) async throws -> String {
-        guard let activeChat = self.activeChat else {
-            throw ChatViewModelError.generate("No active chat available")
-        }
-        
-        print("DEBUG: Starting analysis generation with prompt length: \(prompt.count)")
-        print("DEBUG: Analysis prompt preview: \(String(prompt.prefix(100)))...")
-        
-        // Use direct OllamaKit API call instead of going through MessageViewModel
-        // This prevents creating temporary messages that could interfere with the main chat
-        let chatData = OKChatRequestData(
-            model: activeChat.model,
-            messages: [
-                OKChatRequestData.Message(role: .system, content: activeChat.systemPrompt ?? ""),
-                OKChatRequestData.Message(role: .user, content: prompt)
-            ]
-        )
-        
-        var fullResponse = ""
-        var isReasoningContent = false
-        
-        do {
-            print("DEBUG: Making direct API call for analysis")
-            
-            for try await chunk in ollamaKit.chat(data: chatData) {
-                guard let content = chunk.message?.content else { continue }
-                
-                // Handle reasoning content (like <think> tags) by skipping it
-                if content.contains("<think>") {
-                    isReasoningContent = true
-                    continue
-                }
-                
-                if content.contains("</think>") {
-                    isReasoningContent = false
-                    continue
-                }
-                
-                // Only accumulate non-reasoning content
-                if !isReasoningContent {
-                    fullResponse += content
-                }
-                
-                // Check if generation is done
-                if chunk.done {
-                    print("DEBUG: Analysis generation completed via direct API")
-                    print("DEBUG: Response length: \(fullResponse.count)")
-                    break
-                }
-            }
-            
-            // Validate we got a meaningful response
-            let trimmedResponse = fullResponse.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmedResponse.isEmpty else {
-                throw ChatViewModelError.generate("Empty response from analysis generation")
-            }
-            
-            print("DEBUG: Analysis generation successful")
-            return trimmedResponse
-            
-                } catch {
-            print("DEBUG: Analysis generation failed: \(error)")
-            throw ChatViewModelError.generate("Analysis generation failed: \(error.localizedDescription)")
-        }
-    }
+
     
     // MARK: - Client Engagement Pattern Tracking
     
@@ -2306,6 +2264,13 @@ final class ChatViewModel {
             return userInput // For brainstorm, just pass through the user input
         }
         
+        // For session notes and treatment plans, require a client to be selected
+        if activityType == .sessionNote || activityType == .treatmentPlan {
+            guard selectedClientID != nil else {
+                throw ChatViewModelError.generate("Please select a client before generating a \(activityType.rawValue.lowercased())")
+            }
+        }
+        
         print("DEBUG: Starting two-pass generation for activity type: \(activityType.rawValue)")
         
         // FIRST PASS: Analyze the session content (with progress indication)
@@ -2466,7 +2431,15 @@ final class ChatViewModel {
         print("DEBUG: \(String(formatInstructions.prefix(200)))...")
         
         // Generate the final note with streaming feedback for better UX
-        return try await generateAnalysisWithStreamingBackend(prompt: secondPassPrompt)
+        // Use the appropriate method based on backend
+        if isUsingOllamaKit {
+            // Need OllamaKit instance for direct streaming
+            let baseURL = URL(string: Defaults[.defaultHost])!
+            let ollamaKit = OllamaKit(baseURL: baseURL)
+            return try await generateAnalysisWithStreaming(prompt: secondPassPrompt, ollamaKit: ollamaKit)
+        } else {
+            return try await generateAnalysisWithStreamingBackend(prompt: secondPassPrompt)
+        }
     }
     
     /// Enhanced session note generation with modality and engagement analysis (Legacy method for compatibility)
@@ -2876,6 +2849,83 @@ final class ChatViewModel {
             throw ChatViewModelError.generate("No active chat available")
         }
         
+        // If using OllamaKit directly, bypass the backend system
+        if isUsingOllamaKit {
+            print("DEBUG: Using OllamaKit directly for generation")
+            let baseURL = URL(string: Defaults[.defaultHost])!
+            let ollamaKit = OllamaKit(baseURL: baseURL)
+            
+            // Validate and fix model name
+            var modelToUse = activeChat.model
+            
+            // Skip embedding models
+            if modelToUse.contains("embed") {
+                print("DEBUG: Skipping embedding model '\(modelToUse)', using default")
+                modelToUse = "qwen3:0.6b"
+            }
+            
+            // Fix legacy model names
+            if modelToUse.contains(".gguf") {
+                print("DEBUG: Converting legacy model name '\(modelToUse)' to Ollama format")
+                modelToUse = "qwen3:0.6b"
+            }
+            
+            print("DEBUG: Using model '\(modelToUse)' for generation")
+            
+            // Use OllamaKit's streaming API
+            var chatData = OKChatRequestData(
+                model: modelToUse,
+                messages: [
+                    OKChatRequestData.Message(role: .system, content: systemPrompt ?? activeChat.systemPrompt ?? ""),
+                    OKChatRequestData.Message(role: .user, content: prompt)
+                ]
+            )
+            
+            // Set options separately
+            chatData.options = OKCompletionOptions(
+                temperature: activeChat.temperature,
+                topK: activeChat.topK,
+                topP: activeChat.topP
+            )
+            
+            var fullResponse = ""
+            var isReasoningContent = false
+            
+            do {
+                for try await chunk in ollamaKit.chat(data: chatData) {
+                    guard let content = chunk.message?.content else { continue }
+                    
+                    // Handle reasoning content (like <think> tags) by skipping it
+                    if content.contains("<think>") {
+                        isReasoningContent = true
+                        continue
+                    }
+                    
+                    if content.contains("</think>") {
+                        isReasoningContent = false
+                        continue
+                    }
+                    
+                    // Only accumulate and stream non-reasoning content
+                    if !isReasoningContent {
+                        fullResponse += content
+                        onPartialResponse(content)
+                    }
+                    
+                    // Check if generation is done
+                    if chunk.done {
+                        break
+                    }
+                }
+                
+                return fullResponse.trimmingCharacters(in: .whitespacesAndNewlines)
+            } catch {
+                print("DEBUG: OllamaKit generation failed: \(error)")
+                throw ChatViewModelError.generate("Generation failed: \(error.localizedDescription)")
+            }
+        }
+        
+        // Otherwise use the new backend system
         guard let backend = aiBackendManager.currentBackend, backend.isReady else {
             throw ChatViewModelError.generate("AI backend not ready. Please check your settings.")
         }
@@ -2995,28 +3045,25 @@ final class ChatViewModel {
                 guard backend.isReady else {
                     // During first startup or when backend is initializing, don't show harsh errors
                     // The splash screen and settings will guide users through setup
-                    
-                    // However, for LlamaCpp backend, we can still try to scan for models
-                    // even if the server isn't running
-                    if Defaults[.selectedAIBackend] == .llamaCpp {
-                        print("DEBUG: Backend not ready, attempting direct model scan for LlamaCpp")
-                        let models = await scanLlamaCppModelsDirectly()
-                        if !models.isEmpty {
-                            self.models = models
-                            print("DEBUG: Found \(models.count) models via direct scan: \(models)")
-                            
-                            // Clean up any invalid model selections after updating the models list
-                            cleanupActiveChat()
-                        }
-                    }
                     return
                 }
                 
                 let models = try await backend.listModels()
                 self.models = models
                 
-                // If we don't have models, that's expected during first setup - don't show error
+                // If we don't have models, provide service-specific guidance
                 guard !self.models.isEmpty else {
+                    let serviceManager = AIServiceManager.shared
+                    if let currentService = serviceManager.currentService {
+                        switch currentService.serviceType {
+                        case .ollama:
+                            self.error = .fetchModels("No Ollama models found. Please pull at least one model using 'ollama pull <model-name>' in Terminal or through the Ollama app.")
+                        case .openAIUser, .openAISubscription:
+                            self.error = .fetchModels("No OpenAI models available. Please check your API key and internet connection.")
+                        }
+                    } else {
+                        self.error = .fetchModels("No models available from the current AI service.")
+                    }
                     return
                 }
                 
@@ -3027,9 +3074,33 @@ final class ChatViewModel {
                 
             } catch {
                 self.isHostReachable = false
-                // Only show actual technical errors, not setup guidance
-                if Defaults[.defaultHasLaunched] && error.localizedDescription.contains("Connection") {
-                    self.error = .fetchModels("Connection issue with AI backend")
+                
+                // Provide service-specific error messages
+                let serviceManager = AIServiceManager.shared
+                if let currentService = serviceManager.currentService {
+                    switch currentService.serviceType {
+                    case .ollama:
+                        if error.localizedDescription.contains("Connection") || error.localizedDescription.contains("refused") {
+                            self.error = .fetchModels("Unable to connect to Ollama. Please ensure Ollama is installed and running.")
+                        } else {
+                            self.error = .fetchModels("Ollama error: \(error.localizedDescription)")
+                        }
+                    case .openAIUser, .openAISubscription:
+                        if error.localizedDescription.contains("unauthorized") || error.localizedDescription.contains("401") {
+                            self.error = .fetchModels("Invalid OpenAI API key. Please check your API key in settings.")
+                        } else if error.localizedDescription.contains("network") || error.localizedDescription.contains("internet") {
+                            self.error = .fetchModels("Network error. Please check your internet connection.")
+                        } else {
+                            self.error = .fetchModels("OpenAI API error: \(error.localizedDescription)")
+                        }
+                    }
+                } else {
+                    // Fallback for when we can't determine the service type
+                    if Defaults[.defaultHasLaunched] && error.localizedDescription.contains("Connection") {
+                        self.error = .fetchModels("Connection issue with AI backend")
+                    } else {
+                        self.error = .fetchModels("Failed to fetch models: \(error.localizedDescription)")
+                    }
                 }
             }
         }
@@ -3070,13 +3141,7 @@ final class ChatViewModel {
                     aiBackendManager.updateOllamaHost(host)
                 }
                 
-                // If we switched to LlamaKit, try to load the configured model
-                if selectedBackend == .llamaCpp {
-                    let modelPath = Defaults[.llamaKitModelPath]
-                    if !modelPath.isEmpty {
-                        try await aiBackendManager.loadModelForLlamaCpp(modelPath)
-                    }
-                }
+
                 
                 // Refresh the models list
                 fetchModelsFromBackend()
@@ -3125,111 +3190,90 @@ final class ChatViewModel {
         }
     }
     
-    /// Scans for LlamaCpp models directly without requiring backend initialization
-    /// This allows us to show available models even if the llama-server executable isn't found
-    private func scanLlamaCppModelsDirectly() async -> [String] {
-        print("DEBUG: Starting direct LlamaCpp model scan")
-        
-        var availableModels: [String] = []
-        
-        // Get model directories
-        let appSupportPaths = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
-        guard let appSupportPath = appSupportPaths.first else {
-            print("DEBUG: Could not get Application Support path")
-            return []
+    /// Generates an analysis response from the AI without creating visible messages
+    /// - Parameters:
+    ///   - prompt: The analysis prompt
+    ///   - ollamaKit: The OllamaKit instance
+    /// - Returns: The generated analysis
+    /// - Throws: ChatViewModelError if generation fails
+    private func generateAnalysis(prompt: String, ollamaKit: OllamaKit) async throws -> String {
+        guard let activeChat = self.activeChat else {
+            throw ChatViewModelError.generate("No active chat available")
         }
         
-        let appName = Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "ClientNote"
+        print("DEBUG: Starting analysis generation with prompt length: \(prompt.count)")
+        print("DEBUG: Analysis prompt preview: \(String(prompt.prefix(100)))...")
         
-        let downloadPaths = [
-            appSupportPath.appendingPathComponent(appName).appendingPathComponent("LlamaKitModels"),
-            appSupportPath.appendingPathComponent(appName).appendingPathComponent("Models")
-        ]
+        // Use direct OllamaKit API call instead of going through MessageViewModel
+        // This prevents creating temporary messages that could interfere with the main chat
+        print("DEBUG: Using model: '\(activeChat.model)' for analysis")
+        print("DEBUG: Active chat details - model: '\(activeChat.model)', host: '\(activeChat.host ?? "nil")'")
         
-        print("DEBUG: Direct scan checking \(downloadPaths.count) directories")
+        let chatData = OKChatRequestData(
+            model: activeChat.model,
+            messages: [
+                OKChatRequestData.Message(role: .system, content: activeChat.systemPrompt ?? ""),
+                OKChatRequestData.Message(role: .user, content: prompt)
+            ]
+        )
         
-        for downloadPath in downloadPaths {
-            print("DEBUG: Direct scan - checking: \(downloadPath.path)")
-            print("DEBUG: Direct scan - directory exists: \(FileManager.default.fileExists(atPath: downloadPath.path))")
+        var fullResponse = ""
+        var isReasoningContent = false
+        
+        do {
+            print("DEBUG: Making direct API call for analysis")
             
-            do {
-                let contents = try FileManager.default.contentsOfDirectory(at: downloadPath, 
-                                                                         includingPropertiesForKeys: nil)
+            for try await chunk in ollamaKit.chat(data: chatData) {
+                guard let content = chunk.message?.content else { continue }
                 
-                print("DEBUG: Direct scan - found \(contents.count) items in \(downloadPath.path)")
-                
-                for fileURL in contents {
-                    let fileName = fileURL.lastPathComponent
-                    let fileExtension = fileURL.pathExtension
-                    print("DEBUG: Direct scan - found file: \(fileName) (extension: \(fileExtension))")
-                    
-                    if fileExtension == "gguf" {
-                        let friendlyName = friendlyModelNameDirect(for: fileURL.path)
-                        print("DEBUG: Direct scan - found GGUF model: \(fileName) -> \(friendlyName)")
-                        
-                        // Avoid duplicates
-                        if !availableModels.contains(friendlyName) {
-                            availableModels.append(friendlyName)
-                            print("DEBUG: Direct scan - added model to list: \(friendlyName)")
-                        } else {
-                            print("DEBUG: Direct scan - skipped duplicate model: \(friendlyName)")
-                        }
-                    }
+                // Handle reasoning content (like <think> tags) by skipping it
+                if content.contains("<think>") {
+                    isReasoningContent = true
+                    continue
                 }
-            } catch {
-                print("DEBUG: Direct scan - could not scan directory \(downloadPath.path): \(error)")
+                
+                if content.contains("</think>") {
+                    isReasoningContent = false
+                    continue
+                }
+                
+                // Only accumulate non-reasoning content
+                if !isReasoningContent {
+                    fullResponse += content
+                }
+                
+                // Check if generation is done
+                if chunk.done {
+                    print("DEBUG: Analysis generation completed via direct API")
+                    print("DEBUG: Response length: \(fullResponse.count)")
+                    break
+                }
             }
+            
+            // Validate we got a meaningful response
+            let trimmedResponse = fullResponse.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedResponse.isEmpty else {
+                throw ChatViewModelError.generate("Empty response from analysis generation")
+            }
+            
+            print("DEBUG: Analysis generation successful")
+            return trimmedResponse
+            
+        } catch {
+            print("DEBUG: Analysis generation failed: \(error)")
+            throw ChatViewModelError.generate("Analysis generation failed: \(error.localizedDescription)")
         }
-        
-        print("DEBUG: Direct scan - total models found: \(availableModels.count)")
-        print("DEBUG: Direct scan - available models: \(availableModels)")
-        
-        return availableModels
     }
     
-    /// Direct model name mapping without requiring backend
-    private func friendlyModelNameDirect(for modelPath: String) -> String {
-        let fileName = URL(fileURLWithPath: modelPath).lastPathComponent
-        
-        // Handle direct filename mappings first
-        let modelMappings: [String: String] = [
-            "Qwen3-0.6B-Q4_0.gguf": "Flash",
-            "gemma-3-1b-it-Q4_0.gguf": "Scout", 
-            "Qwen3-1.7B-Q4_0.gguf": "Runner",
-            "granite-3.3-2b-instruct-Q4_0.gguf": "Focus",
-            "gemma-3-4b-it-Q4_0.gguf": "Sage",
-            "granite-3.3-8b-instruct-Q4_0.gguf": "Deep Thought"
-        ]
-        
-        // Check for exact match first
-        if let friendlyName = modelMappings[fileName] {
-            return friendlyName
-        }
-        
-        // Handle legacy Q8_0 models by mapping them to Q4_0 equivalents
-        let legacyMappings: [String: String] = [
-            "Qwen3-0.6B-Q8_0.gguf": "Flash",
-            "gemma-3-1b-it-Q8_0.gguf": "Scout",
-            "Qwen3-1.7B-Q8_0.gguf": "Runner", 
-            "granite-3.3-2b-instruct-Q8_0.gguf": "Focus",
-            "gemma-3-4b-it-Q8_0.gguf": "Sage",
-            "granite-3.3-8b-instruct-Q8_0.gguf": "Deep Thought"
-        ]
-        
-        if let friendlyName = legacyMappings[fileName] {
-            print("DEBUG: Direct scan - found legacy Q8_0 model \(fileName), mapping to \(friendlyName)")
-            return friendlyName
-        }
-        
-        // Use AssistantModel mapping as fallback
-        let assistantName = AssistantModel.nameFor(fileName: fileName)
-        if assistantName != fileName {
-            return assistantName
-        }
-        
-        // If no mapping found, return the original filename
-        return fileName.replacingOccurrences(of: ".gguf", with: "")
+    // MARK: - Helper Methods
+    
+    /// Determines if the current backend is OllamaKit
+    /// - Returns: true if using OllamaKit backend, false otherwise
+    private var isUsingOllamaKit: Bool {
+        return Defaults[.selectedAIBackend] == .ollamaKit
     }
+    
+    /// Loads existing chat history from persistent storage
 }
 
 enum ChatViewModelLoading {

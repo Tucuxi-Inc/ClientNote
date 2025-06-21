@@ -60,21 +60,12 @@ struct ClientNoteApp: App {
         // Backend initialization is handled automatically by singleton
         // No need for manual initialization here
 
-        // Only create initial chat if not first launch (Flash will be downloaded during first launch)
-        // OR if using LlamaKit and no model is configured yet
+        // Only create initial chat if not first launch
         if Defaults[.defaultHasLaunched] {
-            // Check if we need to set up LlamaKit model
-            let selectedBackend = Defaults[.selectedAIBackend]
-            if selectedBackend == .llamaCpp && Defaults[.llamaKitModelPath].isEmpty {
-                // LlamaKit is selected but no model configured - user needs to download Flash
-                print("DEBUG: LlamaKit selected but no model configured - showing splash for setup")
-                // Don't create initial chat, let splash screen handle setup
-            } else {
             chatViewModel.create(model: Defaults[.defaultModel])
             if let activeChat = chatViewModel.selectedChats.first {
                 chatViewModel.activeChat = activeChat
                 messageViewModel.load(of: activeChat)
-                }
             }
         }
 
@@ -203,19 +194,14 @@ struct ClientNoteApp: App {
     }
 }
 
-
-
 // Simple splash screen view
 struct SimpleSplashScreen: View {
     @Binding var isPresented: Bool
     @Environment(ChatViewModel.self) private var chatViewModel
     @Environment(MessageViewModel.self) private var messageViewModel
     @Environment(AIBackendManager.self) private var aiBackendManager
-    @State private var isOllamaInstalled: Bool = false
-    @State private var isCheckingBackend: Bool = true
-
-    @State private var ollamaKit: OllamaKit
-    @State private var selectedBackend: AIBackend = Defaults[.selectedAIBackend]
+    @State private var showingFirstTimeSetup = false
+    @State private var isCheckingSetup = true
     @State private var currentImageIndex: Int = 0
     @State private var isShowingImageCycle: Bool = false
     
@@ -229,8 +215,6 @@ struct SimpleSplashScreen: View {
     
     init(isPresented: Binding<Bool>) {
         self._isPresented = isPresented
-        let baseURL = URL(string: Defaults[.defaultHost])!
-        self._ollamaKit = State(initialValue: OllamaKit(baseURL: baseURL))
     }
     
     var body: some View {
@@ -247,121 +231,48 @@ struct SimpleSplashScreen: View {
                     .transition(.opacity)
                     .id(currentImageIndex) // Force view update on index change
                 
-                if isCheckingBackend {
-                    ProgressView("Initializing AI backend...")
+                if isCheckingSetup {
+                    ProgressView("Loading...")
                         .progressViewStyle(.circular)
-                } else if selectedBackend == .ollamaKit && !isOllamaInstalled {
-                    VStack(spacing: 16) {
-                        Text("Ollama Required")
-                            .font(.headline)
-                        
-                        Text("Please install Ollama to continue")
-                            .foregroundColor(.secondary)
-                        
-                        Button("Download Ollama") {
-                            if let url = URL(string: "https://ollama.com/download") {
-                                NSWorkspace.shared.open(url)
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(Color.euniPrimary)
-                        
-                        Button("Check Again") {
-                            checkBackendInstallation()
-                        }
-                    }
                 } else if isShowingImageCycle {
                     VStack(spacing: 8) {
                         ProgressView("Starting up...")
                             .progressViewStyle(.circular)
-                    }
-                } else {
-                    VStack(spacing: 16) {
-                        // Legal text with clickable links
-                        HStack(spacing: 0) {
-                            Text("By clicking 'Get Started' you agree to the ")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            
-                            Link("Tucuxi Terms of Use", destination: URL(string: "https://bit.ly/TucuxiTermsoUse")!)
-                                .font(.caption)
-                                .foregroundColor(.blue)
-                            
-                            Text(" and ")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            
-                            Link("Tucuxi Privacy Policy", destination: URL(string: "https://bit.ly/TucuxiPrivacyPolicy")!)
-                                .font(.caption)
-                                .foregroundColor(.blue)
-                        }
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal)
-                        
-                        Button("Get Started") {
-                            handleGetStarted()
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(Color.euniPrimary)
-                        .disabled(selectedBackend == .ollamaKit && !isOllamaInstalled)
                     }
                 }
             }
             .padding()
         }
         .onAppear {
-            selectedBackend = Defaults[.selectedAIBackend]
-            checkBackendInstallation()
+            checkFirstTimeSetup()
+        }
+        .sheet(isPresented: $showingFirstTimeSetup) {
+            FirstTimeSetupView(isPresented: $showingFirstTimeSetup)
+                .environment(chatViewModel)
+                .interactiveDismissDisabled()
+                .onDisappear {
+                    // After setup is complete, start the image cycle
+                    startImageCycleAndDismiss()
+                }
         }
     }
     
-    private func checkBackendInstallation() {
-        isCheckingBackend = true
-        selectedBackend = Defaults[.selectedAIBackend]
+    private func checkFirstTimeSetup() {
+        isCheckingSetup = true
         
         Task {
-            // Always check for Ollama installation (for settings display purposes)
-            let isOllamaReachable = await ollamaKit.reachable()
-            
             await MainActor.run {
-                isOllamaInstalled = isOllamaReachable
+                isCheckingSetup = false
                 
-                // Store Ollama installation status for settings
-                Defaults[.isOllamaInstalled] = isOllamaReachable
-                
-                if selectedBackend == .ollamaKit {
-                    isCheckingBackend = false
-                    
-                    // If Ollama is installed and this is not first launch, start image cycle
-                    if isOllamaReachable && Defaults[.defaultHasLaunched] {
-                        startImageCycleAndDismiss()
-                    }
+                // Check if this is first launch
+                if !Defaults[.defaultHasLaunched] {
+                    showingFirstTimeSetup = true
                 } else {
-                    // Using LlamaKit - always available
-                    isCheckingBackend = false
-                    
-                    // If this is not first launch, start image cycle
-                    if Defaults[.defaultHasLaunched] {
-                        startImageCycleAndDismiss()
-                    }
-                    // Otherwise, splash screen will show "Get Started" button
+                    // Not first launch, start image cycle and dismiss
+                    startImageCycleAndDismiss()
                 }
             }
         }
-    }
-    
-    private func handleGetStarted() {
-        // Start image cycling while initializing the app
-        startImageCycleAndDismiss()
-        
-        // Set up bundled model for first-time users
-        if !Defaults[.defaultHasLaunched] && selectedBackend == .llamaCpp {
-            setupBundledFlashModel()
-        }
-        
-        // Mark as launched
-        Defaults[.defaultHasLaunched] = true
     }
     
     private func startImageCycleAndDismiss() {
@@ -387,52 +298,6 @@ struct SimpleSplashScreen: View {
             }
         }
     }
-    
-    private func setupBundledFlashModel() {
-        Task {
-            // Look for bundled Flash model
-            guard let resourcePath = Bundle.main.resourcePath else {
-                print("DEBUG: Could not get bundle resource path")
-                return
-            }
-            
-            let bundledModelsPath = URL(fileURLWithPath: resourcePath)
-            let flashModelPath = bundledModelsPath.appendingPathComponent("Qwen3-0.6B-Q4_0.gguf")
-            
-            if FileManager.default.fileExists(atPath: flashModelPath.path) {
-                print("DEBUG: Found bundled Flash model at: \(flashModelPath.path)")
-                
-                // Set the bundled model as the default
-                Defaults[.llamaKitModelPath] = flashModelPath.path
-                Defaults[.defaultModel] = "Qwen3-0.6B-Q4_0.gguf"
-                
-                // Load the model into the backend
-                do {
-                    print("DEBUG: Loading bundled Flash model into LlamaKit backend")
-                    try await aiBackendManager.loadModelForLlamaCpp(flashModelPath.path)
-                    
-                    // Create initial chat with Flash model
-                    await MainActor.run {
-                        chatViewModel.create(model: "Qwen3-0.6B-Q4_0.gguf")
-                        if let activeChat = chatViewModel.selectedChats.first {
-                            chatViewModel.activeChat = activeChat
-                            messageViewModel.load(of: activeChat)
-                        }
-                    }
-                    
-                    print("DEBUG: Successfully set up bundled Flash model for first-time user")
-                } catch {
-                    print("DEBUG: Failed to load bundled Flash model: \(error)")
-                }
-            } else {
-                print("DEBUG: Bundled Flash model not found at: \(flashModelPath.path)")
-            }
-        }
-    }
-    
-
-    
-
     
     private func dismissSplashScreen() {
         withAnimation(.easeOut(duration: 0.3)) {

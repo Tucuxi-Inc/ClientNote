@@ -1005,6 +1005,23 @@ class LlamaServerManager {
 }
 ```
 
+### 5. Server Stops Immediately After Starting
+**Symptoms**: "Server process terminated unexpectedly" right after successful startup
+**Root Cause**: Backend instance being deallocated, triggering deinit method that stops server
+**Solutions**:
+- Ensure backend instance is properly retained in AIBackendManager
+- Check for retain cycles or premature deallocation
+- Temporarily disable deinit method if needed:
+```swift
+// TEMPORARILY DISABLED: deinit was causing immediate server shutdown
+/*
+deinit {
+    stopServerSync()
+}
+*/
+```
+- Investigate backend lifecycle management to prevent premature deallocation
+
 ## Download System Implementation
 
 ### Problem: URLSession Temporary File Management

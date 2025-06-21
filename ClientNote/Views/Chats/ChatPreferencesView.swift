@@ -53,281 +53,46 @@ struct ChatPreferencesView: View {
     var body: some View {
         @Bindable var bindableChatViewModel = chatViewModel
         
-        Form {
-            // Note Format Section
-            Section {
-                noteFormatView
-            } header: {
-                Text("Note Format")
+        mainForm
+            .onChange(of: self.chatViewModel.activeChat) { _, newValue in
+                handleActiveChatChange(newValue)
             }
-            
-            // Template Section
-            Section {
-                noteTemplateView
-            } header: {
-                Text("Additional Note Format Template/Information")
-            } footer: {
-                Text("Enter or paste a sample note format that you'd like the system to reference when generating notes.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+            .onChange(of: selectedAIBackend) { _, _ in
+                handleBackendChange()
             }
-            
-            // Additional Assistants Section
-            Section {
-                // Show current backend
-                HStack {
-                    Text("Using:")
-                        .foregroundColor(.secondary)
-                    Text(selectedAIBackend.displayName)
-                        .fontWeight(.medium)
-                        .foregroundColor(Color.euniPrimary)
-                    Spacer()
-                    if selectedAIBackend == .ollamaKit {
-                        Text("Downloads from Ollama")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    } else {
-                        Text("Downloads from HuggingFace")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                
-                // Picker for selecting model to download
-                Picker("Choose an Assistant", selection: $selectedDownloadModel) {
-                    ForEach(AssistantModel.all, id: \.name) { assistant in
-                        Text(assistant.name).tag(assistant.name)
-                    }
-                }
-                
-                Button(action: { pullModel(selectedDownloadModel) }) {
-                    if isPullingModel {
-                        HStack {
-                            ProgressView()
-                                .controlSize(.small)
-                            Text("Downloading... \(Int(pullProgress * 100))%")
-                        }
-                    } else {
-                        HStack {
-                            Image(systemName: selectedAIBackend == .ollamaKit ? "arrow.down.circle" : "arrow.down.doc")
-                        Text("Download Assistant")
-                        }
-                    }
-                }
-                .disabled(isPullingModel)
-                .foregroundColor(isPullingModel ? Color.euniSecondary : Color.euniPrimary)
-                
-                if !pullStatus.isEmpty {
-                    if pullStatus.starts(with: "Successfully downloaded") {
-                        HStack {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
-                            Text(pullStatus)
-                                .font(.caption)
-                                .foregroundColor(Color.euniText)
-                        }
-                        .padding(.top, 4)
-                    } else if pullStatus != "success" {
-                        HStack {
-                            Text(pullStatus)
-                                .font(.caption)
-                                .foregroundColor(Color.euniSecondary)
-                        }
-                        .padding(.top, 4)
-                    }
-                }
-            } header: {
-                HStack {
-                    Text("Additional Assistants")
-                    
-                    Spacer()
-                    
-                    Button(action: { showModelInfoPopover = true }) {
-                        Image(systemName: "info.circle")
-                            .foregroundColor(Color.euniPrimary)
-                    }
-                    .buttonStyle(.accessoryBar)
-                    .popover(isPresented: $showModelInfoPopover) {
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text("Available Assistants")
-                                .font(.headline)
-                                .foregroundColor(Color.euniText)
-                                .padding(.bottom, 8)
-                            
-                            Text("These Assistants use large language models optimized to work on most MacBooks with Apple Silicon and at least 8GB of memory.")
-                                .foregroundColor(Color.euniText)
-                            
-                            // Show backend-specific info
-                            if selectedAIBackend == .llamaCpp {
-                                Text("Using built-in Llama: Models are downloaded directly from HuggingFace and run with our integrated llama.cpp engine.")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                    .padding(.top, 4)
-                            } else {
-                                Text("Using Ollama: Models are downloaded through the Ollama application and managed by the Ollama server.")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                    .padding(.top, 4)
-                            }
-                            
-                            Text("Assistant Information:")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                                .foregroundColor(Color.euniText)
-                                .padding(.top, 8)
-                            
-                            // Column titles
-                            HStack {
-                                Text("Assistant")
-                                    .fontWeight(.bold)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                Text("Size / Context")
-                                    .fontWeight(.bold)
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                Text("Model")
-                                    .fontWeight(.bold)
-                                    .frame(maxWidth: .infinity, alignment: .trailing)
-                            }
-                            .foregroundColor(Color.euniText)
-                            
-                            Divider()
-                            
-                            // Assistant rows
-                            Group {
-                                ForEach(AssistantModel.all, id: \.modelId) { assistant in
-                                    assistantRow(name: assistant.name, 
-                                               description: assistant.description, 
-                                               size: assistant.size, 
-                                               model: assistant.modelId)
-                                }
-                            }
-                        }
-                        .padding()
-                        .frame(minWidth: 350, maxWidth: 500)
-                    }
+            .sheet(isPresented: $isUpdateOllamaHostPresented) {
+                UpdateOllamaHostSheet(host: host) { host in
+                    self.host = host
                 }
             }
-            
-            // Client Removal Section
-            Section {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Remove a client and all associated records")
-                        .foregroundColor(Color.euniError)
-                        .font(.caption)
-                    
-                    Picker("Select Client to Remove", selection: $clientToDelete) {
-                        Text("Select a Client").tag(nil as UUID?)
-                        ForEach(chatViewModel.clients) { client in
-                            Text(client.identifier).tag(client.id as UUID?)
-                        }
-                    }
-                    
-                    if clientToDelete != nil {
-                        Button(role: .destructive) {
-                            showDeleteClientConfirmation = true
-                        } label: {
-                            Label("Delete Selected Client", systemImage: "trash")
-                                .foregroundColor(.red)
-                        }
-                        .buttonStyle(.borderless)
-                        .padding(.top, 4)
-                    }
-                }
-            } header: {
-                Text("Remove Client")
-            } footer: {
-                Text("Warning: This will permanently delete the client and all their session notes, treatment plans, and brainstorm sessions.")
-                    .foregroundColor(Color.euniError)
-            }
-            
-            // Copyright section at the bottom
-            Section {
-                Text("Euni™ - Client Notes © 2025 Tucuxi, Inc.")
-                    .font(.caption)
-                    .foregroundColor(Color.euniSecondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 8)
-            }
-        }
-        .onChange(of: self.chatViewModel.activeChat) { _, newValue in
-            if let model = newValue?.model {
-                self.selectedDownloadModel = model
-            }
-            
-            // Only update host for OllamaKit
-            if selectedAIBackend == .ollamaKit {
-            if let host = newValue?.host {
-                self.host = host
+            .sheet(isPresented: $isUpdateSystemPromptPresented) {
+                UpdateSystemPromptSheet(prompt: systemPrompt) { prompt in
+                    self.systemPrompt = prompt
                 }
             }
-            
-            if let systemPrompt = newValue?.systemPrompt {
-                self.systemPrompt = systemPrompt
+            .onAppear {
+                handleViewAppear()
             }
-            
-            if let temperature = newValue?.temperature {
-                self.temperature = temperature
+            .alert("Delete Client?", isPresented: $showDeleteClientConfirmation) {
+                Button("Cancel", role: .cancel) {
+                    clientToDelete = nil
+                }
+                Button("Proceed", role: .destructive) {
+                    showFinalDeleteConfirmation = true
+                }
+            } message: {
+                deleteClientAlertMessage
             }
-            
-            if let topP = newValue?.topP {
-                self.topP = topP
+            .alert("Final Confirmation", isPresented: $showFinalDeleteConfirmation) {
+                Button("Cancel", role: .cancel) {
+                    clientToDelete = nil
+                }
+                Button("Yes, Delete Everything", role: .destructive) {
+                    deleteSelectedClient()
+                }
+            } message: {
+                finalDeleteAlertMessage
             }
-            
-            if let topK = newValue?.topK {
-                self.topK = topK
-            }
-        }
-        .onChange(of: selectedAIBackend) { _, _ in
-            // Refresh models when backend changes
-            if selectedAIBackend == .ollamaKit {
-                chatViewModel.fetchModels(ollamaKit)
-            } else {
-                chatViewModel.fetchModelsFromBackend()
-            }
-        }
-        .sheet(isPresented: $isUpdateOllamaHostPresented) {
-            UpdateOllamaHostSheet(host: host) { host in
-                self.host = host
-            }
-        }
-        .sheet(isPresented: $isUpdateSystemPromptPresented) {
-            UpdateSystemPromptSheet(prompt: systemPrompt) { prompt in
-                self.systemPrompt = prompt
-            }
-        }
-        .onAppear {
-            if selectedAIBackend == .ollamaKit {
-            chatViewModel.fetchModels(ollamaKit)
-            } else {
-                chatViewModel.fetchModelsFromBackend()
-            }
-        }
-        .alert("Delete Client?", isPresented: $showDeleteClientConfirmation) {
-            Button("Cancel", role: .cancel) {
-                clientToDelete = nil
-            }
-            Button("Proceed", role: .destructive) {
-                showFinalDeleteConfirmation = true
-            }
-        } message: {
-            if let clientID = clientToDelete,
-               let client = chatViewModel.clients.first(where: { $0.id == clientID }) {
-                Text("Are you sure you want to delete the client '\(client.identifier)' and all their associated records?")
-            }
-        }
-        .alert("Final Confirmation", isPresented: $showFinalDeleteConfirmation) {
-            Button("Cancel", role: .cancel) {
-                clientToDelete = nil
-            }
-            Button("Yes, Delete Everything", role: .destructive) {
-                deleteSelectedClient()
-            }
-        } message: {
-            if let clientID = clientToDelete,
-               let client = chatViewModel.clients.first(where: { $0.id == clientID }) {
-                Text("This will permanently delete '\(client.identifier)' and ALL their records. This action cannot be undone.\n\nAre you absolutely sure?")
-            }
-        }
     }
     
     private var noteFormatView: some View {
@@ -389,6 +154,303 @@ struct ChatPreferencesView: View {
         showingNoteFormatInfo = true
     }
     
+    private var deleteClientAlertMessage: Text {
+        if let clientID = clientToDelete,
+           let client = chatViewModel.clients.first(where: { $0.id == clientID }) {
+            return Text("Are you sure you want to delete the client '\(client.identifier)' and all their associated records?")
+        }
+        return Text("")
+    }
+    
+    private var finalDeleteAlertMessage: Text {
+        if let clientID = clientToDelete,
+           let client = chatViewModel.clients.first(where: { $0.id == clientID }) {
+            return Text("This will permanently delete '\(client.identifier)' and ALL their records. This action cannot be undone.\n\nAre you absolutely sure?")
+        }
+        return Text("")
+    }
+    
+    private var mainForm: some View {
+        Form {
+            noteFormatSection
+            templateSection
+            assistantsSection
+            clientRemovalSection
+            copyrightSection
+        }
+    }
+    
+    private var noteFormatSection: some View {
+            Section {
+                noteFormatView
+            } header: {
+                Text("Note Format")
+        }
+            }
+            
+    private var templateSection: some View {
+            Section {
+                noteTemplateView
+            } header: {
+                Text("Additional Note Format Template/Information")
+            } footer: {
+                Text("Enter or paste a sample note format that you'd like the system to reference when generating notes.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+        }
+            }
+            
+    private var assistantsSection: some View {
+            Section {
+            assistantsSectionContent
+        } header: {
+            assistantsSectionHeader
+        }
+    }
+    
+    private var assistantsSectionContent: some View {
+        VStack(spacing: 12) {
+            currentBackendView
+            assistantPickerView
+            downloadButtonView
+            downloadStatusView
+        }
+    }
+    
+    private var currentBackendView: some View {
+                HStack {
+                    Text("Using:")
+                        .foregroundColor(.secondary)
+                    Text(selectedAIBackend.displayName)
+                        .fontWeight(.medium)
+                        .foregroundColor(Color.euniPrimary)
+                    Spacer()
+                    if selectedAIBackend == .ollamaKit {
+                        Text("Downloads from Ollama")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    } else {
+                        Text("Downloads from HuggingFace")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+            }
+                    }
+                }
+                
+    private var assistantPickerView: some View {
+                Picker("Choose an Assistant", selection: $selectedDownloadModel) {
+                    ForEach(AssistantModel.all, id: \.name) { assistant in
+                        Text(assistant.name).tag(assistant.name)
+            }
+                    }
+                }
+                
+    private var downloadButtonView: some View {
+                Button(action: { pullModel(selectedDownloadModel) }) {
+                    if isPullingModel {
+                        HStack {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Downloading... \(Int(pullProgress * 100))%")
+                        }
+                    } else {
+                        HStack {
+                            Image(systemName: selectedAIBackend == .ollamaKit ? "arrow.down.circle" : "arrow.down.doc")
+                        Text("Download Assistant")
+                        }
+                    }
+                }
+                .disabled(isPullingModel)
+                .foregroundColor(isPullingModel ? Color.euniSecondary : Color.euniPrimary)
+    }
+                
+    @ViewBuilder
+    private var downloadStatusView: some View {
+                if !pullStatus.isEmpty {
+                    if pullStatus.starts(with: "Successfully downloaded") {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                            Text(pullStatus)
+                                .font(.caption)
+                                .foregroundColor(Color.euniText)
+                        }
+                        .padding(.top, 4)
+                    } else if pullStatus != "success" {
+                        HStack {
+                            Text(pullStatus)
+                                .font(.caption)
+                                .foregroundColor(Color.euniSecondary)
+                        }
+                        .padding(.top, 4)
+                    }
+                }
+    }
+    
+    private var assistantsSectionHeader: some View {
+                HStack {
+                    Text("Additional Assistants")
+                    Spacer()
+                    Button(action: { showModelInfoPopover = true }) {
+                        Image(systemName: "info.circle")
+                            .foregroundColor(Color.euniPrimary)
+                    }
+                    .buttonStyle(.accessoryBar)
+                    .popover(isPresented: $showModelInfoPopover) {
+                assistantsInfoPopover
+            }
+        }
+    }
+    
+    private var assistantsInfoPopover: some View {
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("Available Assistants")
+                                .font(.headline)
+                                .foregroundColor(Color.euniText)
+                                .padding(.bottom, 8)
+                            
+                            Text("These Assistants use large language models optimized to work on most MacBooks with Apple Silicon and at least 8GB of memory.")
+                                .foregroundColor(Color.euniText)
+                            
+            backendSpecificInfo
+            
+            Text("Assistant Information:")
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundColor(Color.euniText)
+                .padding(.top, 8)
+            
+            assistantTableHeader
+            Divider()
+            assistantTableRows
+        }
+        .padding()
+        .frame(minWidth: 350, maxWidth: 500)
+    }
+    
+    @ViewBuilder
+    private var backendSpecificInfo: some View {
+        Text("Using Ollama: Models are downloaded through the Ollama application and managed by the Ollama server.")
+            .font(.caption)
+            .foregroundColor(.secondary)
+            .padding(.top, 4)
+    }
+    
+    private var assistantTableHeader: some View {
+                            HStack {
+                                Text("Assistant")
+                                    .fontWeight(.bold)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                Text("Size / Context")
+                                    .fontWeight(.bold)
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                                Text("Model")
+                                    .fontWeight(.bold)
+                                    .frame(maxWidth: .infinity, alignment: .trailing)
+                            }
+                            .foregroundColor(Color.euniText)
+    }
+                            
+    private var assistantTableRows: some View {
+                            Group {
+                                ForEach(AssistantModel.all, id: \.modelId) { assistant in
+                                    assistantRow(name: assistant.name, 
+                                               description: assistant.description, 
+                                               size: assistant.size, 
+                                               model: assistant.modelId)
+                    }
+                }
+            }
+            
+    private var clientRemovalSection: some View {
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Remove a client and all associated records")
+                        .foregroundColor(Color.euniError)
+                        .font(.caption)
+                    
+                    Picker("Select Client to Remove", selection: $clientToDelete) {
+                        Text("Select a Client").tag(nil as UUID?)
+                        ForEach(chatViewModel.clients) { client in
+                            Text(client.identifier).tag(client.id as UUID?)
+                        }
+                    }
+                    
+                    if clientToDelete != nil {
+                        Button(role: .destructive) {
+                            showDeleteClientConfirmation = true
+                        } label: {
+                            Label("Delete Selected Client", systemImage: "trash")
+                                .foregroundColor(.red)
+                        }
+                        .buttonStyle(.borderless)
+                        .padding(.top, 4)
+                    }
+                }
+            } header: {
+                Text("Remove Client")
+            } footer: {
+                Text("Warning: This will permanently delete the client and all their session notes, treatment plans, and brainstorm sessions.")
+                    .foregroundColor(Color.euniError)
+        }
+            }
+            
+    private var copyrightSection: some View {
+            Section {
+                Text("Euni™ - Client Notes © 2025 Tucuxi, Inc.")
+                    .font(.caption)
+                    .foregroundColor(Color.euniSecondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 8)
+            }
+        }
+    
+    private func handleActiveChatChange(_ newValue: Chat?) {
+            if let model = newValue?.model {
+                self.selectedDownloadModel = model
+            }
+            
+            // Only update host for OllamaKit
+            if selectedAIBackend == .ollamaKit {
+            if let host = newValue?.host {
+                self.host = host
+                }
+            }
+            
+            if let systemPrompt = newValue?.systemPrompt {
+                self.systemPrompt = systemPrompt
+            }
+            
+            if let temperature = newValue?.temperature {
+                self.temperature = temperature
+            }
+            
+            if let topP = newValue?.topP {
+                self.topP = topP
+            }
+            
+            if let topK = newValue?.topK {
+                self.topK = topK
+            }
+        }
+    
+    private func handleBackendChange() {
+            // Refresh models when backend changes
+            if selectedAIBackend == .ollamaKit {
+                chatViewModel.fetchModels(ollamaKit)
+            } else {
+                chatViewModel.fetchModelsFromBackend()
+            }
+        }
+    
+    private func handleViewAppear() {
+            if selectedAIBackend == .ollamaKit {
+                chatViewModel.fetchModels(ollamaKit)
+            } else {
+                chatViewModel.fetchModelsFromBackend()
+            }
+    }
+    
     // Backend-aware model pulling functionality
     func pullModel(_ assistantName: String) {
         guard !isPullingModel else { return }
@@ -418,7 +480,7 @@ struct ChatPreferencesView: View {
                 
                 // Refresh models list to show the newly pulled model
                 if selectedAIBackend == .ollamaKit {
-                chatViewModel.fetchModels(ollamaKit)
+                    chatViewModel.fetchModels(ollamaKit)
                 } else {
                     chatViewModel.fetchModelsFromBackend()
                 }
