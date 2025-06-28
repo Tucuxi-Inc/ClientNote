@@ -13,6 +13,11 @@ struct SettingsView: View {
                         Label("General", systemImage: "gearshape")
                     }
                 
+                AIServiceSettingsView()
+                    .tabItem {
+                        Label("AI Service", systemImage: "brain.head.profile")
+                    }
+                
                 // Restore the PurchaseView
                 PurchaseView()
                     .tabItem {

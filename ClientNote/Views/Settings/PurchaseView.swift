@@ -70,9 +70,20 @@ struct PurchaseView: View {
                             .foregroundColor(.red)
                             .font(.title2)
                         
-                        Text(errorMessage)
-                            .foregroundColor(.red)
-                            .font(.headline)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(errorMessage)
+                                .foregroundColor(.red)
+                                .font(.headline)
+                            
+                            Button("Retry") {
+                                Task {
+                                    await iapManager.loadProducts()
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.red)
+                            .font(.caption)
+                        }
                         
                         Spacer()
                         
@@ -91,8 +102,8 @@ struct PurchaseView: View {
                     .transition(.opacity)
                     .animation(.easeInOut, value: iapManager.errorMessage != nil)
                     .onAppear {
-                        // Auto-dismiss after 8 seconds
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
+                        // Auto-dismiss after 15 seconds (increased from 8)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 15) {
                             iapManager.errorMessage = nil
                         }
                     }
@@ -246,9 +257,32 @@ struct PurchaseView: View {
                                     .font(.caption)
                                     .foregroundColor(Color.euniSecondary)
                                     .padding(.top, 8)
+                                
+                                // Privacy Policy and Terms of Use Links (Required by Apple)
+                                VStack(spacing: 8) {
+                                    HStack(spacing: 0) {
+                                        Text("By subscribing, you agree to our ")
+                                            .font(.caption)
+                                            .foregroundColor(Color.euniSecondary)
+                                        
+                                        Link("Terms of Use", destination: URL(string: "https://bit.ly/TucuxiTermsoUse")!)
+                                            .font(.caption)
+                                            .foregroundColor(.blue)
+                                        
+                                        Text(" and ")
+                                            .font(.caption)
+                                            .foregroundColor(Color.euniSecondary)
+                                        
+                                        Link("Privacy Policy", destination: URL(string: "https://bit.ly/TucuxiPrivacyPolicy")!)
+                                            .font(.caption)
+                                            .foregroundColor(.blue)
+                                    }
+                                    .multilineTextAlignment(.center)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                }
+                                .padding(.top, 4)
                             }
                             
-                            /*
                             #if DEBUG
                             Divider()
                                 .padding(.vertical)
@@ -258,102 +292,103 @@ struct PurchaseView: View {
                                 .foregroundColor(Color.orange)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             
-                            // Full Unlock (One-Time Purchase)
-                            Button(action: {
-                                Task {
-                                    await iapManager.simulatePurchase(for: .fullUnlock)
+                            VStack(spacing: 12) {
+                                // Full Unlock (One-Time Purchase)
+                                Button(action: {
+                                    Task {
+                                        await iapManager.simulatePurchase(for: .fullUnlock)
+                                    }
+                                }) {
+                                    HStack {
+                                        Image(systemName: "testtube.2")
+                                        Text("Simulate One-Time Purchase")
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding()
+                                    .background(Color.orange.opacity(0.2))
+                                    .cornerRadius(8)
                                 }
-                            }) {
-                                HStack {
-                                    Image(systemName: "testtube.2")
-                                    Text("Simulate One-Time Purchase")
+                                
+                                // Yearly Subscription
+                                Button(action: {
+                                    Task {
+                                        await iapManager.simulatePurchase(for: .yearlySubscription)
+                                    }
+                                }) {
+                                    HStack {
+                                        Image(systemName: "testtube.2")
+                                        Text("Simulate 1-Year Subscription")
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding()
+                                    .background(Color.orange.opacity(0.2))
+                                    .cornerRadius(8)
                                 }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding()
-                                .background(Color.orange.opacity(0.2))
-                                .cornerRadius(8)
-                            }
-                            
-                            // Yearly Subscription
-                            Button(action: {
-                                Task {
-                                    await iapManager.simulatePurchase(for: .yearlySubscription)
+                                
+                                // Quarterly Subscription
+                                Button(action: {
+                                    Task {
+                                        await iapManager.simulatePurchase(for: .threeMonthSubscription)
+                                    }
+                                }) {
+                                    HStack {
+                                        Image(systemName: "testtube.2")
+                                        Text("Simulate 3-Month Subscription")
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding()
+                                    .background(Color.orange.opacity(0.2))
+                                    .cornerRadius(8)
                                 }
-                            }) {
-                                HStack {
-                                    Image(systemName: "testtube.2")
-                                    Text("Simulate 1-Year Subscription")
+                                
+                                // Monthly Subscription
+                                Button(action: {
+                                    Task {
+                                        await iapManager.simulatePurchase(for: .oneMonthSubscription)
+                                    }
+                                }) {
+                                    HStack {
+                                        Image(systemName: "testtube.2")
+                                        Text("Simulate 1-Month Subscription")
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding()
+                                    .background(Color.orange.opacity(0.2))
+                                    .cornerRadius(8)
                                 }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding()
-                                .background(Color.orange.opacity(0.2))
-                                .cornerRadius(8)
-                            }
-                            
-                            // Quarterly Subscription
-                            Button(action: {
-                                Task {
-                                    await iapManager.simulatePurchase(for: .threeMonthSubscription)
+                                
+                                // Weekly Subscription
+                                Button(action: {
+                                    Task {
+                                        await iapManager.simulatePurchase(for: .oneWeekSubscription)
+                                    }
+                                }) {
+                                    HStack {
+                                        Image(systemName: "testtube.2")
+                                        Text("Simulate 1-Week Subscription")
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding()
+                                    .background(Color.orange.opacity(0.2))
+                                    .cornerRadius(8)
                                 }
-                            }) {
-                                HStack {
-                                    Image(systemName: "testtube.2")
-                                    Text("Simulate 3-Month Subscription")
+                                
+                                Button(action: {
+                                    Task {
+                                        await iapManager.resetPurchases()
+                                    }
+                                }) {
+                                    HStack {
+                                        Image(systemName: "arrow.counterclockwise")
+                                        Text("Reset All Purchases")
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding()
+                                    .background(Color.red.opacity(0.2))
+                                    .cornerRadius(8)
                                 }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding()
-                                .background(Color.orange.opacity(0.2))
-                                .cornerRadius(8)
-                            }
-                            
-                            // Monthly Subscription
-                            Button(action: {
-                                Task {
-                                    await iapManager.simulatePurchase(for: .oneMonthSubscription)
-                                }
-                            }) {
-                                HStack {
-                                    Image(systemName: "testtube.2")
-                                    Text("Simulate 1-Month Subscription")
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding()
-                                .background(Color.orange.opacity(0.2))
-                                .cornerRadius(8)
-                            }
-                            
-                            // Weekly Subscription
-                            Button(action: {
-                                Task {
-                                    await iapManager.simulatePurchase(for: .oneWeekSubscription)
-                                }
-                            }) {
-                                HStack {
-                                    Image(systemName: "testtube.2")
-                                    Text("Simulate 1-Week Subscription")
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding()
-                                .background(Color.orange.opacity(0.2))
-                                .cornerRadius(8)
-                            }
-                            
-                            Button(action: {
-                                Task {
-                                    await iapManager.resetPurchases()
-                                }
-                            }) {
-                                HStack {
-                                    Image(systemName: "arrow.counterclockwise")
-                                    Text("Reset All Purchases")
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding()
-                                .background(Color.red.opacity(0.2))
-                                .cornerRadius(8)
                             }
                             #endif
-                            */
                         }
                         .padding()
                     } else {

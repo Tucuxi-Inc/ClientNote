@@ -21,6 +21,7 @@ struct ClientNoteApp: App {
     @State private var chatViewModel: ChatViewModel
     @State private var messageViewModel: MessageViewModel
     @State private var codeHighlighter: CodeHighlighter
+    @State private var aiBackendManager: AIBackendManager
 
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([Chat.self, Message.self])
@@ -40,8 +41,12 @@ struct ClientNoteApp: App {
         let appUpdater = AppUpdater()
         self._appUpdater = State(initialValue: appUpdater)
         
+        // Use shared AI Backend Manager (singleton)
+        let aiBackendManager = AIBackendManager.shared
+        self._aiBackendManager = State(initialValue: aiBackendManager)
+        
         // Create view models with circular references
-        let chatViewModel = ChatViewModel(modelContext: modelContext)
+        let chatViewModel = ChatViewModel(modelContext: modelContext, aiBackendManager: aiBackendManager)
         let messageViewModel = MessageViewModel(modelContext: modelContext, chatViewModel: chatViewModel)
         chatViewModel.setMessageViewModel(messageViewModel)
         
@@ -52,7 +57,10 @@ struct ClientNoteApp: App {
         let codeHighlighter = CodeHighlighter(colorScheme: .light, fontSize: Defaults[.fontSize], enabled: Defaults[.experimentalCodeHighlighting])
         _codeHighlighter = State(initialValue: codeHighlighter)
 
-        // Only create initial chat if not first launch (Flash will be downloaded during first launch)
+        // Backend initialization is handled automatically by singleton
+        // No need for manual initialization here
+
+        // Only create initial chat if not first launch
         if Defaults[.defaultHasLaunched] {
             chatViewModel.create(model: Defaults[.defaultModel])
             if let activeChat = chatViewModel.selectedChats.first {
@@ -114,6 +122,7 @@ struct ClientNoteApp: App {
                         .environment(chatViewModel)
                         .environment(messageViewModel)
                         .environment(codeHighlighter)
+                        .environment(aiBackendManager)
                 }
                 .preferredColorScheme(ColorScheme.light)
                 
@@ -121,6 +130,7 @@ struct ClientNoteApp: App {
                     SimpleSplashScreen(isPresented: $showSplashScreen)
                         .environment(chatViewModel)
                         .environment(messageViewModel)
+                        .environment(aiBackendManager)
                         .transition(.opacity)
                         .zIndex(1)
                         .preferredColorScheme(ColorScheme.light)
@@ -166,6 +176,7 @@ struct ClientNoteApp: App {
                 .environment(chatViewModel)
                 .environment(messageViewModel)
                 .environment(codeHighlighter)
+                .environment(aiBackendManager)
                 .preferredColorScheme(.light)
         }
     }
@@ -188,19 +199,22 @@ struct SimpleSplashScreen: View {
     @Binding var isPresented: Bool
     @Environment(ChatViewModel.self) private var chatViewModel
     @Environment(MessageViewModel.self) private var messageViewModel
-    @State private var isOllamaInstalled: Bool = false
-    @State private var isCheckingOllama: Bool = true
-    @State private var isDownloadingFlash: Bool = false
-    @State private var downloadProgress: Double = 0.0
-    @State private var downloadStatus: String = ""
-    @State private var ollamaKit: OllamaKit
+    @Environment(AIBackendManager.self) private var aiBackendManager
+    @State private var showingFirstTimeSetup = false
+    @State private var isCheckingSetup = true
+    @State private var currentImageIndex: Int = 0
+    @State private var isShowingImageCycle: Bool = false
     
-    private let logoImage = "1_Eunitm-Client-Notes-Effortless-AI-Powered-Therapy-Documentation"
+    private let splashImages = [
+        "1_Eunitm-Client-Notes-Effortless-AI-Powered-Therapy-Documentation",
+        "2_Rethink-Your-Clinical-Documentation",
+        "3_Key-Features", 
+        "4_Built-for-Clinicians-Who-Value-Control",
+        "5_How-It-Works"
+    ]
     
     init(isPresented: Binding<Bool>) {
         self._isPresented = isPresented
-        let baseURL = URL(string: Defaults[.defaultHost])!
-        self._ollamaKit = State(initialValue: OllamaKit(baseURL: baseURL))
     }
     
     var body: some View {
@@ -209,212 +223,78 @@ struct SimpleSplashScreen: View {
                 .ignoresSafeArea()
             
             VStack(spacing: 20) {
-                Image(logoImage)
+                // Display current image with transition
+                Image(splashImages[currentImageIndex])
                     .resizable()
                     .scaledToFit()
                     .frame(maxWidth: 800, maxHeight: 800)
+                    .transition(.opacity)
+                    .id(currentImageIndex) // Force view update on index change
                 
-                if isCheckingOllama {
-                    ProgressView("Checking Ollama installation...")
+                if isCheckingSetup {
+                    ProgressView("Loading...")
                         .progressViewStyle(.circular)
-                } else if !isOllamaInstalled {
-                    VStack(spacing: 16) {
-                        Text("Ollama Required")
-                            .font(.headline)
-                        
-                        Text("Please install Ollama to continue")
-                            .foregroundColor(.secondary)
-                        
-                        Button("Download Ollama") {
-                            if let url = URL(string: "https://ollama.com/download") {
-                                NSWorkspace.shared.open(url)
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(Color.euniPrimary)
-                        
-                        Button("Check Again") {
-                            checkOllamaInstallation()
-                        }
-                    }
-                } else if isDownloadingFlash {
+                } else if isShowingImageCycle {
                     VStack(spacing: 8) {
-                        ProgressView("Downloading Flash Assistant...", value: downloadProgress, total: 1.0)
-                        Text(downloadStatus)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                        ProgressView("Starting up...")
+                            .progressViewStyle(.circular)
                     }
-                } else {
-                    Button("Get Started") {
-                        if !Defaults[.defaultHasLaunched] {
-                            downloadFlashAssistant()
-                        } else {
-                            dismissSplashScreen()
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Color.euniPrimary)
-                    .disabled(!isOllamaInstalled || isDownloadingFlash)
                 }
             }
             .padding()
         }
         .onAppear {
-            checkOllamaInstallation()
+            checkFirstTimeSetup()
+        }
+        .sheet(isPresented: $showingFirstTimeSetup) {
+            FirstTimeSetupView(isPresented: $showingFirstTimeSetup)
+                .environment(chatViewModel)
+                .interactiveDismissDisabled()
+                .onDisappear {
+                    // After setup is complete, start the image cycle
+                    startImageCycleAndDismiss()
+                }
         }
     }
     
-    private func checkOllamaInstallation() {
-        isCheckingOllama = true
+    private func checkFirstTimeSetup() {
+        isCheckingSetup = true
         
         Task {
-            let isReachable = await ollamaKit.reachable()
-            
             await MainActor.run {
-                isOllamaInstalled = isReachable
-                isCheckingOllama = false
+                isCheckingSetup = false
                 
-                // If Ollama is installed and this is not first launch, dismiss splash screen
-                if isReachable && Defaults[.defaultHasLaunched] {
-                    dismissSplashScreen()
+                // Check if this is first launch
+                if !Defaults[.defaultHasLaunched] {
+                    showingFirstTimeSetup = true
+                } else {
+                    // Not first launch, start image cycle and dismiss
+                    startImageCycleAndDismiss()
                 }
             }
         }
     }
     
-    private func downloadFlashAssistant() {
-        isDownloadingFlash = true
-        downloadProgress = 0.0
-        downloadStatus = "Starting download..."
+    private func startImageCycleAndDismiss() {
+        isShowingImageCycle = true
+        currentImageIndex = 0
         
+        // Cycle through all 5 images with reasonable timing
         Task {
-            await pullFlashModel()
-            await MainActor.run {
-                isDownloadingFlash = false
-                if downloadStatus == "success" {
-                    // Set default model to Flash
-                    Defaults[.defaultModel] = "qwen3:0.6b"
-                    // Mark as launched
-                    Defaults[.defaultHasLaunched] = true
-                    // Create initial chat with Flash
-                    chatViewModel.create(model: "qwen3:0.6b")
-                    // Dismiss splash screen
-                    dismissSplashScreen()
-                }
-            }
-        }
-    }
-    
-    private func pullFlashModel() async {
-        guard let url = URL(string: "\(Defaults[.defaultHost])/api/pull") else {
-            await MainActor.run {
-                downloadStatus = "Error: Invalid Ollama host URL"
-                isDownloadingFlash = false
-            }
-            return
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        let pullRequest: [String: Any] = ["model": "qwen3:0.6b", "stream": true]
-        
-        do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: pullRequest)
-            
-            let (data, response) = try await URLSession.shared.bytes(for: request)
-            
-            if let httpResponse = response as? HTTPURLResponse {
-                if httpResponse.statusCode >= 400 {
-                    let errorMessage: String
-                    switch httpResponse.statusCode {
-                    case 404:
-                        errorMessage = "Ollama service not found. Is Ollama running?"
-                    case 500...599:
-                        errorMessage = "Ollama server error (HTTP \(httpResponse.statusCode))"
-                    default:
-                        errorMessage = "HTTP error \(httpResponse.statusCode)"
+            for index in 0..<splashImages.count {
+                await MainActor.run {
+                    withAnimation(.easeInOut(duration: 0.5)) {
+                        currentImageIndex = index
                     }
-                    
-                    await MainActor.run {
-                        downloadStatus = "Error: \(errorMessage)"
-                        isDownloadingFlash = false
-                    }
-                    return
-                }
-            }
-            
-            var buffer = Data()
-            var completedSize: Int64 = 0
-            var totalSize: Int64 = 1
-            
-            for try await byte in data {
-                buffer.append(contentsOf: [byte])
-                
-                if byte == 10 {
-                    if let responseString = String(data: buffer, encoding: .utf8),
-                       let responseData = responseString.data(using: .utf8),
-                       let json = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any] {
-                        
-                        if let status = json["status"] as? String {
-                            await MainActor.run {
-                                downloadStatus = status
-                                
-                                if status == "success" {
-                                    downloadProgress = 1.0
-                                }
-                            }
-                            
-                            if let completed = json["completed"] as? Int64 {
-                                completedSize = completed
-                            }
-                            
-                            if let total = json["total"] as? Int64, total > 0 {
-                                totalSize = total
-                            }
-                            
-                            if completedSize > 0 && totalSize > 0 {
-                                let progress = Double(completedSize) / Double(totalSize)
-                                await MainActor.run {
-                                    downloadProgress = min(progress, 0.99)
-                                }
-                            }
-                        }
-                        
-                        if let errorMessage = json["error"] as? String {
-                            await MainActor.run {
-                                downloadStatus = "Error: \(errorMessage)"
-                                isDownloadingFlash = false
-                            }
-                            return
-                        }
-                    }
-                    
-                    buffer.removeAll()
-                }
-            }
-        } catch let urlError as URLError {
-            await MainActor.run {
-                let errorMessage: String
-                switch urlError.code {
-                case .notConnectedToInternet:
-                    errorMessage = "No internet connection"
-                case .timedOut:
-                    errorMessage = "Connection timed out"
-                case .cannotConnectToHost:
-                    errorMessage = "Cannot connect to Ollama. Is Ollama running?"
-                default:
-                    errorMessage = urlError.localizedDescription
                 }
                 
-                downloadStatus = "Error: \(errorMessage)"
-                isDownloadingFlash = false
+                // Wait 1.5 seconds between images (quick but readable)
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
             }
-        } catch {
+            
+            // Dismiss after cycling through all images
             await MainActor.run {
-                downloadStatus = "Error: \(error.localizedDescription)"
-                isDownloadingFlash = false
+                dismissSplashScreen()
             }
         }
     }

@@ -38,8 +38,19 @@ struct AssistantMessageView: View {
                 .foregroundStyle(Color.euniSecondary)
             
             if isGenerating && content.isEmpty {
+                // Enhanced thinking indicator with animation and descriptive text
+                HStack(spacing: 12) {
                 ProgressView()
                     .controlSize(.small)
+                        .scaleEffect(1.2)
+                    
+                    Text("Thinking...")
+                        .font(.system(size: fontSize))
+                        .foregroundStyle(Color.euniSecondary)
+                        .opacity(0.8)
+                }
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
             } else {
 				Markdown(convertThinkTagsToMarkdownQuote(in: content))
                     .textSelection(.enabled)

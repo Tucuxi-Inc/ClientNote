@@ -64,7 +64,14 @@
 		8807B11D2DB6FA4000C3D195 /* SplashScreenManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8807B11B2DB6FA4000C3D195 /* SplashScreenManager.swift */; };
 		8807B11E2DB6FA4000C3D195 /* IAPManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8807B1192DB6FA4000C3D195 /* IAPManager.swift */; };
 		8807B1202DB6FA7200C3D195 /* PurchaseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8807B11F2DB6FA7200C3D195 /* PurchaseView.swift */; };
-		8870115E2DEE8B5900EFCD2A /* LlamaKit in Frameworks */ = {isa = PBXBuildFile; productRef = 8870115D2DEE8B5900EFCD2A /* LlamaKit */; };
+		88100C972E02B09200C429A2 /* AIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88100C962E02B09200C429A2 /* AIService.swift */; };
+		88100C9A2E02B0B300C429A2 /* PlaceholderImageGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88100C992E02B0B300C429A2 /* PlaceholderImageGenerator.swift */; };
+		88100C9B2E02B0B300C429A2 /* KeychainManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88100C982E02B0B300C429A2 /* KeychainManager.swift */; };
+		88100C9D2E02B12A00C429A2 /* AIBackendAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88100C9C2E02B12A00C429A2 /* AIBackendAdapter.swift */; };
+		88100C9F2E02B17200C429A2 /* AIServiceSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88100C9E2E02B17200C429A2 /* AIServiceSettingsView.swift */; };
+		88100CA12E02BA5000C429A2 /* SplashScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88100CA02E02BA5000C429A2 /* SplashScreen.swift */; };
+		88100CA32E04E00300C429A2 /* FirstTimeSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88100CA22E04E00300C429A2 /* FirstTimeSetupView.swift */; };
+		88100CA52E06326900C429A2 /* CompanyAPIKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88100CA42E06326900C429A2 /* CompanyAPIKeys.swift */; };
 		88C4AF122DD93613002DF4DC /* AssistantModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C4AF112DD93612002DF4DC /* AssistantModel.swift */; };
 		88C4AF152DD984BF002DF4DC /* AddClientView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C4AF132DD984BF002DF4DC /* AddClientView.swift */; };
 		88C4B07F2DDA8123002DF4DC /* ICDResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C4B07E2DDA8123002DF4DC /* ICDResult.swift */; };
@@ -124,6 +131,14 @@
 		8807B1192DB6FA4000C3D195 /* IAPManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IAPManager.swift; sourceTree = "<group>"; };
 		8807B11B2DB6FA4000C3D195 /* SplashScreenManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashScreenManager.swift; sourceTree = "<group>"; };
 		8807B11F2DB6FA7200C3D195 /* PurchaseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PurchaseView.swift; sourceTree = "<group>"; };
+		88100C962E02B09200C429A2 /* AIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIService.swift; sourceTree = "<group>"; };
+		88100C982E02B0B300C429A2 /* KeychainManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainManager.swift; sourceTree = "<group>"; };
+		88100C992E02B0B300C429A2 /* PlaceholderImageGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderImageGenerator.swift; sourceTree = "<group>"; };
+		88100C9C2E02B12A00C429A2 /* AIBackendAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIBackendAdapter.swift; sourceTree = "<group>"; };
+		88100C9E2E02B17200C429A2 /* AIServiceSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIServiceSettingsView.swift; sourceTree = "<group>"; };
+		88100CA02E02BA5000C429A2 /* SplashScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashScreen.swift; sourceTree = "<group>"; };
+		88100CA22E04E00300C429A2 /* FirstTimeSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstTimeSetupView.swift; sourceTree = "<group>"; };
+		88100CA42E06326900C429A2 /* CompanyAPIKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanyAPIKeys.swift; sourceTree = "<group>"; };
 		88C4AF112DD93612002DF4DC /* AssistantModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantModel.swift; sourceTree = "<group>"; };
 		88C4AF132DD984BF002DF4DC /* AddClientView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddClientView.swift; sourceTree = "<group>"; };
 		88C4B07E2DDA8123002DF4DC /* ICDResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICDResult.swift; sourceTree = "<group>"; };
@@ -140,7 +155,6 @@
 				0AA41A172AF635AD0053B8DB /* ViewState in Frameworks */,
 				0ADB960E2C5D57D500EB0C60 /* MarkdownUI in Frameworks */,
 				0ACA4D732AF88DB6000DA76F /* ViewCondition in Frameworks */,
-				8870115E2DEE8B5900EFCD2A /* LlamaKit in Frameworks */,
 				0AB362A22C398ED700DE3F31 /* Highlightr in Frameworks */,
 				0AB30EB22B272A67009C038A /* ChatField in Frameworks */,
 				0ACA4D5E2AF7AC43000DA76F /* SwiftUIIntrospect in Frameworks */,
@@ -207,6 +221,8 @@
 		0A4D35962AF5422A00846890 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				88100CA22E04E00300C429A2 /* FirstTimeSetupView.swift */,
+				88100CA02E02BA5000C429A2 /* SplashScreen.swift */,
 				88C4AF142DD984BF002DF4DC /* Clients */,
 				0A4D35982AF5425900846890 /* AppView.swift */,
 				0ADB95E92C5D41B600EB0C60 /* Chats */,
@@ -238,6 +254,8 @@
 		0A6E85122C5E98580030A4AA /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				88100C9C2E02B12A00C429A2 /* AIBackendAdapter.swift */,
+				88100C962E02B09200C429A2 /* AIService.swift */,
 				88C4B0862DDA8A4B002DF4DC /* Client.swift */,
 				88C4B0872DDA8A4B002DF4DC /* ClientActivity.swift */,
 				88C4B07E2DDA8123002DF4DC /* ICDResult.swift */,
@@ -251,6 +269,7 @@
 		0A6E85212C5E98A40030A4AA /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				88100C9E2E02B17200C429A2 /* AIServiceSettingsView.swift */,
 				8807B11F2DB6FA7200C3D195 /* PurchaseView.swift */,
 				0A6E85232C5E98B20030A4AA /* Subviews */,
 				0A6E85242C5E98B20030A4AA /* GeneralView.swift */,
@@ -295,6 +314,9 @@
 		0AA41A1D2AF666670053B8DB /* Utils */ = {
 			isa = PBXGroup;
 			children = (
+				88100CA42E06326900C429A2 /* CompanyAPIKeys.swift */,
+				88100C982E02B0B300C429A2 /* KeychainManager.swift */,
+				88100C992E02B0B300C429A2 /* PlaceholderImageGenerator.swift */,
 				8807B1192DB6FA4000C3D195 /* IAPManager.swift */,
 				8807B11B2DB6FA4000C3D195 /* SplashScreenManager.swift */,
 				0AF5664B2C65A2B400D6E01A /* SectionFooter.swift */,
@@ -385,7 +407,6 @@
 				0A2C4E412C428F5E007794CC /* Defaults */,
 				0ADB960D2C5D57D500EB0C60 /* MarkdownUI */,
 				0AF5CB672C62BCA100DF8DA8 /* AppInfo */,
-				8870115D2DEE8B5900EFCD2A /* LlamaKit */,
 			);
 			productName = ClientNote;
 			productReference = 0A4D35812AF541D900846890 /* ClientNote.app */;
@@ -425,7 +446,6 @@
 				0A2C4E402C428F5E007794CC /* XCRemoteSwiftPackageReference "Defaults" */,
 				0ADB960C2C5D57D500EB0C60 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
 				0AF5CB662C62BCA100DF8DA8 /* XCRemoteSwiftPackageReference "AppInfo" */,
-				8870115C2DEE8B5900EFCD2A /* XCRemoteSwiftPackageReference "LlamaKit" */,
 			);
 			productRefGroup = 0A4D35822AF541D900846890 /* Products */;
 			projectDirPath = "";
@@ -459,14 +479,18 @@
 				8807B11E2DB6FA4000C3D195 /* IAPManager.swift in Sources */,
 				0ADB95E62C5D3BAD00EB0C60 /* SidebarToolbarContent.swift in Sources */,
 				0ADB95E22C5D345100EB0C60 /* SidebarView.swift in Sources */,
+				88100CA52E06326900C429A2 /* CompanyAPIKeys.swift in Sources */,
 				0ADB95ED2C5D42E200EB0C60 /* UserMessageView.swift in Sources */,
+				88100CA32E04E00300C429A2 /* FirstTimeSetupView.swift in Sources */,
 				8807B1202DB6FA7200C3D195 /* PurchaseView.swift in Sources */,
 				88C4B0882DDA8A4B002DF4DC /* ClientActivity.swift in Sources */,
 				88C4B0892DDA8A4B002DF4DC /* Client.swift in Sources */,
 				0ADB95EF2C5D42FF00EB0C60 /* AssistantMessageView.swift in Sources */,
 				0A6E85302C5EB5F90030A4AA /* UpdateSystemPromptSheet.swift in Sources */,
+				88100C9F2E02B17200C429A2 /* AIServiceSettingsView.swift in Sources */,
 				8807ADD12DB30C5400C3D195 /* Color+ClientNoteCustom.swift in Sources */,
 				0A6E85152C5E98620030A4AA /* Message.swift in Sources */,
+				88100C9D2E02B12A00C429A2 /* AIBackendAdapter.swift in Sources */,
 				0A6E85162C5E98620030A4AA /* Chat.swift in Sources */,
 				0A6E85262C5E98B20030A4AA /* SettingsView.swift in Sources */,
 				88C4B07F2DDA8123002DF4DC /* ICDResult.swift in Sources */,
@@ -487,6 +511,9 @@
 				0ADB96112C5D585500EB0C60 /* Theme+ClientNote.swift in Sources */,
 				0AFC5AA92C66A20C00A148A2 /* CodeBlockView.swift in Sources */,
 				0ADB95EB2C5D41DF00EB0C60 /* ChatView.swift in Sources */,
+				88100C9A2E02B0B300C429A2 /* PlaceholderImageGenerator.swift in Sources */,
+				88100C9B2E02B0B300C429A2 /* KeychainManager.swift in Sources */,
+				88100C972E02B09200C429A2 /* AIService.swift in Sources */,
 				0ADB95E42C5D34B200EB0C60 /* SidebarListItemView.swift in Sources */,
 				8804D7B42DDD6C2B00616BC3 /* EasyTreatmentPlanSheet.swift in Sources */,
 				0A4D35992AF5425900846890 /* AppView.swift in Sources */,
@@ -499,6 +526,7 @@
 				0AF5CB622C62B0B600DF8DA8 /* UpdateOllamaHostSheet.swift in Sources */,
 				4A4A8EBE2D5047590065A5EC /* String+ReplaceAndTrim.swift in Sources */,
 				0A6E85102C5E6C670030A4AA /* MessageViewModel.swift in Sources */,
+				88100CA12E02BA5000C429A2 /* SplashScreen.swift in Sources */,
 				0A6E85112C5E6C670030A4AA /* ChatViewModel.swift in Sources */,
 				175D318C2C64ADF9009B58E0 /* DefaultFontSizeField.swift in Sources */,
 				0A6E85342C5F9DA00030A4AA /* ChatFieldFooterView.swift in Sources */,
@@ -616,18 +644,21 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 3;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				LLVM_LTO = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
 			};
 			name = Release;
 		};
@@ -647,6 +678,7 @@
 				DEVELOPMENT_TEAM = MC8BT9Z8GD;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ClientNote/Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Euni™ - Client Notes";
@@ -657,6 +689,12 @@
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/ClientNote/Resources/llama-bin",
+					"$(PROJECT_DIR)/ClientNote/Resources",
+					"$(PROJECT_DIR)",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 1.0.5;
@@ -684,6 +722,7 @@
 				DEVELOPMENT_TEAM = MC8BT9Z8GD;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ClientNote/Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Euni™ - Client Notes";
@@ -694,6 +733,12 @@
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/ClientNote/Resources/llama-bin",
+					"$(PROJECT_DIR)/ClientNote/Resources",
+					"$(PROJECT_DIR)",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 1.0.5;
@@ -801,14 +846,6 @@
 				minimumVersion = 1.0.2;
 			};
 		};
-		8870115C2DEE8B5900EFCD2A /* XCRemoteSwiftPackageReference "LlamaKit" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/Kevin-Tucuxi/LlamaKit";
-			requirement = {
-				branch = main;
-				kind = branch;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -856,11 +893,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 0AF5CB662C62BCA100DF8DA8 /* XCRemoteSwiftPackageReference "AppInfo" */;
 			productName = AppInfo;
-		};
-		8870115D2DEE8B5900EFCD2A /* LlamaKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 8870115C2DEE8B5900EFCD2A /* XCRemoteSwiftPackageReference "LlamaKit" */;
-			productName = LlamaKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
