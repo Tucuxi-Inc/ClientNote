@@ -32,29 +32,31 @@ struct ExperimentalView: View {
                     .foregroundColor(Color.euniSecondary)
             }
             
-            /*
             #if DEBUG
             Section {
                 Box {
-                    HStack(alignment: .center) {
-                        Text("Bypass Purchase Controls")
-                            .fontWeight(.semibold)
-                            .foregroundColor(Color.orange)
-                        
-                        Spacer()
-                        
-                        Toggle("", isOn: $bypassAccessControl)
-                            .labelsHidden()
-                            .toggleStyle(.switch)
-                            .tint(Color.orange)
+                    Button(action: {
+                        Task {
+                            await IAPManager.shared.resetPurchases()
+                            print("DEBUG: All purchases have been reset")
+                        }
+                    }) {
+                        HStack {
+                            Image(systemName: "arrow.counterclockwise")
+                                .foregroundColor(.red)
+                            Text("Reset All Purchases")
+                                .fontWeight(.semibold)
+                                .foregroundColor(.red)
+                            Spacer()
+                        }
                     }
+                    .buttonStyle(.plain)
                 }
             } footer: {
-                SectionFooter("DEVELOPMENT ONLY: Bypass all in-app purchase restrictions.")
+                SectionFooter("DEVELOPMENT ONLY: Resets all StoreKit test purchases.")
                     .foregroundColor(Color.orange)
             }
             #endif
-            */
         }
     }
 }

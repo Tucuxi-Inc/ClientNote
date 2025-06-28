@@ -6,16 +6,14 @@ struct GeneralView: View {
     @Default(.defaultHost) private var defaultHost
     @Default(.defaultSystemPrompt) private var defaultSystemPrompt
     @Default(.selectedAIBackend) private var selectedAIBackend
-    @Default(.llamaKitModelPath) private var llamaKitModelPath
+
     
     @Environment(ChatViewModel.self) private var chatViewModel
     @Environment(AIBackendManager.self) private var aiBackendManager
     
     @State private var isUpdateOllamaHostPresented = false
     @State private var isUpdateSystemPromptPresented = false
-    @State private var isSelectingModelFile = false
-    @State private var isLoadingModel = false
-    @State private var loadingStatus = ""
+
     
     var body: some View {
         Form {
@@ -39,10 +37,7 @@ struct GeneralView: View {
                                         // Show status indicator
                                         if selectedAIBackend == backend {
                                             if let currentBackend = aiBackendManager.currentBackend {
-                                                if isLoadingModel {
-                                                    ProgressView()
-                                                        .scaleEffect(0.7)
-                                                } else if currentBackend.isReady {
+                                                if currentBackend.isReady {
                                                     Image(systemName: "checkmark.circle.fill")
                                                         .foregroundColor(.green)
                                                 } else {
@@ -60,17 +55,10 @@ struct GeneralView: View {
                                     
                                     // Show backend status
                                     if selectedAIBackend == backend, let currentBackend = aiBackendManager.currentBackend {
-                                        if isLoadingModel {
-                                            Text(loadingStatus)
-                                                .font(.caption)
-                                                .foregroundColor(.orange)
-                                                .padding(.leading, 24)
-                                        } else {
-                                            Text(currentBackend.status)
-                                                .font(.caption)
-                                                .foregroundColor(currentBackend.isReady ? .green : .orange)
-                                                .padding(.leading, 24)
-                                        }
+                                        Text(currentBackend.status)
+                                            .font(.caption)
+                                            .foregroundColor(currentBackend.isReady ? .green : .orange)
+                                            .padding(.leading, 24)
                                     }
                                 }
                                 
@@ -82,37 +70,7 @@ struct GeneralView: View {
                             }
                         }
                         
-                        // LlamaKit specific settings
-                        if selectedAIBackend == .llamaCpp {
-                            Divider()
-                                .padding(.vertical, 4)
-                            
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Model File")
-                                    .font(.subheadline.weight(.medium))
-                                
-                                HStack {
-                                    Text(llamaKitModelPath.isEmpty ? "No model selected" : URL(fileURLWithPath: llamaKitModelPath).lastPathComponent)
-                                        .foregroundColor(llamaKitModelPath.isEmpty ? Color.euniSecondary : Color.euniText)
-                                        .lineLimit(1)
-                                    
-                                    Spacer()
-                                    
-                                    Button("Select Model") {
-                                        isSelectingModelFile = true
-                                    }
-                                    .foregroundColor(Color.euniPrimary)
-                                    .disabled(isLoadingModel)
-                                }
-                                
-                                if !llamaKitModelPath.isEmpty {
-                                    Text("Selected: \(llamaKitModelPath)")
-                                        .font(.caption)
-                                        .foregroundColor(Color.euniSecondary)
-                                        .lineLimit(2)
-                                }
-                            }
-                        }
+
                     }
                 }
             } footer: {
@@ -188,20 +146,7 @@ struct GeneralView: View {
                 self.defaultSystemPrompt = prompt
             }
         }
-        .fileImporter(
-            isPresented: $isSelectingModelFile,
-            allowedContentTypes: [.item],
-            allowsMultipleSelection: false
-        ) { result in
-            switch result {
-            case .success(let urls):
-                if let url = urls.first {
-                    loadLlamaKitModel(at: url.path)
-                }
-            case .failure(let error):
-                print("Failed to select model file: \(error)")
-            }
-        }
+
         .onAppear {
             // Ensure the backend is initialized when the view appears
             chatViewModel.updateAIBackend()
@@ -215,36 +160,7 @@ struct GeneralView: View {
         chatViewModel.updateAIBackend()
     }
     
-    private func loadLlamaKitModel(at path: String) {
-        guard FileManager.default.fileExists(atPath: path) else {
-            print("Model file does not exist at path: \(path)")
-            return
-        }
-        
-        isLoadingModel = true
-        loadingStatus = "Loading model..."
-        
-        Task {
-            do {
-                try await aiBackendManager.loadModelForLlamaCpp(path)
-                
-                await MainActor.run {
-                    llamaKitModelPath = path
-                    isLoadingModel = false
-                    loadingStatus = ""
-                    
-                    // Refresh the ChatViewModel to reflect the new model
-                    chatViewModel.updateAIBackend()
-                }
-            } catch {
-                await MainActor.run {
-                    isLoadingModel = false
-                    loadingStatus = "Failed to load model: \(error.localizedDescription)"
-                    print("Failed to load LlamaKit model: \(error)")
-                }
-            }
-        }
-    }
+
 }
 
 #Preview("General Settings") {
