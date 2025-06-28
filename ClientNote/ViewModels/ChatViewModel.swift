@@ -2002,14 +2002,7 @@ final class ChatViewModel {
             
             let analysisPrompt = getModalitiesAnalysisPrompt() + "\n\nSession Transcript:\n" + transcript
             // Use non-streaming generation for analysis to avoid UI confusion
-            // Choose method based on backend
-            if isUsingOllamaKit {
-                let baseURL = URL(string: Defaults[.defaultHost])!
-                let ollamaKit = OllamaKit(baseURL: baseURL)
-                modalitiesAnalysis = try await generateAnalysis(prompt: analysisPrompt, ollamaKit: ollamaKit)
-            } else {
-                modalitiesAnalysis = try await generateAnalysisWithBackend(prompt: analysisPrompt)
-            }
+            modalitiesAnalysis = try await generateAnalysisWithBackend(prompt: analysisPrompt)
             print("DEBUG: Modalities analysis completed, length: \(modalitiesAnalysis.count)")
         }
         
@@ -2031,14 +2024,7 @@ final class ChatViewModel {
             do {
                 print("DEBUG: Engagement analysis attempt \(retryCount + 1) of \(maxRetries + 1)")
                 // Use non-streaming generation for analysis to avoid UI confusion
-                // Choose method based on backend
-                if isUsingOllamaKit {
-                    let baseURL = URL(string: Defaults[.defaultHost])!
-                    let ollamaKit = OllamaKit(baseURL: baseURL)
-                    engagementAnalysis = try await generateAnalysis(prompt: engagementPrompt, ollamaKit: ollamaKit)
-                } else {
-                    engagementAnalysis = try await generateAnalysisWithBackend(prompt: engagementPrompt)
-                }
+                engagementAnalysis = try await generateAnalysisWithBackend(prompt: engagementPrompt)
                 print("DEBUG: Engagement analysis completed, length: \(engagementAnalysis.count)")
                 break
             } catch {
@@ -2431,15 +2417,7 @@ final class ChatViewModel {
         print("DEBUG: \(String(formatInstructions.prefix(200)))...")
         
         // Generate the final note with streaming feedback for better UX
-        // Use the appropriate method based on backend
-        if isUsingOllamaKit {
-            // Need OllamaKit instance for direct streaming
-            let baseURL = URL(string: Defaults[.defaultHost])!
-            let ollamaKit = OllamaKit(baseURL: baseURL)
-            return try await generateAnalysisWithStreaming(prompt: secondPassPrompt, ollamaKit: ollamaKit)
-        } else {
-            return try await generateAnalysisWithStreamingBackend(prompt: secondPassPrompt)
-        }
+        return try await generateAnalysisWithStreamingBackend(prompt: secondPassPrompt)
     }
     
     /// Enhanced session note generation with modality and engagement analysis (Legacy method for compatibility)
@@ -2849,83 +2827,7 @@ final class ChatViewModel {
             throw ChatViewModelError.generate("No active chat available")
         }
         
-        // If using OllamaKit directly, bypass the backend system
-        if isUsingOllamaKit {
-            print("DEBUG: Using OllamaKit directly for generation")
-            let baseURL = URL(string: Defaults[.defaultHost])!
-            let ollamaKit = OllamaKit(baseURL: baseURL)
-            
-            // Validate and fix model name
-            var modelToUse = activeChat.model
-            
-            // Skip embedding models
-            if modelToUse.contains("embed") {
-                print("DEBUG: Skipping embedding model '\(modelToUse)', using default")
-                modelToUse = "qwen3:0.6b"
-            }
-            
-            // Fix legacy model names
-            if modelToUse.contains(".gguf") {
-                print("DEBUG: Converting legacy model name '\(modelToUse)' to Ollama format")
-                modelToUse = "qwen3:0.6b"
-            }
-            
-            print("DEBUG: Using model '\(modelToUse)' for generation")
-            
-            // Use OllamaKit's streaming API
-            var chatData = OKChatRequestData(
-                model: modelToUse,
-                messages: [
-                    OKChatRequestData.Message(role: .system, content: systemPrompt ?? activeChat.systemPrompt ?? ""),
-                    OKChatRequestData.Message(role: .user, content: prompt)
-                ]
-            )
-            
-            // Set options separately
-            chatData.options = OKCompletionOptions(
-                temperature: activeChat.temperature,
-                topK: activeChat.topK,
-                topP: activeChat.topP
-            )
-            
-            var fullResponse = ""
-            var isReasoningContent = false
-            
-            do {
-                for try await chunk in ollamaKit.chat(data: chatData) {
-                    guard let content = chunk.message?.content else { continue }
-                    
-                    // Handle reasoning content (like <think> tags) by skipping it
-                    if content.contains("<think>") {
-                        isReasoningContent = true
-                        continue
-                    }
-                    
-                    if content.contains("</think>") {
-                        isReasoningContent = false
-                        continue
-                    }
-                    
-                    // Only accumulate and stream non-reasoning content
-                    if !isReasoningContent {
-                        fullResponse += content
-                        onPartialResponse(content)
-                    }
-                    
-                    // Check if generation is done
-                    if chunk.done {
-                        break
-                    }
-                }
-                
-                return fullResponse.trimmingCharacters(in: .whitespacesAndNewlines)
-            } catch {
-                print("DEBUG: OllamaKit generation failed: \(error)")
-                throw ChatViewModelError.generate("Generation failed: \(error.localizedDescription)")
-            }
-        }
-        
-        // Otherwise use the new backend system
+        // Always use the new backend system
         guard let backend = aiBackendManager.currentBackend, backend.isReady else {
             throw ChatViewModelError.generate("AI backend not ready. Please check your settings.")
         }
@@ -3266,12 +3168,6 @@ final class ChatViewModel {
     }
     
     // MARK: - Helper Methods
-    
-    /// Determines if the current backend is OllamaKit
-    /// - Returns: true if using OllamaKit backend, false otherwise
-    private var isUsingOllamaKit: Bool {
-        return Defaults[.selectedAIBackend] == .ollamaKit
-    }
     
     /// Loads existing chat history from persistent storage
 }

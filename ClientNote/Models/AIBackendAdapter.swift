@@ -74,11 +74,26 @@ class AIServiceAdapter: AIBackendProtocol {
             // Set default model based on service type
             switch service.serviceType {
             case .ollama:
-                currentModel = "qwen3:0.6b"
+                // For Ollama, try to get the first available model
+                do {
+                    let models = try await service.listModels()
+                    if let firstModel = models.first {
+                        currentModel = firstModel
+                        print("DEBUG: AIServiceAdapter - Set Ollama model to: \(currentModel)")
+                    } else {
+                        currentModel = "qwen3:0.6b"
+                        print("DEBUG: AIServiceAdapter - No Ollama models found, using default: \(currentModel)")
+                    }
+                } catch {
+                    currentModel = "qwen3:0.6b"
+                    print("DEBUG: AIServiceAdapter - Error listing Ollama models, using default: \(error)")
+                }
             case .openAIUser, .openAISubscription:
                 currentModel = "gpt-4.1-nano"
             }
         } else {
+            isReady = false
+            status = "\(service.serviceType.rawValue) not available"
             throw AIBackendError.notReady
         }
     }
@@ -95,22 +110,59 @@ class AIServiceAdapter: AIBackendProtocol {
     }
     
     func chat(request: AIChatRequest, onPartialResponse: @escaping (String) -> Void) async throws -> String {
-        // Convert old request format to simple string for new service
-        let messages = request.messages.map { msg -> String in
-            switch msg.role {
-            case .system:
-                return "System: \(msg.content)"
-            case .user:
-                return "User: \(msg.content)"
-            case .assistant:
-                return "Assistant: \(msg.content)"
+        // For Ollama, we need to handle streaming properly
+        if service.serviceType == .ollama {
+            // Build the full conversation context
+            var conversationContext = ""
+            for message in request.messages {
+                switch message.role {
+                case .system:
+                    conversationContext += "System: \(message.content)\n\n"
+                case .user:
+                    conversationContext += "User: \(message.content)\n\n"
+                case .assistant:
+                    conversationContext += "Assistant: \(message.content)\n\n"
+                }
             }
-        }.joined(separator: "\n")
-        
-        // For now, just use the full response (streaming can be added later)
-        let response = try await service.sendMessage(messages, model: currentModel)
-        onPartialResponse(response)
-        return response
+            
+            // Use the model from the request if provided, otherwise use current model
+            let modelToUse = request.model.isEmpty ? currentModel : request.model
+            
+            print("DEBUG: AIServiceAdapter.chat - Using Ollama with model: \(modelToUse)")
+            
+            // For now, get the full response and then stream it back
+            // TODO: Implement proper streaming when OllamaService supports it
+            let response = try await service.sendMessage(conversationContext, model: modelToUse)
+            
+            // Stream the response back in chunks for UI responsiveness
+            let chunkSize = 10
+            for i in stride(from: 0, to: response.count, by: chunkSize) {
+                let endIndex = min(i + chunkSize, response.count)
+                let chunk = String(response[response.index(response.startIndex, offsetBy: i)..<response.index(response.startIndex, offsetBy: endIndex)])
+                onPartialResponse(chunk)
+                
+                // Small delay to simulate streaming
+                try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
+            }
+            
+            return response
+        } else {
+            // For OpenAI services, use the existing logic
+            let messages = request.messages.map { msg -> String in
+                switch msg.role {
+                case .system:
+                    return "System: \(msg.content)"
+                case .user:
+                    return "User: \(msg.content)"
+                case .assistant:
+                    return "Assistant: \(msg.content)"
+                }
+            }.joined(separator: "\n")
+            
+            let response = try await service.sendMessage(messages, model: currentModel)
+            onPartialResponse(response)
+            return response
+        }
     }
 }
 
@@ -123,32 +175,52 @@ final class AIBackendManager {
     private(set) var currentBackend: (any AIBackendProtocol)?
     
     private let serviceManager = AIServiceManager.shared
+    private let keychainManager = KeychainManager.shared
     
     // For backward compatibility
     var selectedBackendType: AIBackend {
-        // Map service types to old backend types
+        // Check user preference first
+        let userSelectedBackend = Defaults[.selectedAIBackend]
+        
+        // If user explicitly selected Ollama, return that
+        if userSelectedBackend == .ollamaKit {
+            return .ollamaKit
+        }
+        
+        // Otherwise map service types to old backend types
         switch serviceManager.currentService?.serviceType {
         case .ollama:
             return .ollamaKit
         case .openAIUser, .openAISubscription:
             return .openAI
         case nil:
-            return .ollamaKit
+            return userSelectedBackend
         }
     }
     
     private init() {
-        // Initialize with current service if available
+        // Initialize with user's selected backend preference
         Task { @MainActor in
-            if let service = serviceManager.currentService {
-                let adapter = AIServiceAdapter(service: service)
-                try? await adapter.initialize()
-                self.currentBackend = adapter
+            let selectedBackend = Defaults[.selectedAIBackend]
+            print("DEBUG: AIBackendManager init - User selected backend: \(selectedBackend.displayName)")
+            
+            do {
+                try await initializeBackend(selectedBackend)
+            } catch {
+                print("DEBUG: AIBackendManager init - Failed to initialize \(selectedBackend.displayName): \(error)")
+                // Try to initialize with current service if available
+                if let service = serviceManager.currentService {
+                    let adapter = AIServiceAdapter(service: service)
+                    try? await adapter.initialize()
+                    self.currentBackend = adapter
+                }
             }
         }
     }
     
     func initializeBackend(_ type: AIBackend) async throws {
+        print("DEBUG: AIBackendManager.initializeBackend - Initializing backend: \(type.displayName)")
+        
         // Map old backend types to new service types
         let serviceType: AIServiceType
         switch type {
@@ -156,13 +228,18 @@ final class AIBackendManager {
             serviceType = .ollama
         case .openAI:
             // Check if user has API key or subscription
-            if !KeychainManager.shared.openAIAPIKey.isEmpty {
+            if keychainManager.hasKey(keyType: .openAIUserKey) {
                 serviceType = .openAIUser
-            } else {
+            } else if await hasActiveSubscription() && keychainManager.hasKey(keyType: .openAIDeveloperKey) {
                 serviceType = .openAISubscription
+            } else {
+                // Default to Ollama if no OpenAI credentials
+                print("DEBUG: No OpenAI credentials found, falling back to Ollama")
+                serviceType = .ollama
             }
         }
         
+        print("DEBUG: AIBackendManager.initializeBackend - Selected service type: \(serviceType.rawValue)")
         await serviceManager.selectService(serviceType)
         
         // Create and initialize the adapter for the selected service
@@ -170,6 +247,10 @@ final class AIBackendManager {
             let adapter = AIServiceAdapter(service: service)
             try await adapter.initialize()
             self.currentBackend = adapter
+            print("DEBUG: AIBackendManager.initializeBackend - Backend initialized successfully: \(adapter.status)")
+        } else {
+            print("DEBUG: AIBackendManager.initializeBackend - No service available for type: \(serviceType.rawValue)")
+            throw AIBackendError.notReady
         }
     }
     
@@ -190,15 +271,30 @@ final class AIBackendManager {
     }
     
     func reachable() async -> Bool {
+        // Check the user's selected backend preference
+        let selectedBackend = Defaults[.selectedAIBackend]
+        
+        if selectedBackend == .ollamaKit {
+            // For Ollama, check if it's reachable
+            let ollamaService = OllamaService()
+            let isAvailable = await ollamaService.isAvailable()
+            print("DEBUG: AIBackendManager.reachable - Ollama availability: \(isAvailable)")
+            return isAvailable
+        }
+        
         // Check if the current service is available
         let serviceManager = AIServiceManager.shared
         if let currentService = serviceManager.currentService {
             return await currentService.isAvailable()
         }
         
-        // Fallback: check if Ollama is available since that's what the splash screen cares about
-        let ollamaService = OllamaService()
-        return await ollamaService.isAvailable()
+        return false
+    }
+    
+    private func hasActiveSubscription() async -> Bool {
+        // Check if user has active subscription through IAP
+        let iapManager = IAPManager.shared
+        return iapManager.hasFullAccess || iapManager.hasActiveSubscription
     }
 }
 
