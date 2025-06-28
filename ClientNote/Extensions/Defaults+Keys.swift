@@ -43,7 +43,7 @@ extension Defaults.Keys {
     static let selectedAIServiceType = Key<AIServiceType?>("selectedAIServiceType", default: nil)
     static let hasActiveSubscription = Key<Bool>("hasActiveSubscription", default: false)
     static let hasFullUnlock = Key<Bool>("hasFullUnlock", default: false)
-    static let selectedAIBackend = Key<AIBackend>("selectedAIBackend", default: .ollamaKit)  // For backward compatibility
+    static let selectedAIBackend = Key<AIBackend>("selectedAIBackend", default: .openAI)
     static let llamaKitModelPath = Key<String>("llamaKitModelPath", default: "")
     static let isOllamaInstalled = Key<Bool>("isOllamaInstalled", default: false)
     

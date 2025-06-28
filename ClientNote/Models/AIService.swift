@@ -186,7 +186,7 @@ struct OllamaService: AIService {
     }
     
     func sendMessage(_ message: String, model: String) async throws -> String {
-        guard let url = URL(string: "\(baseURL.absoluteString)/api/generate") else {
+        guard let url = URL(string: "\(baseURL.absoluteString)/api/chat") else {
             throw AIServiceError.invalidURL
         }
         
@@ -194,13 +194,54 @@ struct OllamaService: AIService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        let body = OllamaGenerateRequest(model: model, prompt: message, stream: false)
+        // Parse the message to extract system and user parts
+        let lines = message.split(separator: "\n", omittingEmptySubsequences: false)
+        var messages: [[String: String]] = []
+        
+        var currentRole = "user"
+        var currentContent = ""
+        
+        for line in lines {
+            if line.hasPrefix("System: ") {
+                if !currentContent.isEmpty {
+                    messages.append(["role": currentRole, "content": currentContent.trimmingCharacters(in: .whitespacesAndNewlines)])
+                }
+                currentRole = "system"
+                currentContent = String(line.dropFirst(8))
+            } else if line.hasPrefix("User: ") {
+                if !currentContent.isEmpty {
+                    messages.append(["role": currentRole, "content": currentContent.trimmingCharacters(in: .whitespacesAndNewlines)])
+                }
+                currentRole = "user"
+                currentContent = String(line.dropFirst(6))
+            } else if line.hasPrefix("Assistant: ") {
+                if !currentContent.isEmpty {
+                    messages.append(["role": currentRole, "content": currentContent.trimmingCharacters(in: .whitespacesAndNewlines)])
+                }
+                currentRole = "assistant"
+                currentContent = String(line.dropFirst(11))
+            } else {
+                currentContent += "\n" + line
+            }
+        }
+        
+        // Add the last message
+        if !currentContent.isEmpty {
+            messages.append(["role": currentRole, "content": currentContent.trimmingCharacters(in: .whitespacesAndNewlines)])
+        }
+        
+        // If no structured messages were found, treat the whole thing as a user message
+        if messages.isEmpty {
+            messages = [["role": "user", "content": message]]
+        }
+        
+        let body = OllamaChatRequest(model: model, messages: messages, stream: false)
         request.httpBody = try JSONEncoder().encode(body)
         
         let (data, _) = try await URLSession.shared.data(for: request)
-        let response = try JSONDecoder().decode(OllamaGenerateResponse.self, from: data)
+        let response = try JSONDecoder().decode(OllamaChatResponse.self, from: data)
         
-        return response.response
+        return response.message.content
     }
 }
 
@@ -287,12 +328,16 @@ struct OllamaModel: Codable {
     let name: String
 }
 
-struct OllamaGenerateRequest: Codable {
+struct OllamaChatRequest: Codable {
     let model: String
-    let prompt: String
+    let messages: [[String: String]]
     let stream: Bool
 }
 
-struct OllamaGenerateResponse: Codable {
-    let response: String
+struct OllamaChatResponse: Codable {
+    let message: OllamaMessage
+}
+
+struct OllamaMessage: Codable {
+    let content: String
 } 
