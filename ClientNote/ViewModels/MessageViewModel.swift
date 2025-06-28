@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import OllamaKit
 import SwiftData
 
 @MainActor
@@ -72,74 +71,62 @@ final class MessageViewModel {
     }
     
     func generate(activeChat: Chat, prompt: String, modelPrompt: String? = nil) {
-        // Get an OllamaKit instance for this chat
-        guard let host = activeChat.host,
-              let baseURL = URL(string: host) else {
-            self.error = .generate("Invalid host URL")
-            return
-        }
-        
-        let ollamaKit = OllamaKit(baseURL: baseURL)
-        
         // Create a message with the display prompt (without PIRP instructions)
         let message = Message(prompt: prompt)
         message.chat = activeChat
         messages.append(message)
         modelContext.insert(message)
         
+        // CRITICAL: Set loading state and clear tempResponse immediately for thinking indicator
         self.loading = .generate
+        self.tempResponse = "" // Clear any previous streaming content
         self.error = nil
         
         generationTask = Task {
-            defer { self.loading = nil }
+            defer { 
+                Task { @MainActor in
+                    self.loading = nil
+                    self.tempResponse = "" // Clear temp response when done
+                }
+            }
             
             do {
-                // Use the modelPrompt if provided, otherwise use the display prompt
-                let data = message.toOKChatRequestData(messages: self.messages, modelPrompt: modelPrompt)
+                guard let chatViewModel = self.chatViewModel else {
+                    throw MessageViewModelError.generate("ChatViewModel not available")
+                }
                 
-                for try await chunk in ollamaKit.chat(data: data) {
-                    if Task.isCancelled { break }
-                    
-                    tempResponse = tempResponse + (chunk.message?.content ?? "")
-                    
-                    if chunk.done {
-                        message.response = tempResponse
-                        activeChat.modifiedAt = .now
-                        tempResponse = ""
-                        
-                        if messages.count == 1 {
-                            self.generateTitle(ollamaKit, activeChat: activeChat)
-                        }
-                        
-                        // Save chat content to activity
-                        chatViewModel?.saveActivityContent()
+                // Clear tempResponse again just before starting to ensure clean state
+                await MainActor.run {
+                    self.tempResponse = ""
+                }
+                
+                let response = try await chatViewModel.generateAIResponse(
+                    prompt: prompt,
+                    systemPrompt: modelPrompt ?? activeChat.systemPrompt
+                ) { partialContent in
+                    // Handle streaming updates
+                    Task { @MainActor in
+                        self.tempResponse += partialContent
                     }
                 }
-
-                // If chunk was not done: handle temporary response
-                if !tempResponse.isEmpty {
-                    // properly close <think> block
-                    if tempResponse.matches(of: /<\/?think>/).count == 1 {
-                        tempResponse += "\n</think>\n"
-                    }
-
-                    // properly close any code blocks
-                    if tempResponse.matches(of: /```/).count % 2 == 1 {
-                        tempResponse += "\n```\n"
-                    } else {
-                        // ... or add a visual separator
-                        tempResponse += "\n\n---\n"
-                    }
-
-                    // mark response as cancelled
-                    tempResponse += "\n_CANCELLED_"
-
-                    message.response = tempResponse
+                
+                await MainActor.run {
+                    message.response = response
                     activeChat.modifiedAt = .now
-                    tempResponse = ""
+                    
+                    // Clear temp response since we now have the final response
+                    self.tempResponse = ""
+                    
+                    // Save to activity if this is part of an activity
+                    self.chatViewModel?.saveActivityContent()
                 }
+                
             } catch {
+                await MainActor.run {
+                    print("DEBUG: MessageViewModel generation failed: \(error)")
                 self.error = .generate(error.localizedDescription)
+                    self.tempResponse = "" // Clear temp response on error
+                }
             }
         }
     }
@@ -148,115 +135,85 @@ final class MessageViewModel {
         guard let lastMessage = messages.last else { return }
         lastMessage.response = nil
         
-        // Get an OllamaKit instance for this chat
-        guard let host = activeChat.host,
-              let baseURL = URL(string: host) else {
-            self.error = .generate("Invalid host URL")
-            return
-        }
-        
-        let ollamaKit = OllamaKit(baseURL: baseURL)
-        
+        // CRITICAL: Set loading state and clear tempResponse immediately for thinking indicator
         self.loading = .generate
+        self.tempResponse = "" // Clear any previous streaming content
         self.error = nil
         
         generationTask = Task {
-            defer { self.loading = nil }
+            defer { 
+                Task { @MainActor in
+                    self.loading = nil
+                    self.tempResponse = "" // Clear temp response when done
+                }
+            }
             
             do {
-                let data = lastMessage.toOKChatRequestData(messages: self.messages)
+                guard let chatViewModel = self.chatViewModel else {
+                    throw MessageViewModelError.generate("ChatViewModel not available")
+                }
+
+                // Clear tempResponse again just before starting to ensure clean state
+                await MainActor.run {
+                    self.tempResponse = ""
+                    }
+
+                let response = try await chatViewModel.generateAIResponse(
+                    prompt: lastMessage.prompt,
+                    systemPrompt: activeChat.systemPrompt
+                ) { partialContent in
+                    // Handle streaming updates
+                    Task { @MainActor in
+                        self.tempResponse += partialContent
+                    }
+                }
                 
-                for try await chunk in ollamaKit.chat(data: data) {
-                    if Task.isCancelled { break }
-                    
-                    tempResponse = tempResponse + (chunk.message?.content ?? "")
-                    
-                    if chunk.done {
-                        lastMessage.response = tempResponse
-                        activeChat.modifiedAt = .now
-                        tempResponse = ""
-                    }
-                }
-
-                // If chunk was not done: handle temporary response
-                if !tempResponse.isEmpty {
-                    // properly close <think> block
-                    if tempResponse.matches(of: /<\/?think>/).count == 1 {
-                        tempResponse += "\n</think>\n"
-                    }
-
-                    // properly close any code blocks
-                    if tempResponse.matches(of: /```/).count % 2 == 1 {
-                        tempResponse += "\n```\n"
-                    } else {
-                        // ... or add a visual separator
-                        tempResponse += "\n\n---\n"
-                    }
-
-                    // mark response as cancelled
-                    tempResponse += "\n_CANCELLED_"
-
-                    lastMessage.response = tempResponse
+                await MainActor.run {
+                    lastMessage.response = response
                     activeChat.modifiedAt = .now
-                    tempResponse = ""
+                    
+                    // Clear temp response since we now have the final response
+                    self.tempResponse = ""
+                    
+                    // Save to activity if this is part of an activity
+                    self.chatViewModel?.saveActivityContent()
                 }
+                
             } catch {
+                await MainActor.run {
+                    print("DEBUG: MessageViewModel regenerate failed: \(error)")
                 self.error = .generate(error.localizedDescription)
+                    self.tempResponse = "" // Clear temp response on error
+                }
             }
         }
     }
     
-    private func generateTitle(_ ollamaKit: OllamaKit, activeChat: Chat) {
-        var requestMessages = [OKChatRequestData.Message]()
-        
-        for message in messages {
-            let userMessage = OKChatRequestData.Message(role: .user, content: message.prompt)
-            let assistantMessage = OKChatRequestData.Message(role: .assistant, content: message.response ?? "")
-            
-            requestMessages.append(userMessage)
-            requestMessages.append(assistantMessage)
+    private func generateTitle(activeChat: Chat) async throws {
+        guard let chatViewModel = self.chatViewModel else {
+            throw MessageViewModelError.generate("ChatViewModel not available")
         }
         
-        let userMessage = OKChatRequestData.Message(role: .user, content: "Just reply with a short title about this conversation. One line maximum. No markdown.")
-        requestMessages.append(userMessage)
+        // Build conversation context
+        var conversationSummary = ""
+        for message in messages {
+            conversationSummary += "User: \(message.prompt)\n"
+            conversationSummary += "Assistant: \(message.response ?? "")\n\n"
+        }
         
-        generationTask = Task {
-            defer { self.loading = nil }
-            
-            activeChat.name = "New Chat"
-            var title: String = ""
-            do {
-                var isReasoningContent = false
-                
-                for try await chunk in ollamaKit.chat(data: OKChatRequestData(model: activeChat.model, messages: requestMessages)) {
-                    if Task.isCancelled { break }
-                    
-                    guard let content = chunk.message?.content else { continue }
-                    
-                    if content.contains("<think>") {
-                        isReasoningContent = true
-                        continue
-                    }
-                    
-                    if content.contains("</think>") {
-                        isReasoningContent = false
-                        continue
-                    }
-                    
-                    if !isReasoningContent {
-                        title += content
-                        if title.isEmpty == false {
-                            activeChat.name = title.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
-                        }
-                    }
-                    
-                    if chunk.done {
-                        activeChat.modifiedAt = .now
-                    }
-                }
+        let titlePrompt = "\(conversationSummary)\n\nGenerate a short, descriptive title for this conversation. One line maximum. No markdown or quotes."
+        
+        let title = try await chatViewModel.generateAIResponse(
+            prompt: titlePrompt,
+            systemPrompt: "You are a helpful assistant that creates concise, descriptive titles."
+        ) { _ in /* No streaming needed for titles */ }
+        
+        activeChat.name = title.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        
+        do {
+            try modelContext.save()
             } catch {
-                self.error = .generateTitle(error.localizedDescription)
-            }
+            print("DEBUG: Failed to save title: \(error)")
         }
     }
     
@@ -274,5 +231,13 @@ enum MessageViewModelLoading {
 enum MessageViewModelError: Error {
     case load(String)
     case generate(String)
-    case generateTitle(String)
+    
+    var localizedDescription: String {
+        switch self {
+        case .load(let message):
+            return message
+        case .generate(let message):
+            return message
+        }
+    }
 }

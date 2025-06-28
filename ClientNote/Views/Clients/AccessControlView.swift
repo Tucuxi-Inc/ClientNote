@@ -92,6 +92,7 @@ public struct AccessControlView<Content: View>: View {
 
 struct TrialExpiredView: View {
     let action: () -> Void
+    @State private var showingServiceOptions = false
     
     var body: some View {
         VStack(spacing: 20) {
@@ -106,39 +107,112 @@ struct TrialExpiredView: View {
                     .fontWeight(.bold)
                     .foregroundColor(Color.euniText)
                 
-                Text("Your trial has expired")
+                Text("Choose Your AI Service")
                     .font(.title3)
                     .foregroundColor(Color.euniSecondary)
             }
             .padding(.bottom, 16)
             
-            VStack(alignment: .leading, spacing: 12) {
-                FeatureItemLarge(title: "Unlimited AI therapy note generation")
-                FeatureItemLarge(title: "Easy Note templates for documentation")
-                FeatureItemLarge(title: "Access to all Ollama models")
-                FeatureItemLarge(title: "Safety documentation tools")
-                FeatureItemLarge(title: "Regular app updates")
-            }
-            .padding(.bottom, 20)
-            
-            Button(action: action) {
-                Text("View Purchase Options")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 30)
-                    .padding(.vertical, 16)
+            // Service Options
+            VStack(spacing: 16) {
+                // Subscription/One-Time Purchase Option
+                Button(action: action) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Use with a Subscription or One-Time Purchase")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            Text("Uses Cloud Based AI")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+                        Spacer()
+                        Image(systemName: "star.fill")
+                            .foregroundColor(.white)
+                    }
+                    .padding()
                     .background(Color.euniPrimary)
                     .cornerRadius(12)
+                }
+                .buttonStyle(PlainButtonStyle())
+                
+                // Use Own API Key Option
+                Button(action: {
+                    showingServiceOptions = true
+                }) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Use with your own OpenAI API Key")
+                                .font(.headline)
+                                .foregroundColor(Color.euniText)
+                            Text("Uses Cloud Based AI at public API costs that you pay the AI provider")
+                                .font(.caption)
+                                .foregroundColor(Color.euniSecondary)
+                        }
+                        Spacer()
+                        Image(systemName: "key.fill")
+                            .foregroundColor(Color.euniPrimary)
+                    }
+                    .padding()
+                    .background(Color.euniFieldBackground)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.euniBorder, lineWidth: 1)
+                    )
+                    .cornerRadius(12)
+                }
+                .buttonStyle(PlainButtonStyle())
+                
+                // Ollama Option
+                Button(action: {
+                    showingServiceOptions = true
+                }) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Use with Ollama")
+                                .font(.headline)
+                                .foregroundColor(Color.euniText)
+                            Text("Free - Processes client data only on Your Computer")
+                                .font(.caption)
+                                .foregroundColor(Color.euniSecondary)
+                        }
+                        Spacer()
+                        Image(systemName: "desktopcomputer")
+                            .foregroundColor(Color.euniPrimary)
+                    }
+                    .padding()
+                    .background(Color.euniFieldBackground)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.euniBorder, lineWidth: 1)
+                    )
+                    .cornerRadius(12)
+                }
+                .buttonStyle(PlainButtonStyle())
             }
-            .buttonStyle(PlainButtonStyle())
+            .padding(.horizontal)
             
-            Text("Unlock all features with a one-time purchase")
+            Spacer()
+            
+            Text("You can change your selection anytime in Settings")
                 .font(.caption)
                 .foregroundColor(Color.euniSecondary)
         }
         .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.euniBackground)
+        .sheet(isPresented: $showingServiceOptions) {
+            NavigationView {
+                AIServiceSettingsView()
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Done") {
+                                showingServiceOptions = false
+                            }
+                        }
+                    }
+            }
+        }
     }
 }
 

@@ -182,9 +182,46 @@ The following section documents significant debugging and improvement work compl
 **Debug Features**: Comprehensive logging enabled throughout chat system
 **Test Coverage**: Manual testing procedures documented for all major workflows
 
-## Getting Started
+## Development Setup
+
+### Required: Bundled Flash Model
+
+Euni™ includes a bundled Flash model (Qwen3-0.6B-Q4_0.gguf) for immediate functionality. This model is not included in the git repository due to its size (~350-400MB).
+
+**To set up the bundled model for development:**
+
+1. **Download the Flash model**:
+   ```bash
+   # Download Qwen3-0.6B-Q4_0.gguf to the Resources directory
+   cd "ClientNote/Resources"
+   curl -L -o "Qwen3-0.6B-Q4_0.gguf" "https://huggingface.co/unsloth/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q4_0.gguf?download=true"
+   ```
+
+2. **Add to Xcode project**:
+   - Right-click `ClientNote/Resources` in Xcode Navigator
+   - Select "Add Files to 'ClientNote'"
+   - Choose the `Qwen3-0.6B-Q4_0.gguf` file
+   - Ensure "Add to target: ClientNote" is checked
+   - Click "Add"
+
+3. **Verify setup**:
+   - Build and run the app
+   - The Flash model should be available immediately on first launch
+   - No download required - app works offline
+
+**Note**: The `.gitignore` file is configured to exclude all `.gguf` model files from version control.
+
+### Alternative: Ollama Setup
+
+If you prefer to use Ollama instead of the bundled model:
 
 1. Install Ollama on your Mac
+2. Download a compatible model (e.g., `ollama pull qwen:0.6b`)
+3. Configure Euni™ to use Ollama in settings
+
+## Getting Started
+
+1. Complete the development setup above (bundled model or Ollama)
 2. Launch Euni™ - Client Notes
 3. Configure your preferred note format in settings
 4. Add your first client
