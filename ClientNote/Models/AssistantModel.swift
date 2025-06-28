@@ -62,6 +62,10 @@ extension AssistantModel {
     ]
     
     public static func nameFor(modelId: String) -> String {
+        // Check if it's an OpenAI model
+        if modelId.lowercased().contains("gpt") {
+            return "OpenAI"
+        }
         return all.first(where: { $0.modelId.lowercased() == modelId.lowercased() })?.name ?? modelId
     }
     

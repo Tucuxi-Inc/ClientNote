@@ -1259,21 +1259,34 @@ struct ChatView: View {
         }
         
         private var assistantPicker: some View {
-                            VStack(spacing: 4) {
-                                Text("Assistant")
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(Color.euniSecondary)
+            VStack(spacing: 4) {
+                Text("Assistant")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(Color.euniSecondary)
 
-                Picker("Choose an Assistant", selection: assistantPickerBinding) {
-                                    ForEach(chatViewModel.models, id: \.self) { model in
-                        // For LlamaCpp, models are already friendly names like "Flash"
-                        // For OllamaKit, models are IDs like "qwen3:0.6b", so we convert them
-                        let displayName = AssistantModel.nameFor(modelId: model)
-                        Text(displayName).tag(model)
-                                    }
-                                }
-                                .frame(width: 200)
-                            }
+                // Check if OpenAI is selected
+                if let serviceType = Defaults[.selectedAIServiceType],
+                   (serviceType == .openAIUser || serviceType == .openAISubscription) {
+                    // For OpenAI, just show "OpenAI" as text, no picker
+                    Text("OpenAI")
+                        .font(.system(size: 14))
+                        .foregroundColor(Color.euniText)
+                        .frame(width: 200, height: 28)
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(6)
+                } else {
+                    // For Ollama, show the normal picker
+                    Picker("Choose an Assistant", selection: assistantPickerBinding) {
+                        ForEach(chatViewModel.models, id: \.self) { model in
+                            // For LlamaCpp, models are already friendly names like "Flash"
+                            // For OllamaKit, models are IDs like "qwen3:0.6b", so we convert them
+                            let displayName = AssistantModel.nameFor(modelId: model)
+                            Text(displayName).tag(model)
+                        }
+                    }
+                    .frame(width: 200)
+                }
+            }
         }
 
         private var assistantPickerBinding: Binding<String> {
@@ -1469,9 +1482,13 @@ struct ChatView: View {
                 }
             }
             }
+        } else if selectedBackend == .openAI {
+            print("DEBUG: ChatView - Using OpenAI backend")
+            // When using OpenAI, fetch models from the backend manager
+            self.chatViewModel.fetchModelsFromBackend()
         } else {
-            print("DEBUG: ChatView - Using LlamaCpp, skipping Ollama connection check")
-            // When using LlamaCpp, fetch models from the backend manager
+            print("DEBUG: ChatView - Using other backend: \(selectedBackend.displayName)")
+            // For other backends, fetch models from the backend manager
             self.chatViewModel.fetchModelsFromBackend()
         }
     }
