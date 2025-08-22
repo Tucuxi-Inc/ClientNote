@@ -18,11 +18,6 @@ protocol AIService {
 enum AIServiceType: String, CaseIterable {
     case ollama = "Free (Local)"
     case openAIUser = "OpenAI Account (Non-Local)"
-    case openAISubscription = "Euni Subscription/Purchase (Non-Local)"
-    
-    var requiresSubscription: Bool {
-        return self == .openAISubscription
-    }
     
     var requiresAPIKey: Bool {
         return self == .openAIUser
@@ -32,7 +27,6 @@ enum AIServiceType: String, CaseIterable {
         switch self {
         case .ollama: return "desktopcomputer"
         case .openAIUser: return "key.fill"
-        case .openAISubscription: return "star.fill"
         }
     }
     
@@ -40,7 +34,6 @@ enum AIServiceType: String, CaseIterable {
         switch self {
         case .ollama: return "Requires the free Ollama app"
         case .openAIUser: return "Requires an active OpenAI Account & valid developer API Key"
-        case .openAISubscription: return "Requires a lifetime purchase or active subscription to Euni"
         }
     }
 }
@@ -88,11 +81,6 @@ final class AIServiceManager {
             available.append(.openAIUser)
         }
         
-        // Check subscription
-        if Defaults[.hasActiveSubscription] || Defaults[.hasFullUnlock] {
-            available.append(.openAISubscription)
-        }
-        
         await MainActor.run {
             self.availableServices = available
             
@@ -112,18 +100,6 @@ final class AIServiceManager {
         case .openAIUser:
             if !KeychainManager.shared.openAIAPIKey.isEmpty {
                 currentService = OpenAIService(apiKey: KeychainManager.shared.openAIAPIKey)
-            }
-        case .openAISubscription:
-            // Check subscription status
-            let hasAccess = Defaults[.hasActiveSubscription] || Defaults[.hasFullUnlock]
-            if hasAccess {
-                // Use company API key for subscription users
-                let apiKey = CompanyAPIKeys.openAIKey
-                if !apiKey.isEmpty && CompanyAPIKeys.isConfigured {
-                    currentService = OpenAIService(apiKey: apiKey, isSubscription: true)
-                } else {
-                    print("WARNING: Company API key not configured")
-                }
             }
         }
         
@@ -248,13 +224,12 @@ struct OllamaService: AIService {
 // MARK: - OpenAI Service
 
 struct OpenAIService: AIService {
-    let serviceType: AIServiceType
+    let serviceType = AIServiceType.openAIUser
     private let apiKey: String
     private let baseURL = URL(string: "https://api.openai.com/v1")!
     
-    init(apiKey: String, isSubscription: Bool = false) {
+    init(apiKey: String) {
         self.apiKey = apiKey
-        self.serviceType = isSubscription ? .openAISubscription : .openAIUser
     }
     
     func isAvailable() async -> Bool {

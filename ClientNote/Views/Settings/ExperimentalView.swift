@@ -36,10 +36,8 @@ struct ExperimentalView: View {
             Section {
                 Box {
                     Button(action: {
-                        Task {
-                            await IAPManager.shared.resetPurchases()
-                            print("DEBUG: All purchases have been reset")
-                        }
+                        // No purchases to reset in free version
+                        print("DEBUG: No purchases to reset in free version")
                     }) {
                         HStack {
                             Image(systemName: "arrow.counterclockwise")

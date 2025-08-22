@@ -3012,7 +3012,7 @@ final class ChatViewModel {
                         switch currentService.serviceType {
                         case .ollama:
                             self.error = .fetchModels("No Ollama models found. Please pull at least one model using 'ollama pull <model-name>' in Terminal or through the Ollama app.")
-                        case .openAIUser, .openAISubscription:
+                        case .openAIUser:
                             self.error = .fetchModels("No OpenAI models available. Please check your API key and internet connection.")
                         }
                     } else {
@@ -3039,7 +3039,7 @@ final class ChatViewModel {
                         } else {
                             self.error = .fetchModels("Ollama error: \(error.localizedDescription)")
                         }
-                    case .openAIUser, .openAISubscription:
+                    case .openAIUser:
                         if error.localizedDescription.contains("unauthorized") || error.localizedDescription.contains("401") {
                             self.error = .fetchModels("Invalid OpenAI API key. Please check your API key in settings.")
                         } else if error.localizedDescription.contains("network") || error.localizedDescription.contains("internet") {

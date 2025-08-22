@@ -73,6 +73,11 @@
 		88100CA52E06326900C429A2 /* CompanyAPIKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88100CA42E06326900C429A2 /* CompanyAPIKeys.swift */; };
 		8833A9AC2E56E219001861DD /* ModeSelector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8833A9AB2E56E219001861DD /* ModeSelector.swift */; };
 		8833A9AE2E56F397001861DD /* AppView .swift in Sources */ = {isa = PBXBuildFile; fileRef = 8833A9AD2E56F397001861DD /* AppView .swift */; };
+		8833A9B02E58308A001861DD /* DataPrivacyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8833A9AF2E58308A001861DD /* DataPrivacyView.swift */; };
+		8833A9B32E5834F4001861DD /* privacy_policy.pdf in Resources */ = {isa = PBXBuildFile; fileRef = 8833A9B12E5834F4001861DD /* privacy_policy.pdf */; };
+		8833A9B42E5834F4001861DD /* Tucuxi_Terms_of_Use.pdf in Resources */ = {isa = PBXBuildFile; fileRef = 8833A9B22E5834F4001861DD /* Tucuxi_Terms_of_Use.pdf */; };
+		8833A9B62E58369B001861DD /* TermsAndPrivacyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8833A9B52E58369B001861DD /* TermsAndPrivacyView.swift */; };
+		8833A9B82E583D23001861DD /* FirstTimeConfigurationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8833A9B72E583D23001861DD /* FirstTimeConfigurationView.swift */; };
 		88C4AF122DD93613002DF4DC /* AssistantModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C4AF112DD93612002DF4DC /* AssistantModel.swift */; };
 		88C4AF152DD984BF002DF4DC /* AddClientView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C4AF132DD984BF002DF4DC /* AddClientView.swift */; };
 		88C4B07F2DDA8123002DF4DC /* ICDResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C4B07E2DDA8123002DF4DC /* ICDResult.swift */; };
@@ -141,6 +146,11 @@
 		88100CA42E06326900C429A2 /* CompanyAPIKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanyAPIKeys.swift; sourceTree = "<group>"; };
 		8833A9AB2E56E219001861DD /* ModeSelector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModeSelector.swift; sourceTree = "<group>"; };
 		8833A9AD2E56F397001861DD /* AppView .swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppView .swift"; sourceTree = "<group>"; };
+		8833A9AF2E58308A001861DD /* DataPrivacyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataPrivacyView.swift; sourceTree = "<group>"; };
+		8833A9B12E5834F4001861DD /* privacy_policy.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = privacy_policy.pdf; sourceTree = "<group>"; };
+		8833A9B22E5834F4001861DD /* Tucuxi_Terms_of_Use.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = Tucuxi_Terms_of_Use.pdf; sourceTree = "<group>"; };
+		8833A9B52E58369B001861DD /* TermsAndPrivacyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TermsAndPrivacyView.swift; sourceTree = "<group>"; };
+		8833A9B72E583D23001861DD /* FirstTimeConfigurationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstTimeConfigurationView.swift; sourceTree = "<group>"; };
 		88C4AF112DD93612002DF4DC /* AssistantModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantModel.swift; sourceTree = "<group>"; };
 		88C4AF132DD984BF002DF4DC /* AddClientView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddClientView.swift; sourceTree = "<group>"; };
 		88C4B07E2DDA8123002DF4DC /* ICDResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICDResult.swift; sourceTree = "<group>"; };
@@ -172,6 +182,8 @@
 		0A4D35782AF541D900846890 = {
 			isa = PBXGroup;
 			children = (
+				8833A9B12E5834F4001861DD /* privacy_policy.pdf */,
+				8833A9B22E5834F4001861DD /* Tucuxi_Terms_of_Use.pdf */,
 				8807B1132DB6F8E500C3D195 /* ClientNoteConfiguration.storekit */,
 				0A7F58FA2C42657E00091E44 /* Frameworks */,
 				0A4D35832AF541D900846890 /* ClientNote */,
@@ -223,6 +235,9 @@
 		0A4D35962AF5422A00846890 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				8833A9B72E583D23001861DD /* FirstTimeConfigurationView.swift */,
+				8833A9B52E58369B001861DD /* TermsAndPrivacyView.swift */,
+				8833A9AF2E58308A001861DD /* DataPrivacyView.swift */,
 				8833A9AD2E56F397001861DD /* AppView .swift */,
 				88100CA22E04E00300C429A2 /* FirstTimeSetupView.swift */,
 				88100CA02E02BA5000C429A2 /* SplashScreen.swift */,
@@ -466,6 +481,8 @@
 			files = (
 				8807B1142DB6F8E500C3D195 /* ClientNoteConfiguration.storekit in Resources */,
 				0A4D358E2AF541DA00846890 /* Preview Assets.xcassets in Resources */,
+				8833A9B32E5834F4001861DD /* privacy_policy.pdf in Resources */,
+				8833A9B42E5834F4001861DD /* Tucuxi_Terms_of_Use.pdf in Resources */,
 				0A4D358B2AF541DA00846890 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -490,6 +507,7 @@
 				88C4B0892DDA8A4B002DF4DC /* Client.swift in Sources */,
 				0ADB95EF2C5D42FF00EB0C60 /* AssistantMessageView.swift in Sources */,
 				0A6E85302C5EB5F90030A4AA /* UpdateSystemPromptSheet.swift in Sources */,
+				8833A9B02E58308A001861DD /* DataPrivacyView.swift in Sources */,
 				88100C9F2E02B17200C429A2 /* AIServiceSettingsView.swift in Sources */,
 				8807ADD12DB30C5400C3D195 /* Color+ClientNoteCustom.swift in Sources */,
 				0A6E85152C5E98620030A4AA /* Message.swift in Sources */,
@@ -503,8 +521,10 @@
 				0A6E851D2C5E98770030A4AA /* String+RemoveTrailingSlash.swift in Sources */,
 				0A6E851E2C5E98770030A4AA /* String+IsValidURL.swift in Sources */,
 				0A6E851F2C5E98770030A4AA /* Defaults+Keys.swift in Sources */,
+				8833A9B62E58369B001861DD /* TermsAndPrivacyView.swift in Sources */,
 				0AFC5AA72C6695CF00A148A2 /* Box.swift in Sources */,
 				88C4AF122DD93613002DF4DC /* AssistantModel.swift in Sources */,
+				8833A9B82E583D23001861DD /* FirstTimeConfigurationView.swift in Sources */,
 				8804D8BA2DE51B8000616BC3 /* RecordingView.swift in Sources */,
 				0A6E85202C5E98770030A4AA /* Optional+Utils.swift in Sources */,
 				0AF566322C65582300D6E01A /* MessageButton.swift in Sources */,

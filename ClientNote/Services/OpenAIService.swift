@@ -16,7 +16,7 @@ class OpenAIService: AIService {
     init(apiKey: String, isUserKey: Bool) {
         self.apiKey = apiKey
         self.isUserKey = isUserKey
-        self.serviceType = isUserKey ? .openAIUser : .openAISubscription
+        self.serviceType = .openAIUser  // Only user keys supported in free version
     }
     
     func isAvailable() async -> Bool {

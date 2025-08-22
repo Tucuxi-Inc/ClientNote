@@ -112,7 +112,7 @@ class AIServiceAdapter: AIBackendProtocol {
                     currentModel = "qwen3:0.6b"
                     print("DEBUG: AIServiceAdapter - Error listing Ollama models, using default: \(error)")
                 }
-            case .openAIUser, .openAISubscription:
+            case .openAIUser:
                 currentModel = "gpt-4.1-nano"
             }
         } else {
@@ -220,7 +220,7 @@ final class AIBackendManager {
         switch serviceManager.currentService?.serviceType {
         case .ollama:
             return .ollamaKit
-        case .openAIUser, .openAISubscription:
+        case .openAIUser:
             return .openAI
         case nil:
             return userSelectedBackend
@@ -273,12 +273,9 @@ final class AIBackendManager {
             if hasUserKey {
                 print("DEBUG: AIBackendManager - Using user OpenAI key")
                 serviceType = .openAIUser
-            } else if hasSubscription && hasDevKey {
-                print("DEBUG: AIBackendManager - User has subscription and developer key, selecting openAISubscription")
-                serviceType = .openAISubscription
             } else {
-                // Default to Ollama if no OpenAI credentials or subscription
-                print("DEBUG: AIBackendManager - No valid OpenAI credentials or subscription, falling back to Ollama")
+                // Default to Ollama if no OpenAI credentials
+                print("DEBUG: AIBackendManager - No valid OpenAI credentials, falling back to Ollama")
                 serviceType = .ollama
             }
         }
@@ -361,13 +358,8 @@ final class AIBackendManager {
     }
     
     private func hasActiveSubscription() async -> Bool {
-        // Check if user has active subscription through IAP
-        let iapManager = IAPManager.shared
-        let hasFullAccess = iapManager.hasFullAccess
-        let hasActiveSubscription = iapManager.hasActiveSubscription
-        let result = hasFullAccess || hasActiveSubscription
-        print("DEBUG: AIBackendManager.hasActiveSubscription() - hasFullAccess: \(hasFullAccess), hasActiveSubscription: \(hasActiveSubscription), result: \(result)")
-        return result
+        // No subscriptions in free version
+        return false
     }
 }
 
@@ -379,7 +371,7 @@ enum AIBackend: String, CaseIterable, Defaults.Serializable {
     var displayName: String {
         switch self {
         case .ollamaKit:
-            return "Ollama"
+            return "Free Local AI"
         case .openAI:
             return "OpenAI"
         }
@@ -388,9 +380,9 @@ enum AIBackend: String, CaseIterable, Defaults.Serializable {
     var description: String {
         switch self {
         case .ollamaKit:
-            return "Connect to Ollama server for local or remote AI models"
+            return "AI that runs on your computer"
         case .openAI:
-            return "Use OpenAI's GPT models for AI-powered documentation"
+            return "Use your own OpenAI Developer API key to use an OpenAI model running on OpenAI's servers"
         }
     }
 }

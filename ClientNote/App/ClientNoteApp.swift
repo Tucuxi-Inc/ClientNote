@@ -9,7 +9,6 @@ import Defaults
 import AppInfo
 import SwiftUI
 import SwiftData
-import StoreKit
 import OllamaKit
 import UserNotifications
 
@@ -17,6 +16,8 @@ import UserNotifications
 struct ClientNoteApp: App {
     @State private var appUpdater: AppUpdater
     @State private var showSplashScreen = true
+    @State private var showTermsAndPrivacy = false
+    @State private var showFirstTimeConfiguration = false
     
     @State private var chatViewModel: ChatViewModel
     @State private var messageViewModel: MessageViewModel
@@ -69,70 +70,63 @@ struct ClientNoteApp: App {
             }
         }
 
-        /*
-        #if DEBUG
-        // Set up StoreKit test environment programmatically
-        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] != "1" {
-            Task {
-                // Ensure we have the StoreKit configuration file loaded
-                print("Setting up StoreKit test environment")
-                
-                // Force load products from the StoreKit configuration file
-                let productIDs = ["ai.tucuxi.ClientNote.7DayTrial", "ai.tucuxi.ClientNote.fullUnlock"]
-                print("Loading products with IDs: \(productIDs)")
-                
-                do {
-                    let products = try await Product.products(for: productIDs)
-                    print("Successfully loaded \(products.count) products:")
-                    for product in products {
-                        print("- \(product.id): \(product.displayName), price: \(product.displayPrice)")
-                    }
-                    
-                    // Force a sync with App Store to ensure connection is working
-                    print("Syncing with App Store...")
-                    try await AppStore.sync()
-                    print("App Store sync complete")
-                } catch {
-                    print("Error loading products: \(error)")
-                }
-                
-                // Clear existing transactions for fresh testing
-                if let result = await StoreKit.Transaction.latest(for: "ai.tucuxi.ClientNote.7DayTrial") {
-                    if case .verified(let transaction) = result {
-                        await transaction.finish()
-                    }
-                }
-                
-                if let result = await StoreKit.Transaction.latest(for: "ai.tucuxi.ClientNote.fullUnlock") {
-                    if case .verified(let transaction) = result {
-                        await transaction.finish()
-                    }
-                }
-            }
-        }
-        #endif
-        */
+        // StoreKit code removed for free version
     }
     
     var body: some Scene {
         WindowGroup {
             ZStack {
-                AccessControlView {
-                    AppView()
-                        .environment(chatViewModel)
-                        .environment(messageViewModel)
-                        .environment(codeHighlighter)
-                        .environment(aiBackendManager)
+                // Main app view - only show if everything is complete
+                if !showSplashScreen && !showTermsAndPrivacy && !showFirstTimeConfiguration && 
+                   Defaults[.hasAcceptedTermsAndPrivacy] && Defaults[.defaultHasLaunched] {
+                    AccessControlView {
+                        AppView()
+                            .environment(chatViewModel)
+                            .environment(messageViewModel)
+                            .environment(codeHighlighter)
+                            .environment(aiBackendManager)
+                    }
+                    .preferredColorScheme(ColorScheme.light)
+                } else if showFirstTimeConfiguration {
+                    // Show first-time configuration
+                    FirstTimeConfigurationView {
+                        showFirstTimeConfiguration = false
+                    }
+                    .transition(.opacity)
+                    .zIndex(2)
+                    .preferredColorScheme(ColorScheme.light)
+                } else if !Defaults[.hasAcceptedTermsAndPrivacy] && !showSplashScreen {
+                    // Show terms and privacy if not accepted and splash is done
+                    TermsAndPrivacyView {
+                        // When user accepts terms, check if we need configuration
+                        showTermsAndPrivacy = false
+                        if !Defaults[.defaultHasLaunched] {
+                            showFirstTimeConfiguration = true
+                        }
+                    }
+                    .transition(.opacity)
+                    .zIndex(2)
+                    .preferredColorScheme(ColorScheme.light)
+                } else {
+                    // Show a blocking view if terms not accepted
+                    Color.euniBackground
+                        .ignoresSafeArea()
                 }
-                .preferredColorScheme(ColorScheme.light)
                 
                 if showSplashScreen {
-                    SimpleSplashScreen(isPresented: $showSplashScreen)
+                    SimpleSplashScreen(isPresented: $showSplashScreen, onSplashComplete: {
+                        // After splash, check what to show next
+                        if !Defaults[.hasAcceptedTermsAndPrivacy] {
+                            showTermsAndPrivacy = true
+                        } else if !Defaults[.defaultHasLaunched] {
+                            showFirstTimeConfiguration = true
+                        }
+                    })
                         .environment(chatViewModel)
                         .environment(messageViewModel)
                         .environment(aiBackendManager)
                         .transition(.opacity)
-                        .zIndex(1)
+                        .zIndex(3)
                         .preferredColorScheme(ColorScheme.light)
                 }
             }
@@ -204,6 +198,7 @@ struct ClientNoteApp: App {
 // Simple splash screen view
 struct SimpleSplashScreen: View {
     @Binding var isPresented: Bool
+    let onSplashComplete: () -> Void
     @Environment(ChatViewModel.self) private var chatViewModel
     @Environment(MessageViewModel.self) private var messageViewModel
     @Environment(AIBackendManager.self) private var aiBackendManager
@@ -220,8 +215,9 @@ struct SimpleSplashScreen: View {
         "5_How-It-Works"
     ]
     
-    init(isPresented: Binding<Bool>) {
+    init(isPresented: Binding<Bool>, onSplashComplete: @escaping () -> Void) {
         self._isPresented = isPresented
+        self.onSplashComplete = onSplashComplete
     }
     
     var body: some View {
@@ -310,5 +306,7 @@ struct SimpleSplashScreen: View {
         withAnimation(.easeOut(duration: 0.3)) {
             isPresented = false
         }
+        // Call completion handler after splash is dismissed
+        onSplashComplete()
     }
 }

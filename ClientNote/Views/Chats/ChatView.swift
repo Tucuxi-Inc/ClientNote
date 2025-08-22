@@ -1266,8 +1266,8 @@ struct ChatView: View {
                     .foregroundColor(Color.euniSecondary)
 
                 // Check if OpenAI is selected
-                if let serviceType = Defaults[.selectedAIServiceType],
-                   (serviceType == .openAIUser || serviceType == .openAISubscription) {
+                if let serviceType = AIServiceManager.shared.currentService?.serviceType,
+                   (serviceType == .openAIUser) {
                     // For OpenAI, just show "OpenAI" as text, no picker
                     Text("OpenAI")
                         .font(.system(size: 14))

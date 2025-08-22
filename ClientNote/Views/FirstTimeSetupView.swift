@@ -1,12 +1,10 @@
 import SwiftUI
 import Defaults
-import StoreKit
 
 struct FirstTimeSetupView: View {
     @Binding var isPresented: Bool
     @State private var selectedService: AIServiceOption? = nil
     @State private var showingAPIKeyEntry = false
-    @State private var showingSubscriptionFlow = false
     @State private var apiKey = ""
     @State private var isValidatingAPIKey = false
     @State private var errorMessage: String?
@@ -41,7 +39,7 @@ struct FirstTimeSetupView: View {
                 // OpenAI Option
                 ServiceOptionCard(
                     title: "Use with Cloud Based AI",
-                    subtitle: "Subscription, One-Time Purchase, or Your Own API Key",
+                    subtitle: "Your Own OpenAI API Key",
                     icon: "cloud.fill",
                     isSelected: selectedService == .openAI,
                     features: [
@@ -102,18 +100,6 @@ struct FirstTimeSetupView: View {
                 onSubmit: validateAndSaveAPIKey
             )
         }
-        .sheet(isPresented: $showingSubscriptionFlow) {
-            SubscriptionView(
-                onComplete: { success in
-                    if success {
-                        completeSetup(with: .openAISubscription)
-                    } else {
-                        showingSubscriptionFlow = false
-                        selectedService = nil
-                    }
-                }
-            )
-        }
     }
     
     private func handleContinue() {
@@ -128,24 +114,8 @@ struct FirstTimeSetupView: View {
     }
     
     private func showOpenAIOptions() {
-        // Show alert to choose between subscription and API key
-        let alert = NSAlert()
-        alert.messageText = "Choose Cloud AI Access Method"
-        alert.informativeText = "How would you like to access cloud-based AI?"
-        alert.addButton(withTitle: "Subscription or One-Time Purchase")
-        alert.addButton(withTitle: "Use My Own OpenAI API Key")
-        alert.addButton(withTitle: "Cancel")
-        
-        let response = alert.runModal()
-        
-        switch response {
-        case .alertFirstButtonReturn:
-            showingSubscriptionFlow = true
-        case .alertSecondButtonReturn:
-            showingAPIKeyEntry = true
-        default:
-            selectedService = nil
-        }
+        // Go directly to API key entry in free version
+        showingAPIKeyEntry = true
     }
     
     private func validateAndSaveAPIKey() {
@@ -178,7 +148,7 @@ struct FirstTimeSetupView: View {
         Defaults[.selectedAIServiceType] = serviceType
         
         // Set the appropriate backend based on service type
-        if serviceType == .openAIUser || serviceType == .openAISubscription {
+        if serviceType == .openAIUser {
             Defaults[.selectedAIBackend] = .openAI
         } else {
             Defaults[.selectedAIBackend] = .ollamaKit
@@ -312,236 +282,6 @@ struct APIKeyEntryView: View {
         }
         .padding(30)
         .frame(width: 500)
-    }
-}
-
-struct SubscriptionView: View {
-    let onComplete: (Bool) -> Void
-    @State private var products: [Product] = []
-    @State private var isLoading = true
-    @State private var purchaseError: String?
-    
-    var body: some View {
-        VStack(spacing: 20) {
-            // Header
-            VStack(spacing: 8) {
-                Text("Client Notes Premium")
-                    .font(.title)
-                    .fontWeight(.bold)
-                
-                Text("Unlock OpenAI-powered documentation")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-            .padding(.bottom, 10)
-            
-            // Subscription Options
-            if isLoading {
-                ProgressView("Loading subscription options...")
-                    .padding()
-                    .frame(maxHeight: .infinity)
-            } else if products.isEmpty {
-                VStack {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.largeTitle)
-                        .foregroundColor(.orange)
-                    Text("Unable to load subscription options")
-                        .foregroundColor(.secondary)
-                        .padding(.top)
-                }
-                .frame(maxHeight: .infinity)
-            } else {
-                ScrollView {
-                    VStack(spacing: 12) {
-                        ForEach(products.sorted(by: { p1, p2 in
-                            // Sort by price descending (yearly first)
-                            p1.price > p2.price
-                        }), id: \.id) { product in
-                            SubscriptionOptionView(product: product) {
-                                Task {
-                                    await purchase(product)
-                                }
-                            }
-                        }
-                    }
-                }
-                .frame(maxHeight: .infinity)
-            }
-            
-            if let error = purchaseError {
-                Text(error)
-                    .font(.caption)
-                    .foregroundColor(.red)
-                    .padding(.horizontal)
-            }
-            
-            Divider()
-            
-            // Other Options Section
-            VStack(spacing: 12) {
-                Text("Other Options")
-                    .font(.headline)
-                    .foregroundColor(.primary)
-                
-                Button(action: {
-                    onComplete(false)
-                }) {
-                    HStack {
-                        Image(systemName: "arrow.left")
-                        Text("Back to Setup Options")
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 10)
-                    .background(Color.gray)
-                    .cornerRadius(8)
-                }
-                .buttonStyle(.plain)
-                
-                Text("You can also change this later in Settings")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-        }
-        .padding(30)
-        .frame(width: 600, height: 600)
-        .task {
-            await loadProducts()
-        }
-    }
-    
-    private func loadProducts() async {
-        // Load subscription products from App Store
-        do {
-            let productIds = [
-                "ai.tucuxi.ClientNote.subscription.weekly",
-                "ai.tucuxi.ClientNote.subscription.monthly",
-                "ai.tucuxi.ClientNote.subscription.quarterly",
-                "ai.tucuxi.ClientNote.subscription.yearly"
-            ]
-            
-            products = try await Product.products(for: productIds)
-            isLoading = false
-        } catch {
-            print("Failed to load products: \(error)")
-            isLoading = false
-        }
-    }
-    
-    private func purchase(_ product: Product) async {
-        // Handle purchase
-        do {
-            let result = try await product.purchase()
-            
-            switch result {
-            case .success(let verification):
-                switch verification {
-                case .verified(let transaction):
-                    // Transaction is verified, grant access
-                    await transaction.finish()
-                    await MainActor.run {
-                        onComplete(true)
-                    }
-                case .unverified:
-                    // Transaction failed verification
-                    await MainActor.run {
-                        purchaseError = "Purchase could not be verified"
-                    }
-                }
-            case .userCancelled:
-                // User cancelled the purchase
-                break
-            case .pending:
-                // Transaction is pending (e.g., parental approval)
-                await MainActor.run {
-                    purchaseError = "Purchase is pending approval"
-                }
-            @unknown default:
-                await MainActor.run {
-                    purchaseError = "Unknown error occurred"
-                }
-            }
-        } catch {
-            await MainActor.run {
-                purchaseError = "Purchase failed: \(error.localizedDescription)"
-            }
-        }
-    }
-}
-
-struct SubscriptionOptionView: View {
-    let product: Product
-    let onPurchase: () -> Void
-    
-    var body: some View {
-        Button(action: onPurchase) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(product.displayName)
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                    
-                    Text(getProductDescription(product))
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(product.displayPrice)
-                        .font(.title3)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.euniPrimary)
-                    
-                    if let period = getSubscriptionPeriod(product) {
-                        Text(period)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-            .padding(16)
-            .background(Color.euniFieldBackground)
-            .cornerRadius(10)
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.euniBorder, lineWidth: 1)
-            )
-        }
-        .buttonStyle(.plain)
-        .scaleEffect(1.0)
-        .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.1)) {
-                // Add hover effect if needed
-            }
-        }
-    }
-    
-    private func getProductDescription(_ product: Product) -> String {
-        if product.id.contains("weekly") {
-            return "Free trial of 3 days included"
-        } else if product.id.contains("monthly") {
-            return "Free trial of 7 days included"
-        } else if product.id.contains("quarterly") {
-            return "Free trial of 7 days included"
-        } else if product.id.contains("yearly") {
-            return "Free trial of 7 days included • Best value"
-        }
-        return product.description
-    }
-    
-    private func getSubscriptionPeriod(_ product: Product) -> String? {
-        if product.id.contains("weekly") {
-            return "per week"
-        } else if product.id.contains("monthly") {
-            return "per month"
-        } else if product.id.contains("quarterly") {
-            return "per 3 months"
-        } else if product.id.contains("yearly") {
-            return "per year"
-        }
-        return nil
     }
 }
 
