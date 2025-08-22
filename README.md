@@ -184,36 +184,7 @@ The following section documents significant debugging and improvement work compl
 
 ## Development Setup
 
-### Required: Bundled Flash Model
-
-Euni™ includes a bundled Flash model (Qwen3-0.6B-Q4_0.gguf) for immediate functionality. This model is not included in the git repository due to its size (~350-400MB).
-
-**To set up the bundled model for development:**
-
-1. **Download the Flash model**:
-   ```bash
-   # Download Qwen3-0.6B-Q4_0.gguf to the Resources directory
-   cd "ClientNote/Resources"
-   curl -L -o "Qwen3-0.6B-Q4_0.gguf" "https://huggingface.co/unsloth/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q4_0.gguf?download=true"
-   ```
-
-2. **Add to Xcode project**:
-   - Right-click `ClientNote/Resources` in Xcode Navigator
-   - Select "Add Files to 'ClientNote'"
-   - Choose the `Qwen3-0.6B-Q4_0.gguf` file
-   - Ensure "Add to target: ClientNote" is checked
-   - Click "Add"
-
-3. **Verify setup**:
-   - Build and run the app
-   - The Flash model should be available immediately on first launch
-   - No download required - app works offline
-
-**Note**: The `.gitignore` file is configured to exclude all `.gguf` model files from version control.
-
-### Alternative: Ollama Setup
-
-If you prefer to use Ollama instead of the bundled model:
+### Ollama Setup
 
 1. Install Ollama on your Mac
 2. Download a compatible model (e.g., `ollama pull qwen:0.6b`)
@@ -221,7 +192,7 @@ If you prefer to use Ollama instead of the bundled model:
 
 ## Getting Started
 
-1. Complete the development setup above (bundled model or Ollama)
+1. Complete the development setup above (Ollama)
 2. Launch Euni™ - Client Notes
 3. Configure your preferred note format in settings
 4. Add your first client
@@ -231,15 +202,15 @@ If you prefer to use Ollama instead of the bundled model:
 
 - macOS 14.0 or later
 - Ollama installed and running
-- Internet connection (for ICD-10 code lookup only)
+- Internet connection (for ICD-10 code lookup or to operate in OpenAI mode (with your own developer key from OpenAI))
 
 ## Support
 
-For support, questions, or feedback, please contact [support email/link]
+For support, questions, or feedback, please contact kevin@tucuxi.ai
 
 ## License
 
-[License information]
+MIT
 
 ---
-© 2024 [Company Name]. Euni™ is a trademark of [Company Name]. All rights reserved.
+© 2025 Tucuxi. Inc. Euni™ is a trademark of Tucuxi, Inc. All rights reserved.
