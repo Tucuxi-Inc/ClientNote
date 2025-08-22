@@ -136,8 +136,10 @@ class IAPManager: ObservableObject {
             #endif
             */
             
-            // Request products from the App Store
-            let storeProducts = try await Product.products(for: productIDs)
+            // Add timeout protection and retry logic for App Store review
+            let storeProducts = try await withTimeout(seconds: 15) {
+                try await Product.products(for: productIDs)
+            }
             
             /*
             #if DEBUG
@@ -175,7 +177,9 @@ class IAPManager: ObservableObject {
             */
             
             // Provide more user-friendly error messages
-            if error.localizedDescription.contains("network") || error.localizedDescription.contains("internet") {
+            if error is StoreError && (error as! StoreError) == .timeout {
+                errorMessage = "Loading subscription options is taking longer than expected. Please check your internet connection and try again."
+            } else if error.localizedDescription.contains("network") || error.localizedDescription.contains("internet") {
                 errorMessage = "Network error: Please check your internet connection and try again."
             } else if error.localizedDescription.contains("store") || error.localizedDescription.contains("StoreKit") {
                 errorMessage = "App Store connection error. Please try again in a moment."
@@ -589,4 +593,23 @@ class IAPManager: ObservableObject {
 enum StoreError: Error {
     case failedVerification
     case productNotFound
+    case timeout
+}
+
+// Helper function for timeout protection
+func withTimeout<T>(seconds: Double, operation: @escaping () async throws -> T) async throws -> T {
+    return try await withThrowingTaskGroup(of: T.self) { group in
+        group.addTask {
+            try await operation()
+        }
+        
+        group.addTask {
+            try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            throw StoreError.timeout
+        }
+        
+        let result = try await group.next()!
+        group.cancelAll()
+        return result
+    }
 } 

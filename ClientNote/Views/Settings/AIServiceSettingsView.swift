@@ -67,7 +67,7 @@ struct AIServiceSettingsView: View {
                         }
                     } else {
                         HStack {
-                            Text("Add your OpenAI API key to use GPT models")
+                            Text("Add your OpenAI API key to use non-local inference")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                             Spacer()
@@ -81,7 +81,7 @@ struct AIServiceSettingsView: View {
                         HStack {
                             Image(systemName: "star.fill")
                                 .foregroundColor(.yellow)
-                            Text("Subscription active - Premium OpenAI access enabled")
+                            Text("Euni purchase or active subscription - non-local inference available")
                                 .font(.subheadline)
                         }
                     }
@@ -181,7 +181,7 @@ struct ServiceRow: View {
                     .buttonStyle(.link)
                 }
             } else {
-                Text(serviceType.requiresSubscription ? "Subscription Required" : "Not Available")
+                Text(serviceType.requiresSubscription ? "Purchase or Subscription Required" : "No OpenAI Key Detected")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }

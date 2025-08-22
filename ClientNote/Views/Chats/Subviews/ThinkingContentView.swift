@@ -1,81 +1,13 @@
 //
-//  AssistantMessageView.swift
+//  ThinkingContentView.swift
 //  ClientNote
 //
-//  Created by Kevin Hermawan on 8/2/24.
+//  Collapsible thinking content for AI responses
 //
 
-import Defaults
-import MarkdownUI
 import SwiftUI
-import ViewCondition
-
-struct AssistantMessageView: View {
-    @Default(.fontSize) private var fontSize
-
-    private let content: String
-    private let isGenerating: Bool
-    private let isLastMessage: Bool
-    private let copyAction: (_ content: String) -> Void
-    private let regenerateAction: () -> Void
-
-    @Environment(CodeHighlighter.self) private var codeHighlighter
-    @AppStorage("experimentalCodeHighlighting") private var experimentalCodeHighlighting = false
-
-    init(content: String, isGenerating: Bool, isLastMessage: Bool, copyAction: @escaping (_ content: String) -> Void, regenerateAction: @escaping () -> Void) {
-        self.content = content
-        self.isGenerating = isGenerating
-        self.isLastMessage = isLastMessage
-        self.copyAction = copyAction
-        self.regenerateAction = regenerateAction
-    }
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Assistant")
-                .font(Font.system(size: fontSize).weight(.semibold))
-                .foregroundStyle(Color.euniSecondary)
-            
-            if isGenerating && content.isEmpty {
-                // Enhanced thinking indicator with animation and descriptive text
-                HStack(spacing: 12) {
-                ProgressView()
-                    .controlSize(.small)
-                        .scaleEffect(1.2)
-                    
-                    Text("Thinking...")
-                        .font(.system(size: fontSize))
-                        .foregroundStyle(Color.euniSecondary)
-                        .opacity(0.8)
-                }
-                .padding(.vertical, 8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                ThinkingContentView(
-                    content: content,
-                    isStreaming: isGenerating
-                )
-
-                HStack(spacing: 16) {
-                    MessageButton("Copy", systemImage: "doc.on.doc", action: { copyAction(content) })
-                    
-                    MessageButton("Regenerate", systemImage: "arrow.triangle.2.circlepath", action: regenerateAction)
-                        .keyboardShortcut("r", modifiers: [.command])
-                        .visible(if: isLastMessage, removeCompletely: true)
-                }
-                .hide(if: isLastMessage && isGenerating)
-            }
-        }
-        .padding(12)
-        .background(Color.euniFieldBackground)
-        .cornerRadius(8)
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.euniBorder, lineWidth: 1)
-        )
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
+import MarkdownUI
+import Defaults
 
 struct ThinkingContentView: View {
     @Default(.fontSize) private var fontSize
@@ -207,3 +139,27 @@ struct ThinkingContentView: View {
 }
 
 
+#Preview {
+    ThinkingContentView(
+        content: """
+        <think>
+        The user is asking about anxiety management. I should provide a structured response that includes:
+        1. Validation of their experience
+        2. Evidence-based techniques
+        3. Specific actionable steps
+        </think>
+        
+        I understand you're dealing with anxiety about work interactions. Here are some effective strategies:
+        
+        **Cognitive Techniques:**
+        - Challenge negative assumptions
+        - Practice grounding exercises
+        
+        **Behavioral Approaches:**
+        - Start with low-stakes interactions
+        - Use breathing techniques before meetings
+        """,
+        isStreaming: false
+    )
+    .padding()
+}

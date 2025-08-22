@@ -91,6 +91,14 @@ class OllamaService: AIService {
             messages: messages
         )
         
+        // Set completion options for better performance with clinical notes
+        chatData.options = OKCompletionOptions(
+            numCtx: 32768,      // 32K context window for complex clinical prompts
+            temperature: 0.3,   // Lower temperature for more consistent clinical language
+            topP: 0.9,         // Good balance for clinical accuracy
+            repeatPenalty: 1.1 // Prevent repetitive text
+        )
+        
         var fullResponse = ""
         
         do {

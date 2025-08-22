@@ -159,6 +159,13 @@ struct ClientNoteApp: App {
                 if let helpURL = AppInfo.value(for: "HELP_URL"), let url = URL(string: helpURL) {
                     Link("ClientNote Help", destination: url)
                 }
+                
+                Divider()
+                
+                // Required by Apple for subscription apps
+                Link("Terms of Use", destination: URL(string: "https://bit.ly/TucuxiTermsoUse")!)
+                
+                Link("Privacy Policy", destination: URL(string: "https://bit.ly/TucuxiPrivacyPolicy")!)
             }
 
             CommandGroup(after: .textEditing) {

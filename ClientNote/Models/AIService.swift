@@ -16,9 +16,9 @@ protocol AIService {
 }
 
 enum AIServiceType: String, CaseIterable {
-    case ollama = "Ollama (Local)"
-    case openAIUser = "OpenAI (Your API Key)"
-    case openAISubscription = "OpenAI (Subscription)"
+    case ollama = "Free (Local)"
+    case openAIUser = "OpenAI Account (Non-Local)"
+    case openAISubscription = "Euni Subscription/Purchase (Non-Local)"
     
     var requiresSubscription: Bool {
         return self == .openAISubscription
@@ -38,9 +38,9 @@ enum AIServiceType: String, CaseIterable {
     
     var description: String {
         switch self {
-        case .ollama: return "Free local AI via Ollama app"
-        case .openAIUser: return "Use your own OpenAI API key"
-        case .openAISubscription: return "Premium OpenAI access via subscription"
+        case .ollama: return "Requires the free Ollama app"
+        case .openAIUser: return "Requires an active OpenAI Account & valid developer API Key"
+        case .openAISubscription: return "Requires a lifetime purchase or active subscription to Euni"
         }
     }
 }

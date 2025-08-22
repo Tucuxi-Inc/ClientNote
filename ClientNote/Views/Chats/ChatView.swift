@@ -1086,9 +1086,9 @@ struct ChatView: View {
                         generateAction: generateAction,
                         onActiveChatChanged: onActiveChatChanged
                     )
+                    .padding(.horizontal)
                     .padding(.top, 8)
                     .padding(.bottom, 12)
-                    .padding(.horizontal)
                     .visible(if: chatViewModel.activeChat.isNotNil, removeCompletely: true)
                 }
                 }
@@ -1252,6 +1252,7 @@ struct ChatView: View {
                     ToolbarItem(placement: .automatic) {
                         HStack(spacing: 16) {
                     assistantPicker
+                    ModeSelector()
                     preferencesButton
                 }
                 .padding(.vertical, 8)
@@ -1313,6 +1314,7 @@ struct ChatView: View {
                             Button(action: { isPreferencesPresented.toggle() }) {
                                 Image(systemName: "sidebar.trailing")
                             }
+                            .help("Open preferences - configure AI settings and models")
                             .foregroundColor(Color.euniSecondary)
                         }
         
@@ -1684,7 +1686,7 @@ struct ChatFieldView: View {
                                 .fontWeight(.bold)
                                 .padding(8)
                         }
-                        .help(easyButtonLabel)
+                        .help("\(easyButtonLabel) - Quick form to create structured \(chatViewModel.selectedTask.lowercased())")
                         .background(Color.euniPrimary)
                         .buttonStyle(.borderless)
                         .clipShape(.circle)
@@ -1704,6 +1706,7 @@ struct ChatFieldView: View {
                                 .fontWeight(.bold)
                                 .padding(8)
                         }
+                        .help(speechRecognitionVM.isRecording ? "Stop voice recording" : "Start voice recording - speak your prompt")
                         .background(speechRecognitionVM.isRecording ? Color.euniError : Color.euniSecondary)
                         .buttonStyle(.borderless)
                         .clipShape(.circle)
@@ -1801,7 +1804,7 @@ struct ChatFieldView: View {
         )
         .padding(.horizontal, 6)
         .padding(.vertical, 2)
-        .help("Toggle DPKNY simple mode - hides complexity and switches to pure brainstorm mode")
+        .help("Super Simple Mode to chat directly with the AI")
     }
     
     @ViewBuilder

@@ -74,15 +74,39 @@ class AIServiceAdapter: AIBackendProtocol {
             // Set default model based on service type
             switch service.serviceType {
             case .ollama:
-                // For Ollama, try to get the first available model
+                // For Ollama, select the best compatible model
                 do {
                     let models = try await service.listModels()
-                    if let firstModel = models.first {
-                        currentModel = firstModel
-                        print("DEBUG: AIServiceAdapter - Set Ollama model to: \(currentModel)")
-                    } else {
-                        currentModel = "qwen3:0.6b"
-                        print("DEBUG: AIServiceAdapter - No Ollama models found, using default: \(currentModel)")
+                    
+                    // Preferred models in order - excluding problematic gpt-oss:20b
+                    let preferredModels = [
+                        "qwen3:0.6b",        // Baseline model that works well
+                        "granite3.3:2b",     // Good balance
+                        "qwen3:1.7b",        // Better than 0.6b
+                        "granite3.3:8b",     // Most capable
+                        "phi4-mini-reasoning:3.8b", // Reasoning model
+                        "gemma3:4b",         // Better gemma
+                        "gemma3:1b",         // Fallback gemma
+                        "gemma3n:e4b"        // Last resort
+                    ]
+                    
+                    // Find the best available model (excluding gpt-oss:20b)
+                    currentModel = "qwen3:0.6b" // Default
+                    for preferredModel in preferredModels {
+                        if models.contains(preferredModel) {
+                            currentModel = preferredModel
+                            print("DEBUG: AIServiceAdapter - Selected preferred Ollama model: \(currentModel)")
+                            break
+                        }
+                    }
+                    
+                    if currentModel == "qwen3:0.6b" && !models.contains("qwen3:0.6b") {
+                        // If qwen3:0.6b isn't available, pick any model except gpt-oss:20b
+                        let filteredModels = models.filter { !$0.contains("gpt-oss") }
+                        if let fallbackModel = filteredModels.first {
+                            currentModel = fallbackModel
+                            print("DEBUG: AIServiceAdapter - Using fallback model: \(currentModel)")
+                        }
                     }
                 } catch {
                     currentModel = "qwen3:0.6b"
@@ -174,7 +198,12 @@ final class AIBackendManager {
     
     private(set) var currentBackend: (any AIBackendProtocol)?
     
-    private let serviceManager = AIServiceManager.shared
+    private let serviceManager: AIServiceManager = {
+        print("DEBUG: AIBackendManager - About to access AIServiceManager.shared")
+        let manager = AIServiceManager.shared
+        print("DEBUG: AIBackendManager - Got AIServiceManager.shared: \(manager)")
+        return manager
+    }()
     private let keychainManager = KeychainManager.shared
     
     // For backward compatibility
@@ -221,6 +250,14 @@ final class AIBackendManager {
     func initializeBackend(_ type: AIBackend) async throws {
         print("DEBUG: AIBackendManager.initializeBackend - Initializing backend: \(type.displayName)")
         
+        // Ensure company developer key is always stored in keychain
+        await ensureCompanyKeyStored()
+        
+        // Initialize service manager to ensure it detects current subscription status
+        print("DEBUG: AIBackendManager - Initializing service manager to detect subscription changes")
+        await serviceManager.initialize()
+        print("DEBUG: AIBackendManager - Service manager initialized. Available services: \(serviceManager.availableServices.map(\.rawValue))")
+        
         // Map old backend types to new service types
         let serviceType: AIServiceType
         switch type {
@@ -228,19 +265,30 @@ final class AIBackendManager {
             serviceType = .ollama
         case .openAI:
             // Check if user has API key or subscription
-            if keychainManager.hasKey(keyType: .openAIUserKey) {
+            let hasUserKey = keychainManager.hasKey(keyType: .openAIUserKey)
+            let hasDevKey = keychainManager.hasKey(keyType: .openAIDeveloperKey)
+            let hasSubscription = await hasActiveSubscription()
+            print("DEBUG: AIBackendManager - OpenAI backend selected. hasUserKey: \(hasUserKey), hasDevKey: \(hasDevKey), hasSubscription: \(hasSubscription)")
+            
+            if hasUserKey {
+                print("DEBUG: AIBackendManager - Using user OpenAI key")
                 serviceType = .openAIUser
-            } else if await hasActiveSubscription() && keychainManager.hasKey(keyType: .openAIDeveloperKey) {
+            } else if hasSubscription && hasDevKey {
+                print("DEBUG: AIBackendManager - User has subscription and developer key, selecting openAISubscription")
                 serviceType = .openAISubscription
             } else {
-                // Default to Ollama if no OpenAI credentials
-                print("DEBUG: No OpenAI credentials found, falling back to Ollama")
+                // Default to Ollama if no OpenAI credentials or subscription
+                print("DEBUG: AIBackendManager - No valid OpenAI credentials or subscription, falling back to Ollama")
                 serviceType = .ollama
             }
         }
         
         print("DEBUG: AIBackendManager.initializeBackend - Selected service type: \(serviceType.rawValue)")
-        await serviceManager.selectService(serviceType)
+        
+        // Select the service if not already selected
+        if serviceManager.currentService?.serviceType != serviceType {
+            await serviceManager.selectService(serviceType)
+        }
         
         // Create and initialize the adapter for the selected service
         if let service = serviceManager.currentService {
@@ -291,10 +339,35 @@ final class AIBackendManager {
         return false
     }
     
+    private func ensureCompanyKeyStored() async {
+        print("DEBUG: AIBackendManager - Ensuring company key is stored in keychain")
+        
+        // Check if company key is already stored
+        if keychainManager.hasKey(keyType: .openAIDeveloperKey) {
+            print("DEBUG: AIBackendManager - Company key already exists in keychain")
+            return
+        }
+        
+        // Store the company key
+        do {
+            let companyKey = CompanyAPIKeys.openAIKey
+            print("DEBUG: AIBackendManager - Company key configured: \(CompanyAPIKeys.isConfigured)")
+            print("DEBUG: AIBackendManager - Company key length: \(companyKey.count), starts with sk-: \(companyKey.hasPrefix("sk-"))")
+            try keychainManager.save(key: companyKey, for: .openAIDeveloperKey)
+            print("DEBUG: AIBackendManager - Successfully stored company key in keychain")
+        } catch {
+            print("DEBUG: AIBackendManager - Failed to store company key: \(error)")
+        }
+    }
+    
     private func hasActiveSubscription() async -> Bool {
         // Check if user has active subscription through IAP
         let iapManager = IAPManager.shared
-        return iapManager.hasFullAccess || iapManager.hasActiveSubscription
+        let hasFullAccess = iapManager.hasFullAccess
+        let hasActiveSubscription = iapManager.hasActiveSubscription
+        let result = hasFullAccess || hasActiveSubscription
+        print("DEBUG: AIBackendManager.hasActiveSubscription() - hasFullAccess: \(hasFullAccess), hasActiveSubscription: \(hasActiveSubscription), result: \(result)")
+        return result
     }
 }
 

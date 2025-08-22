@@ -26,10 +26,14 @@ class AIServiceManager: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     
     // Developer OpenAI API key (stored securely in keychain)
-    // TODO: Replace with your actual OpenAI API key before release
-    private let developerOpenAIKey = "sk-your-actual-openai-api-key-here"
+    // Uses the obfuscated key from CompanyAPIKeys for security
+    private var developerOpenAIKey: String {
+        return CompanyAPIKeys.openAIKey
+    }
     
     private init() {
+        print("DEBUG: AIServiceManager - INIT START")
+        print("DEBUG: AIServiceManager - init() called")
         // Monitor subscription changes
         NotificationCenter.default.publisher(for: .subscriptionStatusChanged)
             .sink { [weak self] _ in
@@ -49,20 +53,43 @@ class AIServiceManager: ObservableObject {
             }
             .store(in: &cancellables)
         
-        Task {
+        Task { @MainActor in
             await initialize()
         }
     }
     
     func initialize() async {
+        print("DEBUG: AIServiceManager.initialize() called, current isConfigured: \(isConfigured)")
+        
         status = "Checking available AI services..."
+        
+        // Ensure company developer key is stored in keychain for subscription users
+        print("DEBUG: AIServiceManager.initialize() - About to call setupDeveloperKey()")
+        await setupDeveloperKey()
+        print("DEBUG: AIServiceManager.initialize() - setupDeveloperKey() completed")
+        
+        // Always update available services to detect subscription changes
+        print("DEBUG: AIServiceManager.initialize() - About to call updateAvailableServices()")
         await updateAvailableServices()
-        await selectBestAvailableService()
+        print("DEBUG: AIServiceManager.initialize() - updateAvailableServices() completed")
+        
+        // Only select best service if we don't have a current service or it's no longer available
+        if currentService == nil || !availableServices.contains(currentService!.serviceType) {
+            print("DEBUG: AIServiceManager.initialize() - About to call selectBestAvailableService()")
+            await selectBestAvailableService()
+        } else {
+            print("DEBUG: AIServiceManager.initialize() - Keeping current service: \(currentService?.serviceType.rawValue ?? "none")")
+        }
+        
         isConfigured = true
         status = "Ready"
+        print("DEBUG: AIServiceManager.initialize() completed, isConfigured: \(isConfigured)")
+        print("DEBUG: AIServiceManager.initialize() - Available services: \(availableServices.map(\.rawValue))")
+        print("DEBUG: AIServiceManager.initialize() - Current service: \(currentService?.serviceType.rawValue ?? "none")")
     }
     
-    private func updateAvailableServices() async {
+    func updateAvailableServices() async {
+        print("DEBUG: updateAvailableServices() called")
         var services: [AIServiceType] = []
         
         // Ollama is always available (even if not running, we can show install instructions)
@@ -74,11 +101,22 @@ class AIServiceManager: ObservableObject {
         }
         
         // OpenAI with subscription is available if user has active subscription
-        if await hasActiveSubscription() && keychainManager.hasKey(keyType: .openAIDeveloperKey) {
+        let hasSubscription = await hasActiveSubscription()
+        let hasDeveloperKey = keychainManager.hasKey(keyType: .openAIDeveloperKey)
+        let keyConfigured = CompanyAPIKeys.isConfigured
+        
+        print("DEBUG: Subscription check - hasSubscription: \(hasSubscription), hasDeveloperKey: \(hasDeveloperKey), keyConfigured: \(keyConfigured)")
+        print("DEBUG: IAPManager.hasFullAccess: \(iapManager.hasFullAccess), hasActiveSubscription: \(iapManager.hasActiveSubscription)")
+        
+        if hasSubscription && hasDeveloperKey {
             services.append(.openAISubscription)
+            print("DEBUG: Added .openAISubscription to available services")
+        } else {
+            print("DEBUG: NOT adding .openAISubscription - hasSubscription: \(hasSubscription), hasDeveloperKey: \(hasDeveloperKey)")
         }
         
         availableServices = services
+        print("DEBUG: updateAvailableServices() completed - final services: \(services.map(\.rawValue))")
     }
     
     private func selectBestAvailableService() async {
@@ -93,6 +131,7 @@ class AIServiceManager: ObservableObject {
     }
     
     func selectService(_ serviceType: AIServiceType) async {
+        print("DEBUG: AIServiceManager.selectService() called with: \(serviceType.rawValue)")
         status = "Switching to \(serviceType.rawValue)..."
         
         switch serviceType {
@@ -146,18 +185,36 @@ class AIServiceManager: ObservableObject {
     }
     
     func setupDeveloperKey() async {
+        print("DEBUG: AIServiceManager.setupDeveloperKey() called")
+        
+        if !CompanyAPIKeys.isConfigured {
+            print("WARNING: Company API key is not properly configured!")
+            return
+        }
+        
+        // Check if key already exists
+        if keychainManager.hasKey(keyType: .openAIDeveloperKey) {
+            print("DEBUG: Developer key already exists in keychain")
+            return
+        }
+        
         // Store the developer key securely
         do {
-            try keychainManager.save(key: developerOpenAIKey, for: .openAIDeveloperKey)
-            await updateAvailableServices()
+            let key = developerOpenAIKey
+            print("DEBUG: Setting up developer key - length: \(key.count), starts with sk-: \(key.hasPrefix("sk-"))")
+            try keychainManager.save(key: key, for: .openAIDeveloperKey)
+            print("DEBUG: Developer key saved successfully to keychain")
         } catch {
-            print("Failed to store developer OpenAI key: \(error)")
+            print("ERROR: Failed to store developer OpenAI key: \(error)")
         }
     }
     
     private func hasActiveSubscription() async -> Bool {
-        // Check StoreKit for active subscription or one-time purchase
-        return iapManager.hasFullAccess || iapManager.hasActiveSubscription
+        let hasFullAccess = iapManager.hasFullAccess
+        let hasActiveSubscription = iapManager.hasActiveSubscription
+        let result = hasFullAccess || hasActiveSubscription
+        print("DEBUG: hasActiveSubscription() - hasFullAccess: \(hasFullAccess), hasActiveSubscription: \(hasActiveSubscription), result: \(result)")
+        return result
     }
 }
 

@@ -35,6 +35,10 @@ final class ChatViewModel {
     /// Reference to the message handling view model
     private weak var messageViewModel: MessageViewModel?
     
+    /// Cached client context to avoid rebuilding on every call
+    private var cachedClientContext: String = ""
+    private var cachedClientID: UUID? = nil
+    
     // MARK: - Public Properties
     
     /// Available AI models from Ollama
@@ -292,12 +296,14 @@ final class ChatViewModel {
         clients.append(client)
         saveClient(client)
         selectedClientID = client.id
+        invalidateClientContextCache() // Clear cache when client changes
     }
     
     /// Selects a client by their ID
     /// - Parameter id: The UUID of the client to select
     func selectClient(by id: UUID) {
         selectedClientID = id
+        invalidateClientContextCache() // Clear cache when client changes
     }
     
     /// Validates the current client selection
@@ -892,6 +898,11 @@ final class ChatViewModel {
         Task {
             do {
                 print("DEBUG: Starting two-pass generation process")
+                print("DEBUG: Input prompt length: \(prompt.count)")
+                print("DEBUG: Input prompt preview: \(String(prompt.prefix(200)))...")
+                print("DEBUG: isEasyNote: \(noteFormat != nil)")
+                print("DEBUG: noteFormat: \(noteFormat ?? "nil")")
+                print("DEBUG: providedModalities: \(providedModalities?.description ?? "nil")")
                 
                 // Perform two-pass generation internally without creating additional messages
                 let finalNote = try await performTwoPassGeneration(
@@ -903,6 +914,9 @@ final class ChatViewModel {
                 
                 // Update the user message with the generated response
                 await MainActor.run {
+                    print("DEBUG: Generated note length: \(finalNote.count)")
+                    print("DEBUG: Generated note preview: \(String(finalNote.prefix(200)))...")
+                    
                     userMessage.response = finalNote
                     activeChat.modifiedAt = .now
                     
@@ -917,6 +931,7 @@ final class ChatViewModel {
                     saveActivityContent()
                     
                     print("DEBUG: Two-pass generation completed successfully")
+                    print("DEBUG: userMessage.response is now set to: \(String((userMessage.response ?? "nil").prefix(100)))...")
                 }
                 
             } catch {
@@ -1097,13 +1112,37 @@ final class ChatViewModel {
         }
         
         // Determine the model based on the selected backend
-        let modelToUse: String
+        var modelToUse: String
         if Defaults[.selectedAIBackend] == .openAI {
             // Always use gpt-4.1-nano for OpenAI
             modelToUse = "gpt-4.1-nano"
         } else {
-            // Use the first available model or fallback to default for other backends
-            modelToUse = models.first ?? Defaults[.defaultModel]
+            // Use intelligent model selection (same logic as AIServiceAdapter)
+            let preferredModels = [
+                "qwen3:0.6b",        // Baseline model that works well
+                "granite3.3:2b",     // Good balance
+                "qwen3:1.7b",        // Better than 0.6b
+                "granite3.3:8b",     // Most capable
+                "phi4-mini-reasoning:3.8b", // Reasoning model
+                "gemma3:4b",         // Better gemma
+                "gemma3:1b",         // Fallback gemma
+                "gemma3n:e4b"        // Last resort
+            ]
+            
+            // Find the best available model (excluding gpt-oss:20b)
+            modelToUse = Defaults[.defaultModel] // fallback
+            for preferredModel in preferredModels {
+                if models.contains(preferredModel) {
+                    modelToUse = preferredModel
+                    break
+                }
+            }
+            
+            // If none of our preferred models are available, pick any except gpt-oss:20b
+            if modelToUse == Defaults[.defaultModel] && !models.contains(modelToUse) {
+                let filteredModels = models.filter { !$0.contains("gpt-oss") }
+                modelToUse = filteredModels.first ?? models.first ?? Defaults[.defaultModel]
+            }
         }
         
         let chat = Chat(model: modelToUse)
@@ -1381,21 +1420,9 @@ final class ChatViewModel {
         
         // Regular Session Note prompt
         static let sessionNote = """
-        You are a clinical documentation assistant helping a therapist generate an insurance-ready psychotherapy progress note. 
-        Focus on creating a structured, objective note that meets clinical and insurance requirements.
+        Generate a complete clinical psychotherapy session progress note using the provided information. Write the note immediately without asking for more details.
 
-        IMPORTANT: Use <think>...</think> tags for your internal reasoning and analysis. Only the content outside think tags will be shown to the user.
-
-        <think>
-        I should analyze the provided information carefully and plan my approach before generating the clinical note.
-        </think>
-
-        You will use:
-        1. The session transcript provided
-        2. The modalities analysis provided (which identifies therapeutic techniques used)
-        3. The client's treatment plan (if provided)
-        4. Recent session notes (if provided)
-        5. Any other client context provided
+        Use the provided information to create a complete clinical documentation that includes:
 
         Requirements:
         1. Use clear, objective, and concise clinical language
@@ -1428,16 +1455,16 @@ final class ChatViewModel {
         
         // EasyNote prompt - used when the form is used
         static let easyNote = """
-        You are a clinical documentation assistant processing a structured therapy note.
-        Use the provided form data to create a comprehensive, insurance-ready progress note.
+        You are a clinical documentation assistant. Generate a complete, insurance-ready psychotherapy progress note using the structured form data provided.
+        
+        IMPORTANT: Process all provided form data immediately and create the complete clinical note. Do not ask for additional information.
         
         Requirements:
         1. Use all provided form fields in the final note
         2. Maintain clinical language and objectivity
-        3. Follow the specified note format
-        4. Include clear next steps
-        
-        [Placeholder for full EasyNote prompt]
+        3. Follow the specified note format exactly
+        4. Include clear next steps and treatment plan
+        5. Create a complete, billable clinical documentation
         """
         
         // Regular Treatment Plan prompt
@@ -2257,10 +2284,11 @@ final class ChatViewModel {
             }
         }
         
+        #if DEBUG
         print("DEBUG: Starting two-pass generation for activity type: \(activityType.rawValue)")
+        #endif
         
         // FIRST PASS: Analyze the session content (with progress indication)
-        print("DEBUG: First Pass - Analyzing session content")
         
         // Show descriptive status for first pass
         await MainActor.run {
@@ -2279,9 +2307,10 @@ final class ChatViewModel {
             messageViewModel?.tempResponse = "Analysis complete. Generating structured note..."
         }
         
-        // Add a small delay between passes to ensure first pass completes
-        print("DEBUG: Waiting briefly between first and second pass...")
-        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+        // Remove unnecessary delay - first pass has already completed
+        #if DEBUG
+        print("DEBUG: First pass complete, proceeding immediately to second pass")
+        #endif
         
         // Clear tempResponse before second pass
         await MainActor.run {
@@ -2289,7 +2318,9 @@ final class ChatViewModel {
         }
         
         // SECOND PASS: Generate the structured note (with streaming)
+        #if DEBUG
         print("DEBUG: Second Pass - Generating structured note")
+        #endif
         let finalNote = try await generateStructuredNote(
             userInput: userInput,
             analysis: analysis,
@@ -2325,20 +2356,19 @@ final class ChatViewModel {
         let formatToUse = noteFormat ?? selectedNoteFormat
         let noteFormatInfo = availableNoteFormats.first(where: { $0.id == formatToUse })
         
-        // DEBUG: Track format selection
-        print("DEBUG: generateStructuredNote - Format selection:")
-        print("DEBUG: - noteFormat parameter: \(noteFormat ?? "nil")")
-        print("DEBUG: - selectedNoteFormat: \(selectedNoteFormat)")
-        print("DEBUG: - formatToUse: \(formatToUse)")
-        print("DEBUG: - noteFormatInfo found: \(noteFormatInfo != nil)")
-        print("DEBUG: - noteFormatTemplate.isEmpty: \(noteFormatTemplate.isEmpty)")
+        // Optimized debug logging - only log when needed
+        #if DEBUG
+        print("DEBUG: generateStructuredNote using format: \(formatToUse)")
+        #endif
         
         // Determine if we should use template or standard format
         let useTemplate = !noteFormatTemplate.isEmpty
         
         let formatInstructions: String
         if useTemplate {
+            #if DEBUG
             print("DEBUG: Using custom template format")
+            #endif
             formatInstructions = """
             CRITICAL: Structure your response exactly according to the provided template:
             
@@ -2351,7 +2381,9 @@ final class ChatViewModel {
             4. Use only the provided client information and context
             """
         } else {
+            #if DEBUG
             print("DEBUG: Using standard \(formatToUse) format")
+            #endif
             
             // Extract specific section requirements from the format definition
             let sectionInstructions = generateDetailedFormatInstructions(for: formatToUse, formatInfo: noteFormatInfo)
@@ -2485,8 +2517,17 @@ final class ChatViewModel {
     /// Gets the relevant context for the current client
     /// - Returns: A formatted string containing client context
     private func getClientContext() -> String {
+        // Use cached version if client hasn't changed
+        if let currentClientID = selectedClientID, 
+           currentClientID == cachedClientID,
+           !cachedClientContext.isEmpty {
+            return cachedClientContext
+        }
+        
         guard let client = selectedClient else {
-            return "No client context available"
+            cachedClientContext = "No client context available"
+            cachedClientID = nil
+            return cachedClientContext
         }
         
         var context = """
@@ -2515,7 +2556,17 @@ final class ChatViewModel {
             }
         }
         
+        // Cache the result
+        cachedClientContext = context
+        cachedClientID = selectedClientID
+        
         return context
+    }
+    
+    /// Invalidates the client context cache when data changes
+    private func invalidateClientContextCache() {
+        cachedClientContext = ""
+        cachedClientID = nil
     }
     
     /// Formats a date consistently
@@ -2866,8 +2917,9 @@ final class ChatViewModel {
             throw ChatViewModelError.generate("No active chat available")
         }
         
+        #if DEBUG
         print("DEBUG: Starting analysis generation with prompt length: \(prompt.count)")
-        print("DEBUG: Analysis prompt preview: \(String(prompt.prefix(100)))...")
+        #endif
         
         // Use non-streaming generation for analysis to avoid UI confusion
         // Analysis should be internal and not shown to users
@@ -3103,8 +3155,9 @@ final class ChatViewModel {
             throw ChatViewModelError.generate("No active chat available")
         }
         
+        #if DEBUG
         print("DEBUG: Starting analysis generation with prompt length: \(prompt.count)")
-        print("DEBUG: Analysis prompt preview: \(String(prompt.prefix(100)))...")
+        #endif
         
         // Use direct OllamaKit API call instead of going through MessageViewModel
         // This prevents creating temporary messages that could interfere with the main chat
