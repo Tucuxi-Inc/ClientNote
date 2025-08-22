@@ -70,7 +70,6 @@ struct ClientNoteApp: App {
             }
         }
 
-        // StoreKit code removed for free version
     }
     
     var body: some Scene {
@@ -156,7 +155,7 @@ struct ClientNoteApp: App {
                 
                 Divider()
                 
-                // Required by Apple for subscription apps
+                // Terms and Privacy links
                 Link("Terms of Use", destination: URL(string: "https://bit.ly/TucuxiTermsoUse")!)
                 
                 Link("Privacy Policy", destination: URL(string: "https://bit.ly/TucuxiPrivacyPolicy")!)

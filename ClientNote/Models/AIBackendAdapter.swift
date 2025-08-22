@@ -264,11 +264,9 @@ final class AIBackendManager {
         case .ollamaKit:
             serviceType = .ollama
         case .openAI:
-            // Check if user has API key or subscription
+            // Check if user has API key
             let hasUserKey = keychainManager.hasKey(keyType: .openAIUserKey)
-            let hasDevKey = keychainManager.hasKey(keyType: .openAIDeveloperKey)
-            let hasSubscription = await hasActiveSubscription()
-            print("DEBUG: AIBackendManager - OpenAI backend selected. hasUserKey: \(hasUserKey), hasDevKey: \(hasDevKey), hasSubscription: \(hasSubscription)")
+            print("DEBUG: AIBackendManager - OpenAI backend selected. hasUserKey: \(hasUserKey)")
             
             if hasUserKey {
                 print("DEBUG: AIBackendManager - Using user OpenAI key")
@@ -357,10 +355,6 @@ final class AIBackendManager {
         }
     }
     
-    private func hasActiveSubscription() async -> Bool {
-        // No subscriptions in free version
-        return false
-    }
 }
 
 // Keep old backend enum for compatibility
