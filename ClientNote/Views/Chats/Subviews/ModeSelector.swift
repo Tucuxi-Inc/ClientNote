@@ -82,10 +82,10 @@ struct ModeInfo {
     
     static let subscription = ModeInfo(
         type: .openAISubscription,
-        displayName: "Euni Subscription",
+        displayName: "Euni Subscription or Purchase",
         icon: Image(systemName: "crown.fill"),
         color: .purple,
-        description: "Cloud AI with Subscription",
+        description: "Cloud AI with Subscription or Purchase",
         details: "With a subscription or one-time purchase, you can also use a cloud based model from OpenAI to generate your notes. Audio recordings remain on your device, but transcriptions and client data is sent securely to OpenAI for processing prompts and generating treatment plans, notes, etc. See \"Data Privacy\" for more details."
     )
     
