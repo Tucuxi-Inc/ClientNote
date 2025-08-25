@@ -43,7 +43,7 @@ struct DataPrivacyView: View {
             }
             .padding(30)
         }
-        .frame(width: 600, height: 400)
+        .frame(minWidth: 500, maxWidth: 700, minHeight: 300, maxHeight: 500)
         .background(Color.euniBackground)
         .foregroundColor(Color.euniText)
     }

@@ -86,7 +86,7 @@ struct FirstTimeSetupView: View {
             .padding(.horizontal, 40)
             .padding(.bottom, 40)
         }
-        .frame(width: 800, height: 700)
+        .frame(minWidth: 600, maxWidth: 800, minHeight: 500, maxHeight: 700)
         .background(Color.euniBackground)
         .sheet(isPresented: $showingAPIKeyEntry) {
             APIKeyEntryView(
@@ -281,7 +281,7 @@ struct APIKeyEntryView: View {
                 .font(.caption)
         }
         .padding(30)
-        .frame(width: 500)
+        .frame(minWidth: 400, maxWidth: 500)
     }
 }
 

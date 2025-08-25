@@ -40,71 +40,137 @@ struct AddClientView: View {
     
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                // Client Information Section
-                Group {
-                    Text("Client Information")
-                        .font(.title3)
-                        .fontWeight(.bold)
-                    VStack(alignment: .leading, spacing: 16) {
-                        DatePicker("Start of Care", selection: $startOfCare, displayedComponents: .date)
-                        
-                        TextField("Client Identifier/Pseudonym (required)", text: $clientIdentifier)
-                            .textFieldStyle(.roundedBorder)
-                        TextField("Name (optional)", text: $clientName)
-                            .textFieldStyle(.roundedBorder)
-                        
-                        TextField("Client Gender (optional)", text: $clientGender)
-                            .textFieldStyle(.roundedBorder)
-                DatePicker("Date of Birth", selection: $dateOfBirth, displayedComponents: .date)
-                        
-                        Text("Presenting Concerns")
-                            .font(.headline)
-                        TextEditor(text: $presentingConcerns)
-                            .frame(height: 100)
-                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3)))
-                        
-                        Text("Relevant History")
-                            .font(.headline)
-                        TextEditor(text: $relevantHistory)
-                            .frame(height: 100)
-                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3)))
+            HStack(alignment: .top, spacing: 20) {
+                // LEFT COLUMN
+                VStack(alignment: .leading, spacing: 4) {
+                    // Client Information Section
+                    Group {
+                        Text("Client Information")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                        VStack(alignment: .leading, spacing: 2) {
+                            DatePicker("Start of Care", selection: $startOfCare, displayedComponents: .date)
+                            DatePicker("Date of Birth", selection: $dateOfBirth, displayedComponents: .date)
+                            
+                            TextField("Client Identifier/Pseudonym (required)", text: $clientIdentifier)
+                                .textFieldStyle(.roundedBorder)
+                                .accessibilityLabel("Client Identifier")
+                                .accessibilityHint("Enter a unique identifier or pseudonym for the client")
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(clientIdentifier.isEmpty ? Color.red.opacity(0.3) : Color.clear, lineWidth: 1)
+                                )
+                            
+                            TextField("Name (optional)", text: $clientName)
+                                .textFieldStyle(.roundedBorder)
+                            TextField("Client Gender (optional)", text: $clientGender)
+                                .textFieldStyle(.roundedBorder)
+                        }
+                    }
+                    
+                    // Assessment Summary Section
+                    Group {
+                        Text("Assessment Summary")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Presenting Symptoms")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            TextEditor(text: $presentingSymptoms)
+                                .frame(height: 30)
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3)))
+                                .background(Color(NSColor.textBackgroundColor))
+                            
+                            Text("Client Strengths")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            TextEditor(text: $clientStrengths)
+                                .frame(height: 30)
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3)))
+                                .background(Color(NSColor.textBackgroundColor))
+                            
+                            Text("Treatment Obstacles")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            TextEditor(text: $treatmentObstacles)
+                                .frame(height: 30)
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3)))
+                                .background(Color(NSColor.textBackgroundColor))
+                        }
+                    }
+                    
+                    // Treatment Goals Section
+                    Group {
+                        Text("Treatment Goals")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Long-Term Goals")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            TextEditor(text: $longTermGoals)
+                                .frame(height: 30)
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3)))
+                                .background(Color(NSColor.textBackgroundColor))
+                            
+                            Text("Short-Term Goals")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            TextEditor(text: $shortTermGoals)
+                                .frame(height: 30)
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3)))
+                                .background(Color(NSColor.textBackgroundColor))
+                        }
                     }
                 }
+                .frame(maxWidth: .infinity)
                 
-                Divider()
-                
-                // Assessment Summary Section
-                Group {
-                    Text("Assessment Summary")
-                        .font(.title3)
-                        .fontWeight(.bold)
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Presenting Symptoms")
-                            .font(.headline)
-                        TextEditor(text: $presentingSymptoms)
-                            .frame(height: 100)
-                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3)))
-                        
-                        Group {
-                            Text("Insurance Code/Diagnosis (DSM or ICD-10)")
-                                .font(.headline)
-                            HStack {
-                                Text("ICD-10/Diagnosis")
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(Color.euniText)
-                                TextField("ICD-10/Diagnosis", text: $insuranceQuery)
-                                    .textFieldStyle(.roundedBorder)
-                                    .padding(.leading, 8)
-                                    .onChange(of: insuranceQuery) { oldValue, newValue in
-                                        if newValue.count >= 2 {
-                                            fetchICD10Codes(query: newValue)
-                                        } else {
-                                            icdResults = []
-                                            icdSearchError = nil
-                                        }
+                // RIGHT COLUMN
+                VStack(alignment: .leading, spacing: 4) {
+                    // Clinical Content Section
+                    Group {
+                        Text("Clinical Content")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Presenting Concerns")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            TextEditor(text: $presentingConcerns)
+                                .frame(height: 30)
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3)))
+                                .background(Color(NSColor.textBackgroundColor))
+                                .accessibilityLabel("Presenting Concerns")
+                                .accessibilityHint("Describe the client's main concerns or reasons for seeking therapy")
+                            
+                            Text("Relevant History")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            TextEditor(text: $relevantHistory)
+                                .frame(height: 30)
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3)))
+                                .background(Color(NSColor.textBackgroundColor))
+                        }
+                    }
+                    
+                    // ICD-10/Diagnosis Section
+                    Group {
+                        Text("Diagnosis")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                        VStack(alignment: .leading, spacing: 2) {
+                            TextField("ICD-10/Diagnosis", text: $insuranceQuery)
+                                .textFieldStyle(.roundedBorder)
+                                .onChange(of: insuranceQuery) { oldValue, newValue in
+                                    if newValue.count >= 2 {
+                                        fetchICD10Codes(query: newValue)
+                                    } else {
+                                        icdResults = []
+                                        icdSearchError = nil
                                     }
-                            }
+                                }
+                            
                             if isSearchingICD {
                                 ProgressView()
                                     .frame(maxWidth: .infinity)
@@ -126,91 +192,46 @@ struct AddClientView: View {
                                             .foregroundColor(Color.euniText)
                                     }
                                 }
-                                .frame(height: 100)
+                                .frame(height: 80)
                             }
                         }
-                        
-                        Text("Client Personal Strengths and Resources (optional)")
-                            .font(.headline)
-                        TextEditor(text: $clientStrengths)
-                            .frame(height: 100)
-                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3)))
-                        
-                        Text("Potential Obstacles to Treatment (optional)")
-                            .font(.headline)
-                        TextEditor(text: $treatmentObstacles)
-                            .frame(height: 100)
-                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3)))
+                    }
+                    
+                    // Additional Information Section
+                    Group {
+                        Text("Additional Information")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Cultural Factors")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            TextEditor(text: $culturalFactors)
+                                .frame(height: 25)
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3)))
+                                .background(Color(NSColor.textBackgroundColor))
+                            
+                            Text("Risk Assessment")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            TextEditor(text: $riskAssessment)
+                                .frame(height: 25)
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3)))
+                                .background(Color(NSColor.textBackgroundColor))
+                            
+                            Text("Additional Notes")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            TextEditor(text: $additionalNotes)
+                                .frame(height: 30)
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3)))
+                                .background(Color(NSColor.textBackgroundColor))
+                        }
                     }
                 }
-                
-                Divider()
-                
-                // Treatment Goals Section
-                Group {
-                    Text("Treatment Goals")
-                        .font(.title3)
-                        .fontWeight(.bold)
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Long-Term SMART Goals")
-                            .font(.headline)
-                        TextEditor(text: $longTermGoals)
-                            .frame(height: 120)
-                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3)))
-                        
-                        Text("Short-Term Goals")
-                            .font(.headline)
-                        TextEditor(text: $shortTermGoals)
-                            .frame(height: 120)
-                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3)))
-                    }
-                }
-                
-                Divider()
-                
-                // Cultural Considerations Section
-                Group {
-                    Text("Cultural Considerations")
-                        .font(.title3)
-                        .fontWeight(.bold)
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Cultural Factors (optional)")
-                            .font(.headline)
-                        TextEditor(text: $culturalFactors)
-                            .frame(height: 100)
-                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3)))
-                    }
-                }
-                
-                Divider()
-                
-                // Risk Assessment Section
-                Group {
-                    Text("Risk Assessment")
-                        .font(.title3)
-                        .fontWeight(.bold)
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Identified Risks and Safety Planning (optional)")
-                            .font(.headline)
-                        TextEditor(text: $riskAssessment)
-                    .frame(height: 100)
-                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3)))
-                    }
-                }
-                
-                Divider()
-                
-                // Additional Notes Section
-                Group {
-                    Text("Additional Notes")
-                        .font(.title3)
-                        .fontWeight(.bold)
-                    TextEditor(text: $additionalNotes)
-                        .frame(height: 120)
-                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3)))
-                }
+                .frame(maxWidth: .infinity)
             }
-            .padding(24)
+            .padding(12)
         }
         .navigationTitle("Add New Client")
         .toolbar {

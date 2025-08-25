@@ -1159,7 +1159,7 @@ struct ChatView: View {
                                     .foregroundColor(Color.euniPrimary)
                             }
                             .keyboardShortcut("n")
-            .help(chatViewModel.isDPKNYMode ? "Start new brainstorm" : "Create new activity")
+            .customTooltip(chatViewModel.isDPKNYMode ? "Start new brainstorm" : "Create new activity", delay: 0.3)
         }
                             
         private var activityPicker: some View {
@@ -1322,7 +1322,7 @@ struct ChatView: View {
                 NavigationStack {
                     AddClientView()
                 }
-                .frame(minWidth: 600, minHeight: 900)
+                .frame(minWidth: 800, maxWidth: 1000, minHeight: 400, maxHeight: 600)
             }
         
         private var inspectorContent: some View {
