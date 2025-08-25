@@ -3125,6 +3125,7 @@ final class ChatViewModel {
         // Map legacy model references to new friendly names
         let legacyModelMappings: [String: String] = [
             "Qwen3-0.6B-Q8_0.gguf": "Flash",
+            "Qwen3-0.6B-Q4_0.gguf": "Flash",  // Current download from Hugging Face
             "gemma3:1b": "Scout",
             "qwen3:0.6b": "Flash",
             "granite:2b": "Focus"
