@@ -103,8 +103,16 @@ class OllamaService: AIService {
         
         do {
             for try await chunk in ollamaKit.chat(data: chatData) {
-                if let content = chunk.message?.content {
-                    fullResponse += content
+                print("DEBUG: OllamaService - Received chunk: \(chunk)")
+                
+                if let message = chunk.message {
+                    if let content = message.content {
+                        fullResponse += content
+                    } else {
+                        print("DEBUG: OllamaService - Message exists but content is nil")
+                    }
+                } else {
+                    print("DEBUG: OllamaService - No message in chunk")
                 }
                 
                 if chunk.done {

@@ -1117,9 +1117,17 @@ struct ChatView: View {
         @ToolbarContentBuilder
         private var toolbarContent: some ToolbarContent {
             if chatViewModel.isDPKNYMode {
-                // DPKNY mode: only show the pencil/paper icon
+                // DPKNY mode: show new session button and essential pickers
                 ToolbarItem(placement: .navigation) {
                     newSessionButton
+                }
+                
+                // Keep mode and assistant pickers available in DPKNY mode
+                ToolbarItem(placement: .principal) {
+                    HStack(spacing: 20) {
+                        ModeSelector()
+                        assistantPicker
+                    }
                 }
             } else {
                 // Normal mode: show all toolbar items
