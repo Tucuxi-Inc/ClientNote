@@ -1130,7 +1130,18 @@ final class ChatViewModel {
             ]
             
             // Find the best available model (excluding gpt-oss:20b)
-            modelToUse = Defaults[.defaultModel] // fallback
+            // Sanitize the default model in case it's a filename instead of modelId
+            let rawDefaultModel = Defaults[.defaultModel]
+            let sanitizedModel: String
+            if let modelForFile = AssistantModel.modelFor(fileName: rawDefaultModel) {
+                // If it's a filename, get the proper modelId
+                sanitizedModel = modelForFile.modelId
+                print("DEBUG: Sanitized model from filename '\(rawDefaultModel)' to modelId '\(sanitizedModel)'")
+            } else {
+                // Otherwise use as-is (should already be a proper modelId)
+                sanitizedModel = rawDefaultModel
+            }
+            modelToUse = sanitizedModel // fallback
             for preferredModel in preferredModels {
                 if models.contains(preferredModel) {
                     modelToUse = preferredModel
@@ -1139,9 +1150,9 @@ final class ChatViewModel {
             }
             
             // If none of our preferred models are available, pick any except gpt-oss:20b
-            if modelToUse == Defaults[.defaultModel] && !models.contains(modelToUse) {
+            if modelToUse == sanitizedModel && !models.contains(modelToUse) {
                 let filteredModels = models.filter { !$0.contains("gpt-oss") }
-                modelToUse = filteredModels.first ?? models.first ?? Defaults[.defaultModel]
+                modelToUse = filteredModels.first ?? models.first ?? sanitizedModel
             }
         }
         
@@ -3124,7 +3135,6 @@ final class ChatViewModel {
         
         // Map legacy model references to new friendly names
         let legacyModelMappings: [String: String] = [
-            "Qwen3-0.6B-Q8_0.gguf": "Flash",
             "Qwen3-0.6B-Q4_0.gguf": "Flash",  // Current download from Hugging Face
             "gemma3:1b": "Scout",
             "qwen3:0.6b": "Flash",
