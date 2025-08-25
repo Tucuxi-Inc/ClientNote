@@ -2,9 +2,11 @@ import SwiftUI
 
 struct Box<Content: View>: View {
     private let content: () -> Content
+    private let action: (() -> Void)?
     
-    init(@ViewBuilder content: @escaping () -> Content) {
+    init(action: (() -> Void)? = nil, @ViewBuilder content: @escaping () -> Content) {
         self.content = content
+        self.action = action
     }
     
     var body: some View {
@@ -15,5 +17,6 @@ struct Box<Content: View>: View {
             .frame(maxWidth: .infinity)
             .padding(8)
         }
+        .interactiveCard(action: action)
     }
 }

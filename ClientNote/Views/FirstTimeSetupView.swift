@@ -79,7 +79,7 @@ struct FirstTimeSetupView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(selectedService != nil ? Color.euniPrimary : Color.gray)
+                    .background(selectedService != nil ? Color.euniPrimary : Color.euniSecondary)
                     .cornerRadius(10)
             }
             .disabled(selectedService == nil)
@@ -218,11 +218,11 @@ struct ServiceOptionCard: View {
             .padding(20)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(isSelected ? Color.euniPrimary : Color.gray.opacity(0.1))
+                    .fill(isSelected ? Color.euniPrimary : Color.euniSecondary.opacity(0.1))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(isSelected ? Color.euniPrimary : Color.gray.opacity(0.3), lineWidth: 2)
+                    .stroke(isSelected ? Color.euniPrimary : Color.euniSecondary.opacity(0.3), lineWidth: 2)
             )
         }
         .buttonStyle(.plain)

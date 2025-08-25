@@ -61,6 +61,7 @@
 		8807B11D2DB6FA4000C3D195 /* SplashScreenManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8807B11B2DB6FA4000C3D195 /* SplashScreenManager.swift */; };
 		880EFD6C2E5BC6750060FD67 /* CustomTooltip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 880EFD6B2E5BC6750060FD67 /* CustomTooltip.swift */; };
 		880EFD6E2E5BC6FE0060FD67 /* InteractiveCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 880EFD6D2E5BC6FE0060FD67 /* InteractiveCard.swift */; };
+		880EFD702E5BF27F0060FD67 /* CompanyAPIKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = 880EFD6F2E5BF27F0060FD67 /* CompanyAPIKeys.swift */; };
 		88100C972E02B09200C429A2 /* AIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88100C962E02B09200C429A2 /* AIService.swift */; };
 		88100C9A2E02B0B300C429A2 /* PlaceholderImageGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88100C992E02B0B300C429A2 /* PlaceholderImageGenerator.swift */; };
 		88100C9B2E02B0B300C429A2 /* KeychainManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88100C982E02B0B300C429A2 /* KeychainManager.swift */; };
@@ -68,7 +69,6 @@
 		88100C9F2E02B17200C429A2 /* AIServiceSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88100C9E2E02B17200C429A2 /* AIServiceSettingsView.swift */; };
 		88100CA12E02BA5000C429A2 /* SplashScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88100CA02E02BA5000C429A2 /* SplashScreen.swift */; };
 		88100CA32E04E00300C429A2 /* FirstTimeSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88100CA22E04E00300C429A2 /* FirstTimeSetupView.swift */; };
-		88100CA52E06326900C429A2 /* CompanyAPIKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88100CA42E06326900C429A2 /* CompanyAPIKeys.swift */; };
 		8833A9AC2E56E219001861DD /* ModeSelector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8833A9AB2E56E219001861DD /* ModeSelector.swift */; };
 		8833A9AE2E56F397001861DD /* AppView .swift in Sources */ = {isa = PBXBuildFile; fileRef = 8833A9AD2E56F397001861DD /* AppView .swift */; };
 		8833A9B02E58308A001861DD /* DataPrivacyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8833A9AF2E58308A001861DD /* DataPrivacyView.swift */; };
@@ -133,6 +133,7 @@
 		8807B11B2DB6FA4000C3D195 /* SplashScreenManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashScreenManager.swift; sourceTree = "<group>"; };
 		880EFD6B2E5BC6750060FD67 /* CustomTooltip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomTooltip.swift; sourceTree = "<group>"; };
 		880EFD6D2E5BC6FE0060FD67 /* InteractiveCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractiveCard.swift; sourceTree = "<group>"; };
+		880EFD6F2E5BF27F0060FD67 /* CompanyAPIKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanyAPIKeys.swift; sourceTree = "<group>"; };
 		88100C962E02B09200C429A2 /* AIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIService.swift; sourceTree = "<group>"; };
 		88100C982E02B0B300C429A2 /* KeychainManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainManager.swift; sourceTree = "<group>"; };
 		88100C992E02B0B300C429A2 /* PlaceholderImageGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderImageGenerator.swift; sourceTree = "<group>"; };
@@ -140,7 +141,6 @@
 		88100C9E2E02B17200C429A2 /* AIServiceSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIServiceSettingsView.swift; sourceTree = "<group>"; };
 		88100CA02E02BA5000C429A2 /* SplashScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashScreen.swift; sourceTree = "<group>"; };
 		88100CA22E04E00300C429A2 /* FirstTimeSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstTimeSetupView.swift; sourceTree = "<group>"; };
-		88100CA42E06326900C429A2 /* CompanyAPIKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanyAPIKeys.swift; sourceTree = "<group>"; };
 		8833A9AB2E56E219001861DD /* ModeSelector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModeSelector.swift; sourceTree = "<group>"; };
 		8833A9AD2E56F397001861DD /* AppView .swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppView .swift"; sourceTree = "<group>"; };
 		8833A9AF2E58308A001861DD /* DataPrivacyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataPrivacyView.swift; sourceTree = "<group>"; };
@@ -326,9 +326,9 @@
 		0AA41A1D2AF666670053B8DB /* Utils */ = {
 			isa = PBXGroup;
 			children = (
+				880EFD6F2E5BF27F0060FD67 /* CompanyAPIKeys.swift */,
 				880EFD6D2E5BC6FE0060FD67 /* InteractiveCard.swift */,
 				880EFD6B2E5BC6750060FD67 /* CustomTooltip.swift */,
-				88100CA42E06326900C429A2 /* CompanyAPIKeys.swift */,
 				88100C982E02B0B300C429A2 /* KeychainManager.swift */,
 				88100C992E02B0B300C429A2 /* PlaceholderImageGenerator.swift */,
 				8807B11B2DB6FA4000C3D195 /* SplashScreenManager.swift */,
@@ -492,7 +492,6 @@
 				88C4AF152DD984BF002DF4DC /* AddClientView.swift in Sources */,
 				0ADB95E62C5D3BAD00EB0C60 /* SidebarToolbarContent.swift in Sources */,
 				0ADB95E22C5D345100EB0C60 /* SidebarView.swift in Sources */,
-				88100CA52E06326900C429A2 /* CompanyAPIKeys.swift in Sources */,
 				0ADB95ED2C5D42E200EB0C60 /* UserMessageView.swift in Sources */,
 				88100CA32E04E00300C429A2 /* FirstTimeSetupView.swift in Sources */,
 				88C4B0882DDA8A4B002DF4DC /* ClientActivity.swift in Sources */,
@@ -542,6 +541,7 @@
 				0AF5CB622C62B0B600DF8DA8 /* UpdateOllamaHostSheet.swift in Sources */,
 				4A4A8EBE2D5047590065A5EC /* String+ReplaceAndTrim.swift in Sources */,
 				0A6E85102C5E6C670030A4AA /* MessageViewModel.swift in Sources */,
+				880EFD702E5BF27F0060FD67 /* CompanyAPIKeys.swift in Sources */,
 				8833A9AE2E56F397001861DD /* AppView .swift in Sources */,
 				88100CA12E02BA5000C429A2 /* SplashScreen.swift in Sources */,
 				880EFD6E2E5BC6FE0060FD67 /* InteractiveCard.swift in Sources */,

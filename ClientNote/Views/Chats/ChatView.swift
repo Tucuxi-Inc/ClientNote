@@ -1273,7 +1273,7 @@ struct ChatView: View {
                         .font(.system(size: 14))
                         .foregroundColor(Color.euniText)
                         .frame(width: 200, height: 28)
-                        .background(Color.gray.opacity(0.1))
+                        .background(Color.euniSecondary.opacity(0.1))
                         .cornerRadius(6)
                 } else {
                     // For Ollama, show the normal picker
@@ -1314,7 +1314,7 @@ struct ChatView: View {
                             Button(action: { isPreferencesPresented.toggle() }) {
                                 Image(systemName: "sidebar.trailing")
                             }
-                            .help("Open preferences - configure AI settings and models")
+                            .customTooltip("Open preferences - configure AI settings and models", delay: 0.4)
                             .foregroundColor(Color.euniSecondary)
                         }
         
@@ -1686,7 +1686,7 @@ struct ChatFieldView: View {
                                 .fontWeight(.bold)
                                 .padding(8)
                         }
-                        .help("\(easyButtonLabel) - Quick form to create structured \(chatViewModel.selectedTask.lowercased())")
+                        .customTooltip("\(easyButtonLabel) - Quick form to create structured \(chatViewModel.selectedTask.lowercased())", delay: 0.3)
                         .background(Color.euniPrimary)
                         .buttonStyle(.borderless)
                         .clipShape(.circle)
@@ -1706,7 +1706,7 @@ struct ChatFieldView: View {
                                 .fontWeight(.bold)
                                 .padding(8)
                         }
-                        .help(speechRecognitionVM.isRecording ? "Stop voice recording" : "Start voice recording - speak your prompt")
+                        .customTooltip(speechRecognitionVM.isRecording ? "Stop voice recording" : "Start voice recording - speak your prompt", delay: 0.3)
                         .background(speechRecognitionVM.isRecording ? Color.euniError : Color.euniSecondary)
                         .buttonStyle(.borderless)
                         .clipShape(.circle)
@@ -1804,7 +1804,7 @@ struct ChatFieldView: View {
         )
         .padding(.horizontal, 6)
         .padding(.vertical, 2)
-        .help("Super Simple Mode to chat directly with the AI")
+        .customTooltip("Super Simple Mode to chat directly with the AI", delay: 0.4)
     }
     
     @ViewBuilder

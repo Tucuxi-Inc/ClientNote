@@ -29,7 +29,7 @@ struct ModeSelector: View {
                         .foregroundColor(.secondary)
                 }
                 .buttonStyle(PlainButtonStyle())
-                .help("Show mode information")
+                .customTooltip("Show mode information", delay: 0.3)
                 .popover(isPresented: $showingInfoPopover) {
                     ModeInfoPopover()
                 }

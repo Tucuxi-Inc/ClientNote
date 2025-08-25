@@ -29,7 +29,7 @@ struct SidebarToolbarContent: ToolbarContent {
                     .foregroundColor(Color.euniPrimary)
             }
             .keyboardShortcut("n")
-            .help("Create new activity")
+            .customTooltip("Create new activity", delay: 0.3)
         }
     }
 }

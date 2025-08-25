@@ -99,6 +99,7 @@ struct GeneralView: View {
                             .onTapGesture {
                                 selectBackend(backend)
                             }
+                            .customTooltip("Select \(backend.displayName) as your AI backend", delay: 0.3)
                         }
                         
 
@@ -130,6 +131,7 @@ struct GeneralView: View {
                                     }
                                 }
                                 .foregroundColor(Color.euniPrimary)
+                                .customTooltip("Remove your OpenAI API key from secure storage", delay: 0.4)
                             }
                         } else {
                             HStack {
@@ -141,6 +143,7 @@ struct GeneralView: View {
                                     showingKeyEntry = true
                                 }
                                 .foregroundColor(Color.euniPrimary)
+                                .customTooltip("Add your OpenAI API key for cloud-based AI inference", delay: 0.4)
                             }
                         }
                     }
@@ -167,7 +170,7 @@ struct GeneralView: View {
                     
                     HStack {
                         Text(defaultHost)
-                            .help(defaultHost)
+                            .customTooltip("Current Ollama host: \(defaultHost)", delay: 0.4)
                             .lineLimit(1)
                             .foregroundColor(Color.euniSecondary)
                         
@@ -175,6 +178,7 @@ struct GeneralView: View {
                         
                         Button("Change", action: { isUpdateOllamaHostPresented = true })
                             .foregroundColor(Color.euniPrimary)
+                            .customTooltip("Change the Ollama server host address", delay: 0.4)
                     }
                 }
             } footer: {
@@ -191,7 +195,7 @@ struct GeneralView: View {
                     
                     HStack {
                         Text(defaultSystemPrompt)
-                            .help(defaultSystemPrompt)
+                            .customTooltip("Current system prompt: \(defaultSystemPrompt)", delay: 0.4)
                             .lineLimit(1)
                             .foregroundColor(Color.euniSecondary)
                         
@@ -199,6 +203,7 @@ struct GeneralView: View {
                         
                         Button("Change", action: { isUpdateSystemPromptPresented = true })
                             .foregroundColor(Color.euniPrimary)
+                            .customTooltip("Update the default system prompt for AI conversations", delay: 0.4)
                     }
                 }
             } footer: {

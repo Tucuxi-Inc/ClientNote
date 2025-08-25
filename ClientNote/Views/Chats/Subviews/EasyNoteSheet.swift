@@ -685,7 +685,7 @@ struct EasyNoteSheet: View {
                 }
             }
         }
-        .frame(minWidth: 900, maxWidth: 1200, minHeight: 700, maxHeight: 900)
+        .frame(minWidth: 900, maxWidth: 1200, minHeight: 600, maxHeight: 800)
         .background(Color.euniBackground)
         .navigationTitle("Easy Note")
         .foregroundColor(.primary)
