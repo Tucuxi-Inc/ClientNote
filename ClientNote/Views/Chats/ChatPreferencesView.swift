@@ -173,11 +173,47 @@ struct ChatPreferencesView: View {
     private var mainForm: some View {
         Form {
             noteFormatSection
+            exportSection
             templateSection
             assistantsSection
             clientRemovalSection
             copyrightSection
         }
+    }
+
+    private var exportSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: .spacingM) {
+                Text("Export your current activity content in various formats")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+
+                ExportButton(
+                    content: chatViewModel.selectedActivity?.content ?? "",
+                    fileName: generateExportFileName()
+                )
+            }
+        } header: {
+            Text("Export")
+        } footer: {
+            Text("Export formats: Plain Text, Rich Text, PDF, and Markdown")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    private func generateExportFileName() -> String {
+        if let activity = chatViewModel.selectedActivity {
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            let dateString = dateFormatter.string(from: activity.createdAt)
+
+            let activityType = activity.activityType.rawValue.replacingOccurrences(of: " ", with: "-")
+            let clientName = chatViewModel.clients.first(where: { $0.id == chatViewModel.selectedClientID })?.clientIdentifier ?? "Client"
+
+            return "\(clientName)_\(activityType)_\(dateString)"
+        }
+        return "Note_\(Date().formatted(date: .numeric, time: .omitted))"
     }
     
     private var noteFormatSection: some View {
