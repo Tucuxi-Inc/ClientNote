@@ -10,6 +10,7 @@ struct SidebarView: View {
     @State private var showDeleteConfirmation = false
     @State private var isSelectionMode = false
     @State private var searchText = ""
+    @FocusState private var isSearchFocused: Bool
 
     /// Filtered activities based on search text
     private var searchFilteredActivities: [ClientActivity] {
@@ -68,6 +69,7 @@ struct SidebarView: View {
                     .foregroundColor(.secondary)
                 TextField("Search activities...", text: $searchText)
                     .textFieldStyle(.plain)
+                    .focused($isSearchFocused)
                 if !searchText.isEmpty {
                     Button(action: { searchText = "" }) {
                         Image(systemName: "xmark.circle.fill")
@@ -82,6 +84,10 @@ struct SidebarView: View {
             .cornerRadius(.cornerRadiusS)
             .padding(.horizontal, .spacingL)
             .padding(.vertical, .spacingS)
+            .onKeyPress(.init("k"), modifiers: .command) { _ in
+                isSearchFocused = true
+                return .handled
+            }
 
             Divider()
             
