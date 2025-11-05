@@ -182,6 +182,148 @@ The following section documents significant debugging and improvement work compl
 **Debug Features**: Comprehensive logging enabled throughout chat system
 **Test Coverage**: Manual testing procedures documented for all major workflows
 
+## Testing the CodePolishing Branch
+
+The `claude/CodePolishing-011CUp4D3NC6NfjiwBeAuSmF` branch contains significant UI/UX improvements and code refactoring. This section explains how to pull, build, and test these changes.
+
+### What's New in CodePolishing
+
+**Phase 1 - High Priority Improvements**:
+- ✅ Full dark mode support with adaptive colors
+- ✅ Standardized spacing system (XS to XXXL)
+- ✅ Professional button styles with animations
+- ✅ Accessibility improvements (VoiceOver support)
+- ✅ Activity search with keyboard shortcuts (⌘K)
+- ✅ Empty states with clear guidance
+- ✅ Extracted recording classes for better code organization
+
+**Phase 2 - Medium Priority Improvements**:
+- ✅ Keyboard shortcuts system
+- ✅ Reusable form components (6 types)
+- ✅ Centralized error handling with user-friendly messages
+- ✅ Performance optimizations (debouncing, caching, lazy loading)
+- ✅ Export functionality (TXT, RTF, PDF, Markdown)
+- ✅ Started EasyNote component refactoring
+
+**Phase 3 - EasyNote Refactoring**:
+- ✅ Refactored EasyNoteSheet from 1076 lines to 484 lines (55% reduction)
+- ✅ Created 7 modular sub-components:
+  - DateTimeSection - Session date/time selection
+  - LocationSection - In-person vs telehealth with visual indicators
+  - TherapeuticApproachSection - 15 approaches with 150+ interventions
+  - ClinicalFieldsSection - Presenting issue, client response, clinical focus, treatment goals
+  - RiskAssessmentSection - Suicidal ideation tracking with safety reminders
+  - ICDCodeSearchSection - Live ICD-10 code search with autocomplete
+  - AdditionalNotesSection - Notes + voice recording
+- ✅ Integrated export button into ChatPreferencesView
+- ✅ Updated documentation (CONTRIBUTING.md, TESTING.md)
+
+### Quick Start - Testing the Branch
+
+**Prerequisites**:
+- macOS 14.0 or later
+- Xcode 15.0 or later
+- Ollama installed and running with a model downloaded
+
+**Steps**:
+
+1. **Clone and checkout the branch**:
+   ```bash
+   git clone https://github.com/Tucuxi-Inc/ClientNote.git
+   cd ClientNote
+   git checkout claude/CodePolishing-011CUp4D3NC6NfjiwBeAuSmF
+   ```
+
+2. **Open in Xcode**:
+   ```bash
+   open ClientNote.xcodeproj
+   ```
+
+3. **Build and Run**:
+   - Wait for Xcode to finish indexing
+   - Select "My Mac" as the destination (Product → Destination)
+   - Press `⌘B` to build
+   - Press `⌘R` to run
+
+4. **Initial Configuration**:
+   - Open Settings (gear icon)
+   - Verify Ollama configuration: `http://localhost:11434`
+   - Select your model from the dropdown
+   - Create a test client
+
+5. **Test the New Features**:
+   - **Dark Mode**: Switch system appearance and verify colors adapt
+   - **Search**: Press `⌘K` to focus search, filter activities
+   - **Export**: Generate a note → Gear icon → Export section → Export as PDF
+   - **EasyNote Form**: Create session note → Click EasyNote button → Fill out structured form
+     - Test ICD code search (type "anxiety", select F41.1)
+     - Test therapeutic approach selection with interventions
+     - Test voice recording button (requires microphone permission)
+     - Watch preview update in real-time
+     - Generate note and verify all form data is included
+
+### Comprehensive Testing Guide
+
+For detailed testing procedures, see **[TESTING.md](TESTING.md)** which includes:
+- Complete test checklist for all phases
+- Step-by-step testing scenarios
+- Integration and regression testing
+- Performance testing guidelines
+- Issue reporting template
+
+### Code Architecture Documentation
+
+For developers wanting to understand or contribute to the codebase, see **[CONTRIBUTING.md](CONTRIBUTING.md)** which covers:
+- Project architecture and structure
+- Design system (spacing, colors, buttons)
+- Component-based architecture explanation
+- EasyNote refactoring details
+- Code style guidelines
+- Common patterns and best practices
+
+### Performance Notes
+
+The refactored codebase includes several performance optimizations:
+- **Debouncing**: ICD search waits 500ms before querying API
+- **Lazy Loading**: Large lists use `LazyVStack` for efficiency
+- **Image Caching**: Automatic caching for loaded images
+- **Component Composition**: Reduced re-renders with focused components
+
+### Files Changed
+
+**Created (20 files)**:
+- `Extensions/Spacing+Constants.swift` - Design system constants
+- `Utils/ButtonStyles.swift` - Standardized button styles
+- `Utils/FormComponents.swift` - Reusable form elements
+- `Utils/ErrorHandling.swift` - Error management system
+- `Utils/PerformanceOptimizations.swift` - Caching and performance utilities
+- `Utils/ExportHelper.swift` - Export functionality (4 formats)
+- `Utils/KeyboardShortcuts.swift` - Keyboard shortcut definitions
+- `Utils/EmptyStateView.swift` - Empty state component
+- `ViewModels/RecordingViewModel.swift` - Audio recording logic
+- `ViewModels/SpeakerIdentifier.swift` - Voice profile tracking
+- `ViewModels/TranscriptManager.swift` - Transcript management
+- `Views/Chats/Subviews/TranscriptView.swift` - Transcript display
+- `Views/Chats/Subviews/EasyNote/DateTimeSection.swift` - Date/time component
+- `Views/Chats/Subviews/EasyNote/LocationSection.swift` - Location component
+- `Views/Chats/Subviews/EasyNote/TherapeuticApproachSection.swift` - Approach component
+- `Views/Chats/Subviews/EasyNote/ClinicalFieldsSection.swift` - Clinical fields component
+- `Views/Chats/Subviews/EasyNote/RiskAssessmentSection.swift` - Risk assessment component
+- `Views/Chats/Subviews/EasyNote/ICDCodeSearchSection.swift` - ICD search component
+- `Views/Chats/Subviews/EasyNote/AdditionalNotesSection.swift` - Notes component
+- `Views/Chats/Subviews/EasyNote/README.md` - Component documentation
+
+**Modified (9 files)**:
+- `Extensions/Color+ClientNoteCustom.swift` - Dark mode support
+- `Views/Chats/ChatView.swift` - Documentation updates
+- `Views/Chats/Subviews/AssistantMessageView.swift` - Spacing and styling
+- `Views/Chats/Subviews/CircleButton.swift` - Accessibility
+- `Views/Chats/Subviews/MessageButton.swift` - Accessibility
+- `Views/Chats/Subviews/EasyNoteSheet.swift` - Major refactoring (1076→484 lines)
+- `Views/Chats/ChatPreferencesView.swift` - Export integration
+- `Views/Sidebar/SidebarView.swift` - Search functionality
+- `README.md` - This file
+
 ## Development Setup
 
 ### Ollama Setup
