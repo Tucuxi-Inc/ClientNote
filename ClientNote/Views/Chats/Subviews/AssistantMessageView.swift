@@ -32,24 +32,24 @@ struct AssistantMessageView: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: .spacingS) {
             Text("Assistant")
                 .font(Font.system(size: fontSize).weight(.semibold))
                 .foregroundStyle(Color.euniSecondary)
-            
+
             if isGenerating && content.isEmpty {
                 // Enhanced thinking indicator with animation and descriptive text
-                HStack(spacing: 12) {
-                ProgressView()
-                    .controlSize(.small)
+                HStack(spacing: .spacingM) {
+                    ProgressView()
+                        .controlSize(.small)
                         .scaleEffect(1.2)
-                    
-                    Text("Thinking...")
+
+                    Text("Analyzing your request...")
                         .font(.system(size: fontSize))
                         .foregroundStyle(Color.euniSecondary)
                         .opacity(0.8)
                 }
-                .padding(.vertical, 8)
+                .padding(.vertical, .spacingS)
                 .frame(maxWidth: .infinity, alignment: .leading)
             } else {
 				Markdown(convertThinkTagsToMarkdownQuote(in: content))
@@ -76,13 +76,19 @@ struct AssistantMessageView: View {
                 .hide(if: isLastMessage && isGenerating)
             }
         }
-        .padding(12)
+        .padding(.spacingM)
         .background(Color.euniFieldBackground)
-        .cornerRadius(8)
+        .cornerRadius(.cornerRadiusM)
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.euniBorder, lineWidth: 1)
+            RoundedRectangle(cornerRadius: .cornerRadiusM)
+                .stroke(Color.euniBorder, lineWidth: .borderStandard)
         )
+        .overlay(alignment: .leading) {
+            // Left accent border for visual distinction
+            RoundedRectangle(cornerRadius: .cornerRadiusM)
+                .fill(Color.euniPrimary)
+                .frame(width: 3)
+        }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 	

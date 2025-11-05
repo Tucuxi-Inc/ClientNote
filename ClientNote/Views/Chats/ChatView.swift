@@ -17,6 +17,12 @@ import Foundation
 import Combine
 
 // MARK: - Recording Support Classes
+// NOTE: These classes have also been extracted to separate files for reusability:
+// - ViewModels/SpeakerIdentifier.swift
+// - ViewModels/TranscriptManager.swift
+// - ViewModels/RecordingViewModel.swift
+// - Views/Chats/Subviews/TranscriptView.swift
+// TODO: Refactor ChatView to use the extracted versions instead of these embedded classes
 
 // MARK: - Speaker Identification
 class SpeakerIdentifier: ObservableObject {

@@ -9,7 +9,19 @@ struct SidebarView: View {
     @State private var selectedActivitiesToDelete = Set<UUID>()
     @State private var showDeleteConfirmation = false
     @State private var isSelectionMode = false
-    
+    @State private var searchText = ""
+
+    /// Filtered activities based on search text
+    private var searchFilteredActivities: [ClientActivity] {
+        if searchText.isEmpty {
+            return chatViewModel.filteredActivities
+        }
+        return chatViewModel.filteredActivities.filter { activity in
+            activity.title.localizedCaseInsensitiveContains(searchText) ||
+            activity.content.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+
     var body: some View {
         @Bindable var chatViewModelBindable = chatViewModel
         
@@ -49,12 +61,47 @@ struct SidebarView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 12)
             .background(Color.euniFieldBackground.opacity(0.5))
-            
+
+            // Search field
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.secondary)
+                TextField("Search activities...", text: $searchText)
+                    .textFieldStyle(.plain)
+                if !searchText.isEmpty {
+                    Button(action: { searchText = "" }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, .spacingM)
+            .padding(.vertical, .spacingS)
+            .background(Color.euniFieldBackground)
+            .cornerRadius(.cornerRadiusS)
+            .padding(.horizontal, .spacingL)
+            .padding(.vertical, .spacingS)
+
             Divider()
             
             // Activities list
             List {
-                ForEach(chatViewModel.filteredActivities) { activity in
+                if searchFilteredActivities.isEmpty {
+                    // Empty state when no activities match search
+                    VStack(spacing: .spacingM) {
+                        Image(systemName: searchText.isEmpty ? "doc.text" : "magnifyingglass")
+                            .font(.system(size: 36))
+                            .foregroundColor(.secondary.opacity(0.5))
+                        Text(searchText.isEmpty ? "No activities yet" : "No matching activities")
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.spacingXXL)
+                }
+
+                ForEach(searchFilteredActivities) { activity in
                     HStack {
                         if isSelectionMode {
                             Toggle(isOn: Binding(
